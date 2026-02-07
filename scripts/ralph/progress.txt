@@ -33,6 +33,9 @@ Started: Sam  7 fév 2026 18:37:38 CET
 - Date range picker in `src/components/filters/date-range-picker.tsx` — Popover + Calendar (react-day-picker range mode)
 - shadcn/ui calendar component in `src/components/ui/calendar.tsx` — wraps react-day-picker
 - `useLocalStorage` uses `useSyncExternalStore` for SSR-safe client detection (no setState in useEffect)
+- Chart legend in `src/components/chart/chart-legend.tsx` — accepts `LegendEntry[]`, `hiddenKeys: Set<string>`, `onToggle` callback
+- Recharts `Line` `hide` prop toggles line visibility without removing from DOM — use for legend toggle functionality
+- Chart + legend layout: `flex-col` on mobile (legend below), `lg:flex-row` on desktop (legend as side panel)
 ---
 
 ## 2026-02-07 - US-001
@@ -198,4 +201,21 @@ Started: Sam  7 fév 2026 18:37:38 CET
   - The subscribe function for static values (like isClient) can be a no-op that returns a cleanup function
   - `numberOfMonths={2}` shows two months side by side; responsive on desktop, may need adjustment on mobile
   - Date stored as ISO string (YYYY-MM-DD) in localStorage for JSON serialization; parsed to Date objects in the hook
+---
+
+## 2026-02-07 - US-011
+- Created `src/components/chart/chart-legend.tsx` — standalone legend component with clickable entries to toggle line visibility
+- Updated `src/components/chart/wastewater-chart.tsx` to integrate legend alongside chart with responsive layout
+- Legend entries show colored line swatch + station name; clicking toggles line visibility (dimmed when hidden)
+- Layout: below chart on mobile (`flex-col`), side panel on desktop (`lg:flex-row`)
+- Recharts `Line` component `hide` prop used to toggle line visibility without removing from DOM
+- Hidden state managed via `useState<Set<string>>` in WastewaterChart component
+- Verified in browser: legend displays correctly, toggle hides/shows lines, Y-axis rescales automatically
+- Files created: src/components/chart/chart-legend.tsx
+- Files modified: src/components/chart/wastewater-chart.tsx, tasks/prd.json
+- **Learnings for future iterations:**
+  - Recharts `Line` component has a `hide` prop that hides the line while keeping it in the DOM (axis still computes without it)
+  - Legend is best co-located with the chart component rather than a sibling in the page — keeps state management simple
+  - `LINE_COLORS` exported from wastewater-chart.tsx for reuse in legend color swatches
+  - Using `Set<string>` for hidden keys is more efficient than array includes for toggle operations
 ---

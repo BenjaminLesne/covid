@@ -91,10 +91,31 @@ for i in $(seq 1 $MAX_ITERATIONS); do
   if [[ "$TOOL" == "amp" ]]; then
     OUTPUT=$(cat "$SCRIPT_DIR/prompt.md" | amp --dangerously-allow-all 2>&1 | tee /dev/stderr) || true
   else
-    # Claude Code: use --dangerously-skip-permissions for autonomous operation, --print for output
-    OUTPUT=$(claude --dangerously-skip-permissions --print < "$SCRIPT_DIR/CLAUDE.md" 2>&1 | tee /dev/stderr) || true
+    # Claude Code: stream JSON events so we can display thinking/tool calls in real-time
+    TMPFILE=$(mktemp)
+    claude --dangerously-skip-permissions --print --verbose \
+      --output-format stream-json --max-turns 50 \
+      < "$SCRIPT_DIR/CLAUDE.md" \
+      | tee "$TMPFILE" \
+      | jq --unbuffered -r '
+        if .type == "assistant" then
+          .message.content[] |
+          if .type == "thinking" then
+            "[thinking] " + .thinking + "\n"
+          elif .type == "text" then
+            .text + "\n"
+          elif .type == "tool_use" then
+            "[tool] " + .name + "(" + (.input | keys | join(", ")) + ")\n"
+          else empty end
+        elif .type == "result" then
+          "\n--- Done (" + ((.duration_ms / 1000 * 10 | floor) / 10 | tostring) + "s, $" + ((.total_cost_usd * 100 | floor) / 100 | tostring) + ") ---"
+        else empty end
+      ' || true
+    # Extract final result text from the stream for COMPLETE check
+    OUTPUT=$(jq -r 'select(.type == "result") | .result // ""' "$TMPFILE" 2>/dev/null) || true
+    rm -f "$TMPFILE"
   fi
-  
+
   # Check for completion signal
   if echo "$OUTPUT" | grep -q "<promise>COMPLETE</promise>"; then
     echo ""
