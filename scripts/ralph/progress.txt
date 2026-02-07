@@ -36,6 +36,10 @@ Started: Sam  7 fév 2026 18:37:38 CET
 - Chart legend in `src/components/chart/chart-legend.tsx` — accepts `LegendEntry[]`, `hiddenKeys: Set<string>`, `onToggle` callback
 - Recharts `Line` `hide` prop toggles line visibility without removing from DOM — use for legend toggle functionality
 - Chart + legend layout: `flex-col` on mobile (legend below), `lg:flex-row` on desktop (legend as side panel)
+- React Leaflet must use `next/dynamic` with `ssr: false` — inner map component imports `leaflet/dist/leaflet.css`
+- Map components in `src/components/map/` — france-map.tsx (dynamic wrapper), france-map-inner.tsx (actual map), station-marker.tsx
+- CircleMarker is preferable to Marker for Leaflet in Next.js — no PNG icon assets needed
+- France mainland center: [46.6, 2.5] at zoom 6 fits all 54 stations
 ---
 
 ## 2026-02-07 - US-001
@@ -218,4 +222,25 @@ Started: Sam  7 fév 2026 18:37:38 CET
   - Legend is best co-located with the chart component rather than a sibling in the page — keeps state management simple
   - `LINE_COLORS` exported from wastewater-chart.tsx for reuse in legend color swatches
   - Using `Set<string>` for hidden keys is more efficient than array includes for toggle operations
+---
+
+## 2026-02-07 - US-012
+- Created `src/components/map/station-marker.tsx` — CircleMarker with severity color fill, white border, and tooltip showing station name + commune + trend arrow
+- Created `src/components/map/france-map-inner.tsx` — MapContainer with OpenStreetMap tiles, centered on mainland France (46.6°N, 2.5°E, zoom 6), fetches all stations + indicators via tRPC, computes per-station severity/trend
+- Created `src/components/map/france-map.tsx` — dynamic import wrapper using `next/dynamic` with `ssr: false` to avoid Leaflet SSR issues
+- Installed `react-leaflet`, `leaflet`, `@types/leaflet`
+- Map is responsive: h-[400px] on mobile, h-[500px] on desktop (lg:)
+- Leaflet CSS imported directly in france-map-inner.tsx
+- Updated `src/app/page.tsx` to include FranceMap below the chart
+- Verified in browser: map renders correctly with all station markers color-coded by severity level, no console errors
+- Files created: src/components/map/station-marker.tsx, src/components/map/france-map-inner.tsx, src/components/map/france-map.tsx
+- Files modified: src/app/page.tsx, package.json, package-lock.json, tasks/prd.json
+- **Learnings for future iterations:**
+  - React Leaflet must be dynamically imported in Next.js to prevent SSR `window is not defined` error — use `next/dynamic` with `ssr: false`
+  - Separate the inner map component (with `leaflet/dist/leaflet.css` import) from the dynamic wrapper to keep concerns clean
+  - Leaflet CSS must be imported in the client component that renders the map, not in a global stylesheet
+  - CircleMarker from react-leaflet is SVG-based and doesn't require icon image files, unlike the default Marker which needs PNG assets
+  - France mainland center: [46.6, 2.5] at zoom 6 shows all 54 stations nicely
+  - Per-station severity is computed client-side by fetching all indicators and grouping by station name column
+  - Station names in indicator data match `Station.name` — use this to correlate indicator data with station metadata
 ---

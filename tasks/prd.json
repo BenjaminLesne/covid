@@ -203,7 +203,7 @@
         "Verify in browser using agent-browser CLI"
       ],
       "priority": 12,
-      "passes": false,
+      "passes": true,
       "notes": "React Leaflet must be dynamically imported in Next.js to avoid SSR issues. Use next/dynamic with ssr: false."
     },
     {

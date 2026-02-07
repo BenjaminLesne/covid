@@ -2,6 +2,7 @@ import { SeveritySummary } from "@/components/severity/severity-summary";
 import { StationSelect } from "@/components/filters/station-select";
 import { DateRangePicker } from "@/components/filters/date-range-picker";
 import { WastewaterChart } from "@/components/chart/wastewater-chart";
+import { FranceMap } from "@/components/map/france-map";
 
 export default function Home() {
   return (
@@ -14,6 +15,7 @@ export default function Home() {
         <DateRangePicker />
       </div>
       <WastewaterChart />
+      <FranceMap />
     </div>
   );
 }
