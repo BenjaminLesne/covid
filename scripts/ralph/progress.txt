@@ -17,6 +17,10 @@ Started: Sam  7 fév 2026 18:37:38 CET
 - JSON fallback station names are snake_cased; CSV station names are original display names
 - Vitest configured in `vitest.config.ts` with `@/` path alias; test script is `npm run test`
 - Severity functions in `src/lib/severity.ts` — import `calculateSeverityLevel`, `calculateTrend`, `getSeverityColor`
+- Dark/light mode: `next-themes` ThemeProvider wraps app in `src/components/providers.tsx`; toggle in `src/components/layout/theme-toggle.tsx`
+- Layout components in `src/components/layout/` — header.tsx, footer.tsx, theme-toggle.tsx
+- Root layout uses `suppressHydrationWarning` on `<html>` for next-themes compatibility
+- shadcn/ui button component at `src/components/ui/button.tsx`
 ---
 
 ## 2026-02-07 - US-001
@@ -97,4 +101,22 @@ Started: Sam  7 fév 2026 18:37:38 CET
   - For severity: null currentValue → level 3 (Moderate), empty historical → level 3 (safe default)
   - For trend: null values → "stable" (safe default), zero baseline handled specially to avoid division by zero
   - Trend uses `Math.abs(twoWeeksAgoValue)` as denominator to handle negative values correctly
+---
+
+## 2026-02-07 - US-006
+- Created `src/components/layout/header.tsx` with app name "EauxVid", Droplets icon, subtitle (hidden on mobile)
+- Created `src/components/layout/footer.tsx` with data source attribution links to SUM'Eau and Santé publique France
+- Created `src/components/layout/theme-toggle.tsx` with Sun/Moon icon toggle using next-themes
+- Created `src/components/theme-provider.tsx` wrapping next-themes ThemeProvider (attribute="class", defaultTheme="system")
+- Updated `src/app/layout.tsx` with responsive container (max-w-7xl), flex column layout, header/main/footer structure
+- Updated `src/components/providers.tsx` to include ThemeProvider wrapping tRPC/React Query providers
+- Added shadcn button component and next-themes dependency
+- Files created: src/components/layout/header.tsx, src/components/layout/footer.tsx, src/components/layout/theme-toggle.tsx, src/components/theme-provider.tsx, src/components/ui/button.tsx
+- Files modified: src/app/layout.tsx, src/app/page.tsx, src/components/providers.tsx, package.json, package-lock.json
+- **Learnings for future iterations:**
+  - next-themes requires `suppressHydrationWarning` on `<html>` element to avoid React hydration mismatch warnings
+  - next-themes `attribute="class"` works with shadcn/ui's `.dark` class-based theming out of the box
+  - Theme toggle uses `resolvedTheme` (not `theme`) to get the actual applied theme when system preference is active
+  - Header subtitle hidden on mobile with `hidden sm:block` — keeps header compact on small screens
+  - Layout uses `flex min-h-screen flex-col` on a wrapper div so footer is pushed to the bottom
 ---
