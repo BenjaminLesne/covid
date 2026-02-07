@@ -183,14 +183,14 @@ export function WastewaterChart() {
   if (isLoading) {
     return (
       <div className="flex flex-col gap-2">
-        <Skeleton className="h-[300px] w-full sm:h-[400px]" />
+        <Skeleton className="h-[300px] w-full sm:h-[400px] md:h-[450px]" />
       </div>
     );
   }
 
   if (chartData.length === 0) {
     return (
-      <div className="flex h-[300px] items-center justify-center rounded-lg border border-dashed sm:h-[400px]">
+      <div className="flex h-[300px] items-center justify-center rounded-lg border border-dashed sm:h-[400px] md:h-[450px]">
         <p className="text-muted-foreground text-sm">
           Aucune donnée disponible pour la période sélectionnée.
         </p>
@@ -201,7 +201,7 @@ export function WastewaterChart() {
   return (
     <div className="flex flex-col gap-3 lg:flex-row lg:gap-4">
       <div className="min-w-0 flex-1">
-        <ChartContainer config={chartConfig} className="h-[300px] w-full sm:h-[400px]">
+        <ChartContainer config={chartConfig} className="h-[300px] w-full sm:h-[400px] md:h-[450px]">
           <ComposedChart data={chartData} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
             <CartesianGrid strokeDasharray="3 3" />
             <XAxis

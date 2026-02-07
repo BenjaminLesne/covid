@@ -14,6 +14,11 @@ import { DATA_URLS, REVALIDATE_INTERVAL } from "@/lib/constants";
 // Helpers
 // ---------------------------------------------------------------------------
 
+/** Strip wrapping quotes (single or double) that the CSV parser may leave. */
+function stripQuotes(raw: string): string {
+  return raw.replace(/^['"]+|['"]+$/g, "");
+}
+
 /** Convert a French-locale number string (comma decimal) to a number or null. */
 function parseFrenchNumber(raw: string): number | null {
   if (!raw || raw.trim() === "" || raw.trim() === "NA") return null;
@@ -104,7 +109,7 @@ function parseStationsCsv(csvText: string): Station[] {
     .map((row) => ({
       name: row.nom.trim(),
       commune: row.commune?.trim() ?? "",
-      sandreId: row.sandre.trim(),
+      sandreId: stripQuotes(row.sandre.trim()),
       population: parseInt(row.population, 10) || 0,
       lat: parseFrenchNumber(row.latitude) ?? 0,
       lng: parseFrenchNumber(row.longitude) ?? 0,
@@ -178,7 +183,7 @@ function parseStationsJson(records: OdisseStationRecord[]): Station[] {
       return {
         name: f.nom.trim(),
         commune: f.commune?.trim() ?? "",
-        sandreId: f.sandre.trim(),
+        sandreId: stripQuotes(f.sandre.trim()),
         population: f.population ?? 0,
         lat,
         lng,

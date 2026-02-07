@@ -219,7 +219,7 @@
         "Verify in browser using agent-browser CLI"
       ],
       "priority": 13,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
@@ -236,7 +236,7 @@
         "Verify in browser using agent-browser CLI"
       ],
       "priority": 14,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
