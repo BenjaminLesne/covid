@@ -2,7 +2,7 @@
 Started: Sam  7 fév 2026 18:37:38 CET
 
 ## Codebase Patterns
-- Project uses Next.js 16 App Router with TypeScript strict mode
+- Project uses Next.js 15 App Router with TypeScript strict mode (downgraded from 16 due to bundled React canary version mismatch)
 - tRPC v11 with superjson transformer — server init in `src/server/trpc/init.ts`, root router in `src/server/trpc/router.ts`
 - API route handler at `src/app/api/trpc/[trpc]/route.ts` using fetch adapter
 - shadcn/ui with Tailwind CSS v4 — use `npx shadcn@latest add <component>` to add components
@@ -21,6 +21,9 @@ Started: Sam  7 fév 2026 18:37:38 CET
 - Layout components in `src/components/layout/` — header.tsx, footer.tsx, theme-toggle.tsx
 - Root layout uses `suppressHydrationWarning` on `<html>` for next-themes compatibility
 - shadcn/ui button component at `src/components/ui/button.tsx`
+- shadcn/ui card, badge, skeleton components in `src/components/ui/`
+- Severity components in `src/components/severity/` — severity-badge.tsx, severity-summary.tsx
+- SeveritySummary fetches national trend via tRPC, computes severity level + trend, displays in Card
 ---
 
 ## 2026-02-07 - US-001
@@ -119,4 +122,22 @@ Started: Sam  7 fév 2026 18:37:38 CET
   - Theme toggle uses `resolvedTheme` (not `theme`) to get the actual applied theme when system preference is active
   - Header subtitle hidden on mobile with `hidden sm:block` — keeps header compact on small screens
   - Layout uses `flex min-h-screen flex-col` on a wrapper div so footer is pushed to the bottom
+---
+
+## 2026-02-07 - US-007
+- Created `src/components/severity/severity-badge.tsx` — color-coded circle + severity label (Very Low/Low/Moderate/High/Very High)
+- Created `src/components/severity/severity-summary.tsx` — national level card with large badge, trend arrow (↑↓→), last updated date
+- SeveritySummary fetches national trend data via tRPC `getNationalTrend`, computes severity using `calculateSeverityLevel` and trend using `calculateTrend`
+- Added shadcn/ui card, badge, skeleton components
+- Updated `src/app/page.tsx` to include SeveritySummary as first dashboard component
+- Downgraded Next.js from 16.1.6 to 15.5.12 to fix React canary version mismatch (react 19.3.0-canary vs react-dom 19.2.0-canary bundled internally)
+- Verified in browser: card displays "Low" severity (green), "En baisse" trend, "Semaine 2, 2026" date
+- Files created: src/components/severity/severity-badge.tsx, src/components/severity/severity-summary.tsx, src/components/ui/card.tsx, src/components/ui/badge.tsx, src/components/ui/skeleton.tsx
+- Files modified: src/app/page.tsx, package.json, package-lock.json, tasks/prd.json
+- **Learnings for future iterations:**
+  - Next.js 16 has a React canary version mismatch bug — bundled react (19.3.0-canary) and react-dom (19.2.0-canary) don't match, preventing client-side hydration entirely. Downgrade to Next.js 15 to fix.
+  - Loading states are important for tRPC queries — use shadcn Skeleton components for loading UI
+  - National trend data is sorted chronologically by week — latest entry is `array[length-1]`, two weeks ago is `array[length-3]`
+  - French UI labels: "En hausse" (increasing), "Stable" (stable), "En baisse" (decreasing), "Niveau national" (national level)
+  - Week format `YYYY-WNN` can be parsed with regex to display "Semaine N, YYYY" in French
 ---
