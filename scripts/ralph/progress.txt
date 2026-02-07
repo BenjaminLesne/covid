@@ -15,6 +15,8 @@ Started: Sam  7 fév 2026 18:37:38 CET
 - Indicators CSV week column `semaine` uses `YYYY-SWW` format — normalized to `YYYY-WWW` (ISO week)
 - `NA` in CSV = null value; JSON fallback has proper nulls (missing fields)
 - JSON fallback station names are snake_cased; CSV station names are original display names
+- Vitest configured in `vitest.config.ts` with `@/` path alias; test script is `npm run test`
+- Severity functions in `src/lib/severity.ts` — import `calculateSeverityLevel`, `calculateTrend`, `getSeverityColor`
 ---
 
 ## 2026-02-07 - US-001
@@ -78,4 +80,21 @@ Started: Sam  7 fév 2026 18:37:38 CET
   - National aggregate uses column name `National_54` in the indicators data (not the `NATIONAL_STATION_ID` constant "national")
   - ISO week strings (YYYY-WWW) sort lexicographically, so string comparison works for date range filtering
   - zod v4 API is compatible with zod v3 for basic schemas (z.object, z.string, z.array, z.optional)
+---
+
+## 2026-02-07 - US-005
+- Created `src/lib/severity.ts` with three functions:
+  - `calculateSeverityLevel(currentValue, historicalValues)` — quintile-based classification returning SeverityLevel 1–5
+  - `calculateTrend(currentValue, twoWeeksAgoValue)` — ±10% threshold comparison returning TrendDirection
+  - `getSeverityColor(level)` — maps SeverityLevel to hex color from SEVERITY_LEVELS constant
+- Set up Vitest test framework: installed vitest, created `vitest.config.ts` with `@/` path alias, added `npm run test` script
+- Created `src/lib/severity.test.ts` with 25 unit tests covering all functions and edge cases
+- Files created: src/lib/severity.ts, src/lib/severity.test.ts, vitest.config.ts
+- Files modified: package.json, package-lock.json
+- **Learnings for future iterations:**
+  - Vitest v4 works out of the box with TypeScript — no extra config needed beyond path aliases
+  - Percentile calculation uses linear interpolation between sorted values for non-integer indices
+  - For severity: null currentValue → level 3 (Moderate), empty historical → level 3 (safe default)
+  - For trend: null values → "stable" (safe default), zero baseline handled specially to avoid division by zero
+  - Trend uses `Math.abs(twoWeeksAgoValue)` as denominator to handle negative values correctly
 ---
