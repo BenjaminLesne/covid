@@ -24,6 +24,11 @@ Started: Sam  7 fév 2026 18:37:38 CET
 - shadcn/ui card, badge, skeleton components in `src/components/ui/`
 - Severity components in `src/components/severity/` — severity-badge.tsx, severity-summary.tsx
 - SeveritySummary fetches national trend via tRPC, computes severity level + trend, displays in Card
+- Hooks in `src/hooks/` — `use-local-storage.ts` (generic typed localStorage), `use-station-preferences.ts` (station selection state with max 5 limit)
+- Station select combobox in `src/components/filters/station-select.tsx` — uses shadcn/ui Popover + Command (cmdk) pattern
+- shadcn/ui popover, command, dialog components in `src/components/ui/`
+- Station IDs use SANDRE identifiers from `Station.sandreId`; national uses `NATIONAL_STATION_ID` constant ("national")
+- localStorage keys prefixed with `eauxvid:` (e.g. `eauxvid:selected-stations`)
 ---
 
 ## 2026-02-07 - US-001
@@ -140,4 +145,26 @@ Started: Sam  7 fév 2026 18:37:38 CET
   - National trend data is sorted chronologically by week — latest entry is `array[length-1]`, two weeks ago is `array[length-3]`
   - French UI labels: "En hausse" (increasing), "Stable" (stable), "En baisse" (decreasing), "Niveau national" (national level)
   - Week format `YYYY-WNN` can be parsed with regex to display "Semaine N, YYYY" in French
+---
+
+## 2026-02-07 - US-008
+- Created `src/hooks/use-local-storage.ts` — generic typed hook for localStorage read/write with SSR safety and hydration handling
+- Created `src/hooks/use-station-preferences.ts` — manages selected station IDs with national always included, max 5 limit, add/remove/toggle
+- Added shadcn/ui popover, command, and dialog components
+- Created `src/components/filters/station-select.tsx` — searchable multi-select combobox using Popover + Command (cmdk) pattern
+- Combobox searches by station name and commune name, shows checkmarks for selected items
+- National average shown as permanent disabled option with "toujours actif" label
+- Selected stations shown as removable Badge chips below the combobox
+- Updated `src/app/page.tsx` to include StationSelect
+- Verified in browser: search, select, remove, localStorage persistence across reload all working
+- Files created: src/hooks/use-local-storage.ts, src/hooks/use-station-preferences.ts, src/components/filters/station-select.tsx, src/components/ui/popover.tsx, src/components/ui/command.tsx, src/components/ui/dialog.tsx
+- Files modified: src/app/page.tsx, package.json, package-lock.json
+- **Learnings for future iterations:**
+  - shadcn/ui combobox pattern uses Popover + Command (from cmdk library) — not a built-in component
+  - `npx shadcn@latest add popover command` installs dialog as a dependency of command
+  - cmdk CommandInput has built-in search filtering that matches against CommandItem `value` prop — set value to `"name commune"` for multi-field search
+  - useLocalStorage hook needs hydration awareness — return defaultValue until `useEffect` runs to avoid SSR/client mismatch
+  - Station SANDRE IDs are the canonical identifiers; station `name` is the display name (e.g. "PARIS MARNE AVAL")
+  - French UI: "Ajouter une station" (add), "sélectionnée(s)" (selected), "Rechercher par nom ou commune" (search), "Aucune station trouvée" (no results)
+  - Popover width matches trigger with `w-[var(--radix-popover-trigger-width)]`
 ---

@@ -133,7 +133,7 @@
         "Verify in browser using agent-browser CLI"
       ],
       "priority": 8,
-      "passes": false,
+      "passes": true,
       "notes": "Create src/hooks/use-station-preferences.ts and src/hooks/use-local-storage.ts for persistence."
     },
     {
