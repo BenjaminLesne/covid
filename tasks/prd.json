@@ -17,7 +17,7 @@
         "Typecheck passes"
       ],
       "priority": 1,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
@@ -31,7 +31,7 @@
         "Typecheck passes"
       ],
       "priority": 2,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
@@ -94,7 +94,7 @@
         "Dark/light mode toggle using shadcn/ui theme support (system default)",
         "Layout is responsive: full-width on mobile, max-width container on desktop",
         "Typecheck passes",
-        "Verify in browser using dev-browser skill"
+        "Verify in browser using agent-browser CLI"
       ],
       "priority": 6,
       "passes": false,
@@ -111,7 +111,7 @@
         "Trend arrow shows ↑ ↓ or → with label text",
         "Component fetches national data via tRPC",
         "Typecheck passes",
-        "Verify in browser using dev-browser skill"
+        "Verify in browser using agent-browser CLI"
       ],
       "priority": 7,
       "passes": false,
@@ -130,7 +130,7 @@
         "Selection persisted in localStorage via a custom hook",
         "On first visit only National Average is selected",
         "Typecheck passes",
-        "Verify in browser using dev-browser skill"
+        "Verify in browser using agent-browser CLI"
       ],
       "priority": 8,
       "passes": false,
@@ -146,7 +146,7 @@
         "User can select custom start and end dates",
         "Date range persisted in localStorage",
         "Typecheck passes",
-        "Verify in browser using dev-browser skill"
+        "Verify in browser using agent-browser CLI"
       ],
       "priority": 9,
       "passes": false,
@@ -166,7 +166,7 @@
         "Chart is responsive: full-width on mobile, constrained on desktop",
         "Chart fetches data via tRPC using selected stations and date range",
         "Typecheck passes",
-        "Verify in browser using dev-browser skill"
+        "Verify in browser using agent-browser CLI"
       ],
       "priority": 10,
       "passes": false,
@@ -182,7 +182,7 @@
         "Below chart on mobile, side panel on desktop",
         "Clickable: clicking a legend item toggles that line's visibility",
         "Typecheck passes",
-        "Verify in browser using dev-browser skill"
+        "Verify in browser using agent-browser CLI"
       ],
       "priority": 11,
       "passes": false,
@@ -200,7 +200,7 @@
         "Marker is a circle filled with severity color + trend arrow overlay",
         "Map is responsive: full-width on mobile, ~40% width on desktop",
         "Typecheck passes",
-        "Verify in browser using dev-browser skill"
+        "Verify in browser using agent-browser CLI"
       ],
       "priority": 12,
       "passes": false,
@@ -216,7 +216,7 @@
         "If station is already selected, button says 'Remove from graph'",
         "If 5 stations already selected, button is disabled with tooltip explaining the limit",
         "Typecheck passes",
-        "Verify in browser using dev-browser skill"
+        "Verify in browser using agent-browser CLI"
       ],
       "priority": 13,
       "passes": false,
@@ -233,7 +233,7 @@
         "Tablet (768-1023px): single column with larger heights",
         "Disclaimer text from PRD Section 7.4 is visible near severity indicators",
         "Typecheck passes",
-        "Verify in browser using dev-browser skill"
+        "Verify in browser using agent-browser CLI"
       ],
       "priority": 14,
       "passes": false,

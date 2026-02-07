@@ -1,3 +1,38 @@
 # Ralph Progress Log
 Started: Sam  7 fév 2026 18:37:38 CET
+
+## Codebase Patterns
+- Project uses Next.js 16 App Router with TypeScript strict mode
+- tRPC v11 with superjson transformer — server init in `src/server/trpc/init.ts`, root router in `src/server/trpc/router.ts`
+- API route handler at `src/app/api/trpc/[trpc]/route.ts` using fetch adapter
+- shadcn/ui with Tailwind CSS v4 — use `npx shadcn@latest add <component>` to add components
+- Client-side tRPC provider in `src/components/providers.tsx` wrapping React Query
+- Path alias `@/*` maps to `./src/*`
+- Shared types in `src/types/wastewater.ts` — import `SeverityLevel`, `TrendDirection`, etc. from `@/types/wastewater`
+- Constants (colors, thresholds, URLs) in `src/lib/constants.ts` — import from `@/lib/constants`
+---
+
+## 2026-02-07 - US-001
+- Scaffolded Next.js 16 project with App Router, TypeScript strict, Tailwind CSS v4
+- Set up tRPC v11 with root router, wastewater sub-router (ping placeholder), and fetch adapter API route
+- Initialized shadcn/ui with default theme
+- Created tRPC + React Query provider component
+- Updated root layout with French lang, EauxVid metadata
+- Files created: package.json, tsconfig.json, src/app/layout.tsx, src/app/page.tsx, src/server/trpc/init.ts, src/server/trpc/router.ts, src/server/trpc/routers/wastewater.ts, src/app/api/trpc/[trpc]/route.ts, src/components/providers.tsx, src/lib/trpc.ts, src/lib/utils.ts, components.json, globals.css
+- **Learnings for future iterations:**
+  - create-next-app v16 prompts for React Compiler (answer N to skip)
+  - create-next-app won't run in a directory with existing files — scaffold in temp dir then rsync
+  - shadcn/ui `init -d` picks sensible defaults (New York style, neutral colors)
+  - Tailwind CSS v4 uses `@import "tailwindcss"` instead of v3 `@tailwind` directives
+---
+
+## 2026-02-07 - US-002
+- Created `src/types/wastewater.ts` with typed interfaces: WastewaterIndicator, Station, NationalAggregate, SeverityLevel, TrendDirection, SeverityClassification
+- Created `src/lib/constants.ts` with: SEVERITY_LEVELS (colors + labels), PERCENTILE_THRESHOLDS, TREND_THRESHOLD, REVALIDATE_INTERVAL, MAX_SELECTED_STATIONS, NATIONAL_STATION_ID, DATA_URLS, DEFAULT_DATE_RANGE_MONTHS
+- Files created: src/types/wastewater.ts, src/lib/constants.ts
+- **Learnings for future iterations:**
+  - Types use `number | null` for indicator values since some weeks may have missing data
+  - `SeverityLevel` is a union type `1 | 2 | 3 | 4 | 5` (not a plain number) for type safety
+  - `SEVERITY_LEVELS` uses `as const satisfies Record<...>` pattern for strict typing with autocomplete
+  - Station IDs use the SANDRE identifier system; national aggregate uses the special ID "national"
 ---

@@ -319,7 +319,13 @@ src/
 
 ---
 
-## 13. Open Questions
+## 13. Browser Verification
+
+For any story that changes UI, verify it works in the browser using the `agent-browser` CLI command. This command allows interaction with a browser to test that components render correctly, layouts are responsive, and interactions work as expected.
+
+---
+
+## 14. Open Questions
 
 | # | Question | Impact |
 |---|----------|--------|
@@ -330,7 +336,7 @@ src/
 
 ---
 
-## 14. Success Metrics
+## 15. Success Metrics
 
 | Metric | Target |
 |--------|--------|
@@ -341,7 +347,7 @@ src/
 
 ---
 
-## 15. References
+## 16. References
 
 - [SUM'Eau Dataset (data.gouv.fr)](https://www.data.gouv.fr/datasets/surveillance-du-sars-cov-2-dans-les-eaux-usees-sumeau)
 - [SUM'Eau Indicators (Odissé)](https://odisse.santepubliquefrance.fr/explore/dataset/sum-eau-indicateurs/information)
