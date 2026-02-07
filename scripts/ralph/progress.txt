@@ -59,4 +59,23 @@ Started: Sam  7 fév 2026 18:37:38 CET
   - Odissé JSON has `date_complet` field (Monday of the week) not present in CSV — useful if ISO date needed
   - JSON fallback wraps data in `{ datasetid, recordid, fields: {...}, record_timestamp }` envelope
   - Station names in CSV indicators are display names (e.g. "PARIS SEINE-CENTRE"), in JSON they're snake_cased (e.g. "paris_seine_centre")
+- tRPC procedures go in `src/server/trpc/routers/wastewater.ts` — use zod v4 for input validation
+- National aggregate column in indicators data is `National_54` (all 54 stations)
+- Week strings are ISO-week format (e.g. "2024-W03") — string comparison works for date range filtering
+---
+
+## 2026-02-07 - US-004
+- Created tRPC wastewater router with three procedures: getIndicators, getStations, getNationalTrend
+- getIndicators: accepts optional stationIds string[] and dateRange {from, to}, filters indicators from fetchIndicators()
+- getStations: returns all stations from fetchStations()
+- getNationalTrend: extracts National_54 column from indicators, returns sorted NationalAggregate[]
+- Used zod v4 for input validation schemas
+- Router was already merged into root router from US-001 scaffold
+- Files modified: src/server/trpc/routers/wastewater.ts
+- **Learnings for future iterations:**
+  - The wastewater router was already scaffolded with a placeholder `ping` procedure in US-001 — just needed to replace it
+  - Root router (`src/server/trpc/router.ts`) already imports and merges the wastewater router — no changes needed there
+  - National aggregate uses column name `National_54` in the indicators data (not the `NATIONAL_STATION_ID` constant "national")
+  - ISO week strings (YYYY-WWW) sort lexicographically, so string comparison works for date range filtering
+  - zod v4 API is compatible with zod v3 for basic schemas (z.object, z.string, z.array, z.optional)
 ---
