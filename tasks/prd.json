@@ -47,7 +47,7 @@
         "Typecheck passes"
       ],
       "priority": 3,
-      "passes": false,
+      "passes": true,
       "notes": "Use papaparse or manual CSV parsing. The CSV endpoints are the data.gouv.fr URLs from the PRD."
     },
     {

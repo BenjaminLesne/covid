@@ -10,6 +10,11 @@ Started: Sam  7 fév 2026 18:37:38 CET
 - Path alias `@/*` maps to `./src/*`
 - Shared types in `src/types/wastewater.ts` — import `SeverityLevel`, `TrendDirection`, etc. from `@/types/wastewater`
 - Constants (colors, thresholds, URLs) in `src/lib/constants.ts` — import from `@/lib/constants`
+- Data fetching service in `src/server/services/sumeau.ts` — use `fetchIndicators()` and `fetchStations()` for server-side data access
+- CSV uses wide format (station names as columns), semicolon delimiter, French decimal separator (comma)
+- Indicators CSV week column `semaine` uses `YYYY-SWW` format — normalized to `YYYY-WWW` (ISO week)
+- `NA` in CSV = null value; JSON fallback has proper nulls (missing fields)
+- JSON fallback station names are snake_cased; CSV station names are original display names
 ---
 
 ## 2026-02-07 - US-001
@@ -35,4 +40,23 @@ Started: Sam  7 fév 2026 18:37:38 CET
   - `SeverityLevel` is a union type `1 | 2 | 3 | 4 | 5` (not a plain number) for type safety
   - `SEVERITY_LEVELS` uses `as const satisfies Record<...>` pattern for strict typing with autocomplete
   - Station IDs use the SANDRE identifier system; national aggregate uses the special ID "national"
+---
+
+## 2026-02-07 - US-003
+- Created `src/server/services/sumeau.ts` with `fetchIndicators()` and `fetchStations()` functions
+- Installed papaparse + @types/papaparse for CSV parsing
+- Primary: data.gouv.fr CSV endpoints (semicolon-delimited, wide format for indicators)
+- Fallback: Odissé JSON endpoints (snake_cased station names, proper floats)
+- Handles French number locale (comma → dot), NA → null, week format normalization (YYYY-SWW → YYYY-WWW)
+- Both functions use Next.js fetch with `revalidate: 21600` (6 hours)
+- Files created: src/server/services/sumeau.ts
+- Files modified: package.json, package-lock.json
+- **Learnings for future iterations:**
+  - Indicators CSV is wide format — each station is a column, rows are weeks. Need to pivot to long format for WastewaterIndicator[]
+  - CSV uses semicolons as delimiters (French CSV convention), not commas
+  - French number format uses comma as decimal separator — must replace with dot before parsing
+  - `National_12` (original 12 stations) and `National_54` (all 54 stations) are national aggregate columns
+  - Odissé JSON has `date_complet` field (Monday of the week) not present in CSV — useful if ISO date needed
+  - JSON fallback wraps data in `{ datasetid, recordid, fields: {...}, record_timestamp }` envelope
+  - Station names in CSV indicators are display names (e.g. "PARIS SEINE-CENTRE"), in JSON they're snake_cased (e.g. "paris_seine_centre")
 ---
