@@ -1,0 +1,259 @@
+{
+  "project": "EauxVid",
+  "branchName": "ralph/eauxvid-dashboard",
+  "description": "French Wastewater Covid Surveillance Dashboard — mobile-friendly web app showing SARS-CoV-2 concentration trends from SUM'Eau wastewater data",
+  "userStories": [
+    {
+      "id": "US-001",
+      "title": "Scaffold Next.js project with T3 stack",
+      "description": "As a developer, I need the project scaffolded with Next.js App Router, TypeScript strict mode, Tailwind CSS v4, tRPC, and shadcn/ui so that all subsequent stories have a working foundation.",
+      "acceptanceCriteria": [
+        "Next.js app with App Router created in the repo root",
+        "TypeScript in strict mode (tsconfig.json strict: true)",
+        "Tailwind CSS v4 configured and working",
+        "tRPC set up with a root router and API route handler at /api/trpc",
+        "shadcn/ui initialized with default theme",
+        "App runs with `npm run dev` without errors",
+        "Typecheck passes"
+      ],
+      "priority": 1,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-002",
+      "title": "Define TypeScript types for SUM'Eau data",
+      "description": "As a developer, I need shared TypeScript types for wastewater indicator data and station metadata so that all data-handling code is type-safe.",
+      "acceptanceCriteria": [
+        "Create src/types/wastewater.ts with types for: WastewaterIndicator (week, station ID, value, smoothed value), Station (name, commune, sandre ID, population, lat, lng), NationalAggregate",
+        "Create src/lib/constants.ts with severity colors, hex codes, percentile thresholds, and trend thresholds from the PRD",
+        "Types are exported and importable from other modules",
+        "Typecheck passes"
+      ],
+      "priority": 2,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-003",
+      "title": "Build SUM'Eau data fetching service",
+      "description": "As a developer, I need a server-side service that fetches and parses wastewater indicator data and station metadata from government APIs.",
+      "acceptanceCriteria": [
+        "Create src/server/services/sumeau.ts",
+        "Function fetchIndicators() fetches from data.gouv.fr CSV endpoint, parses CSV, returns typed WastewaterIndicator[]",
+        "Function fetchStations() fetches from data.gouv.fr CSV endpoint, parses CSV, returns typed Station[]",
+        "Both functions use Next.js fetch with revalidate set to 21600 (6 hours)",
+        "Fallback: if primary endpoint fails, try Odissé JSON endpoint",
+        "Typecheck passes"
+      ],
+      "priority": 3,
+      "passes": false,
+      "notes": "Use papaparse or manual CSV parsing. The CSV endpoints are the data.gouv.fr URLs from the PRD."
+    },
+    {
+      "id": "US-004",
+      "title": "Create tRPC wastewater router",
+      "description": "As a developer, I need tRPC procedures that expose wastewater data to the frontend.",
+      "acceptanceCriteria": [
+        "Create src/server/trpc/routers/wastewater.ts",
+        "Procedure getIndicators: accepts optional stationIds string[] and dateRange {from, to}, returns filtered indicators",
+        "Procedure getStations: returns all stations with metadata",
+        "Procedure getNationalTrend: returns national aggregate time series",
+        "Router is merged into the root tRPC router",
+        "Typecheck passes"
+      ],
+      "priority": 4,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-005",
+      "title": "Implement severity calculation logic",
+      "description": "As a developer, I need utility functions that classify wastewater values into the 5-level severity system and compute trend arrows.",
+      "acceptanceCriteria": [
+        "Create src/lib/severity.ts",
+        "Function calculateSeverityLevel(currentValue, historicalValues) returns level 1-5 based on quintile thresholds",
+        "Function calculateTrend(currentValue, twoWeeksAgoValue) returns 'increasing' | 'stable' | 'decreasing' using ±10% threshold",
+        "Function getSeverityColor(level) returns the correct hex color from constants",
+        "Unit tests for all three functions covering edge cases (empty data, boundary values)",
+        "Typecheck passes",
+        "Tests pass"
+      ],
+      "priority": 5,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-006",
+      "title": "Build app layout with header and footer",
+      "description": "As a user, I want to see a clean app shell with header (app name) and footer (data sources) so the app feels complete.",
+      "acceptanceCriteria": [
+        "Create src/components/layout/header.tsx with app name 'EauxVid' and subtitle",
+        "Create src/components/layout/footer.tsx with data source attribution links to SUM'Eau and Santé publique France",
+        "Root layout.tsx uses these components and sets up HTML metadata (title, description, lang='fr')",
+        "Dark/light mode toggle using shadcn/ui theme support (system default)",
+        "Layout is responsive: full-width on mobile, max-width container on desktop",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 6,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-007",
+      "title": "Build severity summary card",
+      "description": "As a user, I want to see the current national Covid wastewater level at a glance with a color-coded severity badge and trend arrow.",
+      "acceptanceCriteria": [
+        "Create src/components/severity/severity-badge.tsx showing colored circle with level label (Very Low/Low/Moderate/High/Very High)",
+        "Create src/components/severity/severity-summary.tsx showing national level: large badge + trend arrow + last updated date",
+        "Badge uses correct hex colors from PRD (#22c55e, #84cc16, #eab308, #f97316, #ef4444)",
+        "Trend arrow shows ↑ ↓ or → with label text",
+        "Component fetches national data via tRPC",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 7,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-008",
+      "title": "Build station multi-select filter",
+      "description": "As a user, I want to search and select up to 5 wastewater stations to display on the graph.",
+      "acceptanceCriteria": [
+        "Create src/components/filters/station-select.tsx using shadcn/ui Combobox pattern",
+        "Searchable by station name or commune name",
+        "National Average is a permanent option at the top, enabled by default",
+        "Selected stations appear as removable chips/tags",
+        "Maximum 5 stations selectable (plus national)",
+        "Selection persisted in localStorage via a custom hook",
+        "On first visit only National Average is selected",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 8,
+      "passes": false,
+      "notes": "Create src/hooks/use-station-preferences.ts and src/hooks/use-local-storage.ts for persistence."
+    },
+    {
+      "id": "US-009",
+      "title": "Build date range picker",
+      "description": "As a user, I want to select a custom date range for the wastewater chart, defaulting to the last 6 months.",
+      "acceptanceCriteria": [
+        "Create src/components/filters/date-range-picker.tsx using shadcn/ui DatePicker",
+        "Default range is last 6 months from today",
+        "User can select custom start and end dates",
+        "Date range persisted in localStorage",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 9,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-010",
+      "title": "Build wastewater time-series chart",
+      "description": "As a user, I want to see an interactive line chart showing SARS-CoV-2 concentration trends over time for my selected stations.",
+      "acceptanceCriteria": [
+        "Create src/components/chart/wastewater-chart.tsx using shadcn/ui Charts (Recharts)",
+        "Smoothed trend line as solid colored line per station",
+        "Raw data points shown as dots/markers overlay",
+        "X-axis shows time (weeks), Y-axis shows normalized viral indicator",
+        "Each selected station is a separate colored line",
+        "Tooltip on hover shows exact value, date, and station name",
+        "Chart is responsive: full-width on mobile, constrained on desktop",
+        "Chart fetches data via tRPC using selected stations and date range",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 10,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-011",
+      "title": "Build chart legend component",
+      "description": "As a user, I want to see a legend identifying each line on the chart by station name and color.",
+      "acceptanceCriteria": [
+        "Create src/components/chart/chart-legend.tsx",
+        "Shows colored line swatch + station name for each selected station",
+        "Below chart on mobile, side panel on desktop",
+        "Clickable: clicking a legend item toggles that line's visibility",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 11,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-012",
+      "title": "Build France map with station markers",
+      "description": "As a user, I want to see an interactive map of France with color-coded markers for each wastewater monitoring station.",
+      "acceptanceCriteria": [
+        "Create src/components/map/france-map.tsx using React Leaflet with dynamic import (no SSR)",
+        "OpenStreetMap tiles (free, no API key)",
+        "Default view centered on mainland France showing all 54 stations",
+        "Create src/components/map/station-marker.tsx for each station marker",
+        "Marker is a circle filled with severity color + trend arrow overlay",
+        "Map is responsive: full-width on mobile, ~40% width on desktop",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 12,
+      "passes": false,
+      "notes": "React Leaflet must be dynamically imported in Next.js to avoid SSR issues. Use next/dynamic with ssr: false."
+    },
+    {
+      "id": "US-013",
+      "title": "Add map station popups with 'Add to graph' action",
+      "description": "As a user, I want to click a station on the map and see its details, with an option to add it to the graph.",
+      "acceptanceCriteria": [
+        "Clicking a map marker opens a popup with: station name, commune, current severity value, trend arrow",
+        "Popup has an 'Add to graph' button that adds the station to the selected stations list",
+        "If station is already selected, button says 'Remove from graph'",
+        "If 5 stations already selected, button is disabled with tooltip explaining the limit",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 13,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-014",
+      "title": "Assemble main dashboard page with responsive layout",
+      "description": "As a user, I want the dashboard to arrange all components in the correct responsive layout from the PRD.",
+      "acceptanceCriteria": [
+        "src/app/page.tsx composes: severity summary, filters, chart, legend, map, disclaimer, footer",
+        "Mobile layout (<768px): single column, stacked vertically per PRD wireframe",
+        "Desktop layout (>=1024px): two-column with chart ~60% and map ~40% per PRD wireframe",
+        "Tablet (768-1023px): single column with larger heights",
+        "Disclaimer text from PRD Section 7.4 is visible near severity indicators",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 14,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-015",
+      "title": "Add localStorage preference persistence",
+      "description": "As a returning user, I want my selected stations, date range, and theme to be remembered between visits.",
+      "acceptanceCriteria": [
+        "src/hooks/use-local-storage.ts provides a generic typed hook for localStorage read/write",
+        "selectedStations defaults to ['national'] on first visit",
+        "dateRange defaults to last 6 months on first visit",
+        "theme defaults to 'system' on first visit",
+        "All preferences load correctly on page refresh",
+        "Typecheck passes"
+      ],
+      "priority": 15,
+      "passes": false,
+      "notes": "This may already be partially done in US-008/US-009. This story ensures full coverage and tests the persistence end-to-end."
+    }
+  ]
+}
