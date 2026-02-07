@@ -252,7 +252,7 @@
         "Typecheck passes"
       ],
       "priority": 15,
-      "passes": false,
+      "passes": true,
       "notes": "This may already be partially done in US-008/US-009. This story ensures full coverage and tests the persistence end-to-end."
     }
   ]
