@@ -194,7 +194,7 @@ export function FranceMapInner({
   }
 
   return (
-    <div className="h-[400px] w-full overflow-hidden rounded-lg border md:h-[450px] lg:h-[500px]">
+    <div className="isolate h-[400px] w-full overflow-hidden rounded-lg border md:h-[450px] lg:h-[500px]">
       <MapContainer
         center={FRANCE_CENTER}
         zoom={FRANCE_ZOOM}

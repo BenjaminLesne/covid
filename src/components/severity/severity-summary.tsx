@@ -26,11 +26,19 @@ function TrendArrow({ trend }: { trend: TrendDirection }) {
   );
 }
 
-function formatWeekLabel(week: string): string {
-  // week is ISO week format like "2024-W03"
+function formatWeekDate(week: string): string {
   const match = week.match(/^(\d{4})-W(\d{2})$/);
   if (!match) return week;
-  return `Semaine ${parseInt(match[2], 10)}, ${match[1]}`;
+  const year = parseInt(match[1], 10);
+  const weekNum = parseInt(match[2], 10);
+  const jan4 = new Date(Date.UTC(year, 0, 4));
+  const dayOfWeek = jan4.getUTCDay() || 7;
+  const week1Monday = new Date(jan4);
+  week1Monday.setUTCDate(jan4.getUTCDate() - dayOfWeek + 1);
+  const target = new Date(week1Monday);
+  target.setUTCDate(week1Monday.getUTCDate() + (weekNum - 1) * 7);
+  const locale = typeof navigator !== "undefined" ? navigator.language : "fr-FR";
+  return target.toLocaleDateString(locale, { day: "numeric", month: "short", year: "numeric" });
 }
 
 export function SeveritySummary() {
@@ -92,7 +100,7 @@ export function SeveritySummary() {
         <SeverityBadge level={level} size="lg" />
         <TrendArrow trend={trend} />
         <p className="text-muted-foreground text-xs">
-          Dernière mise à jour : {formatWeekLabel(latest.week)}
+          Dernière mise à jour : {formatWeekDate(latest.week)}
         </p>
       </CardContent>
     </Card>

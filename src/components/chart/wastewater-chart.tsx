@@ -38,11 +38,41 @@ function buildSandreToColumnMap(stations: Station[]): Map<string, string> {
   return map;
 }
 
-/** Convert ISO week string "2024-W03" to a readable date label. */
-function formatWeekLabel(week: string): string {
+/** Convert ISO week string "2024-W03" to the Monday date of that week. */
+function isoWeekToDate(week: string): Date | null {
   const match = week.match(/^(\d{4})-W(\d{2})$/);
-  if (!match) return week;
-  return `S${parseInt(match[2], 10)} ${match[1]}`;
+  if (!match) return null;
+  const year = parseInt(match[1], 10);
+  const weekNum = parseInt(match[2], 10);
+  // Jan 4 is always in ISO week 1
+  const jan4 = new Date(Date.UTC(year, 0, 4));
+  const dayOfWeek = jan4.getUTCDay() || 7; // Make Sunday = 7
+  // Monday of week 1
+  const week1Monday = new Date(jan4);
+  week1Monday.setUTCDate(jan4.getUTCDate() - dayOfWeek + 1);
+  // Monday of target week
+  const target = new Date(week1Monday);
+  target.setUTCDate(week1Monday.getUTCDate() + (weekNum - 1) * 7);
+  return target;
+}
+
+/** Get browser locale, falling back to fr-FR. */
+function getLocale(): string {
+  return typeof navigator !== "undefined" ? navigator.language : "fr-FR";
+}
+
+/** Format ISO week as short date for X-axis ticks (e.g. "15 janv."). */
+function formatWeekLabel(week: string): string {
+  const date = isoWeekToDate(week);
+  if (!date) return week;
+  return date.toLocaleDateString(getLocale(), { day: "numeric", month: "short" });
+}
+
+/** Format ISO week as full date for tooltips (e.g. "15 janv. 2024"). */
+function formatWeekLabelFull(week: string): string {
+  const date = isoWeekToDate(week);
+  if (!date) return week;
+  return date.toLocaleDateString(getLocale(), { day: "numeric", month: "short", year: "numeric" });
 }
 
 /** Convert ISO date (YYYY-MM-DD) to ISO week string (YYYY-WNN) for filtering. */
@@ -223,7 +253,7 @@ export function WastewaterChart() {
                 <ChartTooltipContent
                   labelFormatter={(label) => {
                     const week = String(label);
-                    return formatWeekLabel(week);
+                    return formatWeekLabelFull(week);
                   }}
                   formatter={(value, name, _item, _index, payload) => {
                     const key = String(name);
