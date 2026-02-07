@@ -40,6 +40,7 @@ Started: Sam  7 fév 2026 18:37:38 CET
 - Map components in `src/components/map/` — france-map.tsx (dynamic wrapper), france-map-inner.tsx (actual map), station-marker.tsx
 - CircleMarker is preferable to Marker for Leaflet in Next.js — no PNG icon assets needed
 - France mainland center: [46.6, 2.5] at zoom 6 fits all 54 stations
+- Dashboard layout: `flex-col` + `lg:flex-row` for two-column desktop, `lg:w-3/5` / `lg:w-2/5` for ~60/40 split; always add `min-w-0` on flex children
 ---
 
 ## 2026-02-07 - US-001
@@ -243,4 +244,20 @@ Started: Sam  7 fév 2026 18:37:38 CET
   - France mainland center: [46.6, 2.5] at zoom 6 shows all 54 stations nicely
   - Per-station severity is computed client-side by fetching all indicators and grouping by station name column
   - Station names in indicator data match `Station.name` — use this to correlate indicator data with station metadata
+---
+
+## 2026-02-07 - US-014
+- Assembled main dashboard page with responsive two-column layout
+- Desktop (lg: >=1024px): chart ~60% (`lg:w-3/5`) and map ~40% (`lg:w-2/5`) side by side using `lg:flex-row`
+- Mobile (<768px): single column stacked vertically
+- Tablet (md: 768-1023px): single column with taller chart/map heights (`md:h-[450px]`)
+- Added disclaimer text below severity card: "Les niveaux de circulation virale sont issus de l'analyse des eaux usées..."
+- Also committed previously uncommitted US-013 changes (map station popups with add/remove toggle, MutationObserver for Leaflet popup click handling)
+- Files modified: src/app/page.tsx, src/components/chart/wastewater-chart.tsx, src/components/map/france-map-inner.tsx, src/components/map/france-map.tsx, src/components/map/station-marker.tsx, src/hooks/use-local-storage.ts, src/server/services/sumeau.ts, tasks/prd.json
+- **Learnings for future iterations:**
+  - Tailwind responsive layout: `flex-col` default + `lg:flex-row` for desktop two-column; use `lg:w-3/5` and `lg:w-2/5` for ~60/40 split
+  - `min-w-0` on flex children prevents content from overflowing the flex container (important for chart/map)
+  - Tablet breakpoint uses `md:` prefix (768px) — distinct from desktop `lg:` (1024px) for single-column-with-larger-heights
+  - Disclaimer text uses `text-muted-foreground text-xs leading-relaxed` for subtle, readable disclaimer styling
+  - Use `&apos;` for apostrophes in JSX text content to avoid HTML entity issues
 ---
