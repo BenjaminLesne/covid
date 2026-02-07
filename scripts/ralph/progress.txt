@@ -28,7 +28,11 @@ Started: Sam  7 fév 2026 18:37:38 CET
 - Station select combobox in `src/components/filters/station-select.tsx` — uses shadcn/ui Popover + Command (cmdk) pattern
 - shadcn/ui popover, command, dialog components in `src/components/ui/`
 - Station IDs use SANDRE identifiers from `Station.sandreId`; national uses `NATIONAL_STATION_ID` constant ("national")
-- localStorage keys prefixed with `eauxvid:` (e.g. `eauxvid:selected-stations`)
+- localStorage keys prefixed with `eauxvid:` (e.g. `eauxvid:selected-stations`, `eauxvid:date-range`)
+- Date range hook in `src/hooks/use-date-range.ts` — provides `fromDate`, `toDate`, `setRange`, `reset`
+- Date range picker in `src/components/filters/date-range-picker.tsx` — Popover + Calendar (react-day-picker range mode)
+- shadcn/ui calendar component in `src/components/ui/calendar.tsx` — wraps react-day-picker
+- `useLocalStorage` uses `useSyncExternalStore` for SSR-safe client detection (no setState in useEffect)
 ---
 
 ## 2026-02-07 - US-001
@@ -167,4 +171,31 @@ Started: Sam  7 fév 2026 18:37:38 CET
   - Station SANDRE IDs are the canonical identifiers; station `name` is the display name (e.g. "PARIS MARNE AVAL")
   - French UI: "Ajouter une station" (add), "sélectionnée(s)" (selected), "Rechercher par nom ou commune" (search), "Aucune station trouvée" (no results)
   - Popover width matches trigger with `w-[var(--radix-popover-trigger-width)]`
+- `useSyncExternalStore` can detect client vs server without useEffect — avoids React lint warning about setState in effects
+- shadcn/ui calendar uses `react-day-picker` — supports `mode="range"` for date range selection with `numberOfMonths={2}` for dual-month view
+- Date range hook in `src/hooks/use-date-range.ts` — uses `useLocalStorage` with `eauxvid:date-range` key
+- Date range picker in `src/components/filters/date-range-picker.tsx` — uses Popover + Calendar (react-day-picker range mode)
+---
+
+## 2026-02-07 - US-009
+- Created `src/hooks/use-date-range.ts` — manages date range with localStorage persistence via `useLocalStorage` hook
+- Created `src/components/filters/date-range-picker.tsx` — dual-month calendar popover with range selection using shadcn/ui Calendar + Popover
+- Added shadcn/ui calendar component (installs `react-day-picker` dependency)
+- Default range is last 6 months from today (uses `DEFAULT_DATE_RANGE_MONTHS` from constants)
+- Calendar uses `captionLayout="dropdown"` for month/year navigation, `disabled={{ after: new Date() }}` to prevent future dates
+- Reset button (RotateCcw icon) resets to default 6-month range
+- French date formatting via `toLocaleDateString("fr-FR")` — displays "7 août 2025 — 7 févr. 2026" style
+- Updated `src/app/page.tsx` to include DateRangePicker alongside StationSelect in a responsive flex layout
+- Fixed pre-existing lint error in `use-local-storage.ts`: replaced `useState+useEffect` hydration pattern with `useSyncExternalStore` to avoid React lint warning about setState in effects
+- Verified in browser: calendar opens, range selection works, dates display correctly in French, no console errors
+- Files created: src/hooks/use-date-range.ts, src/components/filters/date-range-picker.tsx, src/components/ui/calendar.tsx
+- Files modified: src/app/page.tsx, src/hooks/use-local-storage.ts, package.json, package-lock.json
+- **Learnings for future iterations:**
+  - shadcn/ui Calendar component wraps `react-day-picker` — use `mode="range"` with `onSelect` receiving `DateRange | undefined`
+  - `react-day-picker` DateRange type: `{ from?: Date; to?: Date }` — both optional during selection
+  - `captionLayout="dropdown"` enables month/year dropdown navigation; `startMonth`/`endMonth` control dropdown range
+  - `useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot)` is the React-approved way to detect client vs server — returns server snapshot during SSR, client snapshot after hydration
+  - The subscribe function for static values (like isClient) can be a no-op that returns a cleanup function
+  - `numberOfMonths={2}` shows two months side by side; responsive on desktop, may need adjustment on mobile
+  - Date stored as ISO string (YYYY-MM-DD) in localStorage for JSON serialization; parsed to Date objects in the hook
 ---

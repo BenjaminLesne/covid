@@ -149,7 +149,7 @@
         "Verify in browser using agent-browser CLI"
       ],
       "priority": 9,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
