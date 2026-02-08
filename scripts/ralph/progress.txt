@@ -49,6 +49,8 @@ Started: Sam  7 fév 2026 18:37:38 CET
 - Odissé API v2.1 returns flat record fields (not nested in `fields` object like v1); filter `sursaud_cl_age_gene='Tous âges'` for all-age data
 - Clinical data service in `src/server/services/clinical.ts` — use `fetchClinicalIndicators()` for all diseases, `fetchClinicalIndicatorsByDisease(ids)` for specific ones
 - Odissé API v2.1 records endpoint: `${ODISSE_API_BASE}/${datasetId}/records` with pagination (limit=100, offset-based)
+- Clinical tRPC router in `src/server/trpc/routers/clinical.ts` — `getIndicators` procedure with optional diseaseIds + dateRange filters
+- `CLINICAL_DISEASE_IDS` readonly array needs `as unknown as [string, ...string[]]` cast for `z.enum()` which requires a non-empty tuple type
 ---
 
 ## 2026-02-07 - US-001
@@ -323,4 +325,19 @@ Started: Sam  7 fév 2026 18:37:38 CET
   - Pagination: API returns max 100 records per request; use `offset` parameter to fetch subsequent pages; stop when `results.length < 100` or `offset >= total_count`
   - `Promise.allSettled` returns `{status:'fulfilled', value:...}` or `{status:'rejected', reason:...}` — iterate with index to correlate back to disease IDs
   - Clinical service follows same patterns as sumeau.ts: Next.js fetch with revalidate, normalizeWeek, typed interfaces
+---
+
+## 2026-02-08 - US-018
+- Created `src/server/trpc/routers/clinical.ts` with `getIndicators` procedure
+- `getIndicators` accepts optional `diseaseIds` (validated as zod enum from `CLINICAL_DISEASE_IDS`) and optional `dateRange {from, to}`
+- If `diseaseIds` provided, calls `fetchClinicalIndicatorsByDisease`; otherwise calls `fetchClinicalIndicators`
+- Date range filtering uses lexicographic ISO week string comparison (same pattern as wastewater router)
+- Registered `clinicalRouter` in `src/server/trpc/router.ts` as `clinical` namespace alongside existing `wastewater`
+- Files created: src/server/trpc/routers/clinical.ts
+- Files modified: src/server/trpc/router.ts, tasks/prd.json
+- **Learnings for future iterations:**
+  - Clinical router follows exact same pattern as wastewater router — `publicProcedure.input(z.object({...}).optional()).query(async ({input}) => {...})`
+  - `CLINICAL_DISEASE_IDS` is `readonly ClinicalDiseaseId[]` — needs `as unknown as [string, ...string[]]` cast for `z.enum()` which requires a non-empty tuple
+  - After zod validation, `diseaseIds` comes back as `string[]` — cast to `ClinicalDiseaseId[]` since zod enum already validates the values
+  - Root router auto-exports `AppRouter` type — adding `clinical: clinicalRouter` automatically makes `trpc.clinical.getIndicators` available on the client
 ---

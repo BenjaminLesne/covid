@@ -306,7 +306,7 @@
         "Typecheck passes"
       ],
       "priority": 18,
-      "passes": false,
+      "passes": true,
       "notes": "Follow the exact pattern of src/server/trpc/routers/wastewater.ts. The root router at src/server/trpc/router.ts just needs clinical: clinicalRouter added. AppRouter type auto-updates."
     },
     {
