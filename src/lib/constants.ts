@@ -6,11 +6,11 @@ import type { SeverityLevel } from "@/types/wastewater";
  * Quintile-based classification of viral indicator values.
  */
 export const SEVERITY_LEVELS = {
-  1: { label: "Very Low", color: "#22c55e" },
-  2: { label: "Low", color: "#84cc16" },
-  3: { label: "Moderate", color: "#eab308" },
-  4: { label: "High", color: "#f97316" },
-  5: { label: "Very High", color: "#ef4444" },
+  1: { label: "Très faible", color: "#22c55e" },
+  2: { label: "Faible", color: "#84cc16" },
+  3: { label: "Modéré", color: "#eab308" },
+  4: { label: "Élevé", color: "#f97316" },
+  5: { label: "Très élevé", color: "#ef4444" },
 } as const satisfies Record<SeverityLevel, { label: string; color: string }>;
 
 /**
