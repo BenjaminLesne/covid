@@ -290,7 +290,7 @@
         "Typecheck passes"
       ],
       "priority": 17,
-      "passes": false,
+      "passes": true,
       "notes": "IMPORTANT: Use Promise.allSettled (NOT Promise.all). Promise.allSettled runs all fetches in parallel but never rejects — each result is either {status:'fulfilled', value:...} or {status:'rejected', reason:...}. Filter to fulfilled results and flatten. This way if e.g. the flu API is down, bronchiolitis and COVID clinical data still load. On the frontend side, wastewater and clinical data use separate tRPC queries, so a total clinical failure still lets wastewater data display normally."
     },
     {

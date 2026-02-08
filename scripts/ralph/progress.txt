@@ -47,6 +47,8 @@ Started: Sam  7 fév 2026 18:37:38 CET
 - Clinical types in `src/types/clinical.ts` — import `ClinicalDiseaseId`, `ClinicalIndicator`, `ClinicalDatasetMeta` from `@/types/clinical`
 - Clinical constants in `src/lib/constants.ts` — `ODISSE_API_BASE`, `CLINICAL_DISEASE_IDS`, `CLINICAL_DATASETS` record with Odissé API config per disease
 - Odissé API v2.1 returns flat record fields (not nested in `fields` object like v1); filter `sursaud_cl_age_gene='Tous âges'` for all-age data
+- Clinical data service in `src/server/services/clinical.ts` — use `fetchClinicalIndicators()` for all diseases, `fetchClinicalIndicatorsByDisease(ids)` for specific ones
+- Odissé API v2.1 records endpoint: `${ODISSE_API_BASE}/${datasetId}/records` with pagination (limit=100, offset-based)
 ---
 
 ## 2026-02-07 - US-001
@@ -303,4 +305,22 @@ Started: Sam  7 fév 2026 18:37:38 CET
   - Rate field names: `taux_passages_grippe_sau`, `taux_passages_bronchio_sau`, `taux_passages_covid_sau`
   - Clinical data filters to `sursaud_cl_age_gene='Tous âges'` for all-age aggregate
   - Import clinical types from `@/types/clinical`, constants from `@/lib/constants`
+---
+
+## 2026-02-08 - US-017
+- Created `src/server/services/clinical.ts` with `fetchClinicalIndicators()` and `fetchClinicalIndicatorsByDisease(diseaseIds)` functions
+- `fetchSingleDisease(diseaseId)` fetches a single disease from Odissé API v2.1, handles pagination (limit=100, offset-based)
+- `fetchClinicalIndicatorsByDisease` uses `Promise.allSettled` for parallel fetching — each disease is independent; failures log console.warn and contribute empty array
+- `fetchClinicalIndicators()` is a convenience wrapper that fetches all 3 diseases
+- API filters: `sursaud_cl_age_gene='Tous âges'` for all-age aggregate, selects only `semaine` and rate field
+- Week format normalized from `YYYY-SWW` to `YYYY-WWW` (same `normalizeWeek()` as sumeau.ts)
+- Results sorted by week (lexicographic ISO week comparison)
+- Uses `REVALIDATE_INTERVAL` (6 hours) for Next.js fetch caching
+- Files created: src/server/services/clinical.ts
+- **Learnings for future iterations:**
+  - Odissé API v2.1 endpoint pattern: `${ODISSE_API_BASE}/${datasetId}/records?where=...&select=...&order_by=...&limit=100&offset=N`
+  - v2.1 response shape: `{ total_count: number, results: Record<string, unknown>[] }` — flat fields, not nested in `fields` object
+  - Pagination: API returns max 100 records per request; use `offset` parameter to fetch subsequent pages; stop when `results.length < 100` or `offset >= total_count`
+  - `Promise.allSettled` returns `{status:'fulfilled', value:...}` or `{status:'rejected', reason:...}` — iterate with index to correlate back to disease IDs
+  - Clinical service follows same patterns as sumeau.ts: Next.js fetch with revalidate, normalizeWeek, typed interfaces
 ---
