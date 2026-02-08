@@ -1,371 +1,155 @@
 {
   "project": "EauxVid",
-  "branchName": "ralph/eauxvid-dashboard",
-  "description": "French Wastewater Covid Surveillance Dashboard — mobile-friendly web app showing SARS-CoV-2 concentration trends from SUM'Eau wastewater data, with clinical surveillance overlays (Flu, RSV, COVID ER visits)",
+  "branchName": "ralph/clinical-geo-filter",
+  "description": "Add department-level geographic selector for clinical/hospitalization data, and accent-insensitive search for all comboboxes",
   "userStories": [
     {
-      "id": "US-001",
-      "title": "Scaffold Next.js project with T3 stack",
-      "description": "As a developer, I need the project scaffolded with Next.js App Router, TypeScript strict mode, Tailwind CSS v4, tRPC, and shadcn/ui so that all subsequent stories have a working foundation.",
+      "id": "US-022",
+      "title": "Add accent-insensitive search utility",
+      "description": "As a French user, I want the search to match accented characters regardless of whether I type accents, so that searching 'Herault' finds 'Hérault'.",
       "acceptanceCriteria": [
-        "Next.js app with App Router created in the repo root",
-        "TypeScript in strict mode (tsconfig.json strict: true)",
-        "Tailwind CSS v4 configured and working",
-        "tRPC set up with a root router and API route handler at /api/trpc",
-        "shadcn/ui initialized with default theme",
-        "App runs with `npm run dev` without errors",
+        "Create a `stripDiacritics(str: string): string` utility in `src/lib/utils.ts` that uses `String.prototype.normalize('NFD').replace(/[\\u0300-\\u036f]/g, '')` to strip accents",
+        "Create a `accentInsensitiveFilter(value: string, search: string): number` function in `src/lib/utils.ts` that returns 1 if the stripped-lowercase search is a substring of stripped-lowercase value, 0 otherwise",
+        "Both functions are exported from `src/lib/utils.ts`",
         "Typecheck passes"
       ],
       "priority": 1,
       "passes": true,
-      "notes": ""
+      "notes": "These utilities will be consumed by the station-select and the new department-select comboboxes."
     },
     {
-      "id": "US-002",
-      "title": "Define TypeScript types for SUM'Eau data",
-      "description": "As a developer, I need shared TypeScript types for wastewater indicator data and station metadata so that all data-handling code is type-safe.",
+      "id": "US-023",
+      "title": "Apply accent-insensitive filter to station select combobox",
+      "description": "As a user, I want the wastewater station search to match accented characters loosely, so that typing 'Beziers' finds 'BÉZIERS' and typing 'Herault' finds stations in Hérault.",
       "acceptanceCriteria": [
-        "Create src/types/wastewater.ts with types for: WastewaterIndicator (week, station ID, value, smoothed value), Station (name, commune, sandre ID, population, lat, lng), NationalAggregate",
-        "Create src/lib/constants.ts with severity colors, hex codes, percentile thresholds, and trend thresholds from the PRD",
-        "Types are exported and importable from other modules",
-        "Typecheck passes"
+        "Import `accentInsensitiveFilter` from `@/lib/utils` in `src/components/filters/station-select.tsx`",
+        "Pass the `filter` prop to the `<Command>` component: `filter={accentInsensitiveFilter}`",
+        "Searching 'beziers' or 'Beziers' matches stations whose name or commune contains 'Béziers' (or similar accented variants)",
+        "Searching 'herault' matches communes containing 'Hérault'",
+        "Existing search behavior (case-insensitive substring) is preserved for non-accented queries",
+        "Add a label above the station select: a `<label>` or heading text reading 'Stations eaux usées' styled as `text-sm font-medium text-muted-foreground` so it is visually distinct from the clinical geographic selector added later",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
       ],
       "priority": 2,
       "passes": true,
-      "notes": ""
+      "notes": "The shadcn/ui Command component accepts a `filter` prop: `(value: string, search: string) => number`. Return 1 for match, 0 for no match."
     },
     {
-      "id": "US-003",
-      "title": "Build SUM'Eau data fetching service",
-      "description": "As a developer, I need a server-side service that fetches and parses wastewater indicator data and station metadata from government APIs.",
+      "id": "US-024",
+      "title": "Add department dataset IDs to clinical constants",
+      "description": "As a developer, I need department-level Odissé dataset IDs configured alongside the existing national ones, so that the clinical service can dynamically choose which dataset to query.",
       "acceptanceCriteria": [
-        "Create src/server/services/sumeau.ts",
-        "Function fetchIndicators() fetches from data.gouv.fr CSV endpoint, parses CSV, returns typed WastewaterIndicator[]",
-        "Function fetchStations() fetches from data.gouv.fr CSV endpoint, parses CSV, returns typed Station[]",
-        "Both functions use Next.js fetch with revalidate set to 21600 (6 hours)",
-        "Fallback: if primary endpoint fails, try Odissé JSON endpoint",
+        "Add a `departmentDatasetId` field to `ClinicalDatasetMeta` in `src/types/clinical.ts` — type `string`",
+        "In `src/lib/constants.ts`, populate `departmentDatasetId` for each disease in `CLINICAL_DATASETS`: flu → `grippe-passages-aux-urgences-et-actes-sos-medecins-departement`, bronchiolitis → `bronchiolite-passages-aux-urgences-et-actes-sos-medecins-departement`, covid_clinical → `covid-19-passages-aux-urgences-et-actes-sos-medecins-departement`",
+        "Add a `FRENCH_DEPARTMENTS` constant in `src/lib/constants.ts` — a readonly array of `{ code: string; name: string }` objects for all 101 metropolitan + 5 overseas departments (from '01 Ain' through '976 Mayotte'). Use the official French department codes as strings (e.g., '2A' for Corse-du-Sud, '2B' for Haute-Corse, '971' through '976' for overseas)",
+        "Export `FRENCH_DEPARTMENTS` from constants",
         "Typecheck passes"
       ],
       "priority": 3,
-      "passes": true,
-      "notes": "Use papaparse or manual CSV parsing. The CSV endpoints are the data.gouv.fr URLs from the PRD."
+      "passes": false,
+      "notes": "The department list is static and small (~106 entries). Hardcoding is simpler and faster than an API call. The department-level datasets use the same rate field names and age filters as national ones — only the dataset ID differs, plus the `dep` field in the WHERE clause."
     },
     {
-      "id": "US-004",
-      "title": "Create tRPC wastewater router",
-      "description": "As a developer, I need tRPC procedures that expose wastewater data to the frontend.",
+      "id": "US-025",
+      "title": "Update clinical service to support department-level queries",
+      "description": "As a developer, I need the clinical data fetching service to optionally query department-level datasets with a department code filter, so that the tRPC router can serve department-scoped data.",
       "acceptanceCriteria": [
-        "Create src/server/trpc/routers/wastewater.ts",
-        "Procedure getIndicators: accepts optional stationIds string[] and dateRange {from, to}, returns filtered indicators",
-        "Procedure getStations: returns all stations with metadata",
-        "Procedure getNationalTrend: returns national aggregate time series",
-        "Router is merged into the root tRPC router",
+        "Modify `fetchSingleDisease` in `src/server/services/clinical.ts` to accept an optional `department?: string` parameter",
+        "When `department` is provided: use `meta.departmentDatasetId` instead of `meta.datasetId`, and append `AND dep='${department}'` to the existing WHERE clause (properly escaped in the URL)",
+        "When `department` is not provided: behavior is unchanged (national dataset, no dep filter)",
+        "Update `fetchClinicalIndicatorsByDisease` signature to accept optional `department?: string` and pass it through to `fetchSingleDisease`",
+        "Update `fetchClinicalIndicators` signature to accept optional `department?: string` and pass it through",
         "Typecheck passes"
       ],
       "priority": 4,
-      "passes": true,
-      "notes": ""
+      "passes": false,
+      "notes": "The Odissé API v2.1 WHERE clause for department queries should be: `sursaud_cl_age_gene='Tous âges' AND dep='44'` (or the relevant age filter for bronchiolitis). The `dep` field is a string like '44', '2A', '971', etc."
     },
     {
-      "id": "US-005",
-      "title": "Implement severity calculation logic",
-      "description": "As a developer, I need utility functions that classify wastewater values into the 5-level severity system and compute trend arrows.",
+      "id": "US-026",
+      "title": "Update clinical tRPC router to accept department parameter",
+      "description": "As a developer, I need the clinical tRPC procedure to accept an optional department code, so that the frontend can request department-scoped clinical data.",
       "acceptanceCriteria": [
-        "Create src/lib/severity.ts",
-        "Function calculateSeverityLevel(currentValue, historicalValues) returns level 1-5 based on quintile thresholds",
-        "Function calculateTrend(currentValue, twoWeeksAgoValue) returns 'increasing' | 'stable' | 'decreasing' using ±10% threshold",
-        "Function getSeverityColor(level) returns the correct hex color from constants",
-        "Unit tests for all three functions covering edge cases (empty data, boundary values)",
-        "Typecheck passes",
-        "Tests pass"
+        "Add optional `department: z.string().optional()` to the `getIndicators` input schema in `src/server/trpc/routers/clinical.ts`",
+        "Pass `input.department` to `fetchClinicalIndicatorsByDisease` or `fetchClinicalIndicators`",
+        "When `department` is undefined, behavior is unchanged (national data returned)",
+        "When `department` is e.g. '44', department-level data is returned",
+        "Typecheck passes"
       ],
       "priority": 5,
-      "passes": true,
+      "passes": false,
       "notes": ""
     },
     {
-      "id": "US-006",
-      "title": "Build app layout with header and footer",
-      "description": "As a user, I want to see a clean app shell with header (app name) and footer (data sources) so the app feels complete.",
+      "id": "US-027",
+      "title": "Create department preferences hook",
+      "description": "As a developer, I need a hook to manage the selected department for clinical data, persisted in localStorage.",
       "acceptanceCriteria": [
-        "Create src/components/layout/header.tsx with app name 'EauxVid' and subtitle",
-        "Create src/components/layout/footer.tsx with data source attribution links to SUM'Eau and Santé publique France",
-        "Root layout.tsx uses these components and sets up HTML metadata (title, description, lang='fr')",
-        "Dark/light mode toggle using shadcn/ui theme support (system default)",
-        "Layout is responsive: full-width on mobile, max-width container on desktop",
-        "Typecheck passes",
-        "Verify in browser using agent-browser CLI"
+        "Create `src/hooks/use-department-preferences.ts` with a `useDepartmentPreferences` hook",
+        "Hook returns `{ department: string | null, setDepartment: (code: string | null) => void, departmentLabel: string }` where `null` means 'France entière' (national)",
+        "Uses `useLocalStorage` with key `eauxvid:clinical-department`, default `null`",
+        "`departmentLabel` returns 'France entière' when department is null, or the department name from `FRENCH_DEPARTMENTS` when a code is selected (e.g., '44' → 'Loire-Atlantique')",
+        "Typecheck passes"
       ],
       "priority": 6,
-      "passes": true,
+      "passes": false,
       "notes": ""
     },
     {
-      "id": "US-007",
-      "title": "Build severity summary card",
-      "description": "As a user, I want to see the current national Covid wastewater level at a glance with a color-coded severity badge and trend arrow.",
+      "id": "US-028",
+      "title": "Create department select combobox component",
+      "description": "As a user, I want a dropdown to select a geographic area for clinical/hospitalization data, defaulting to national, so that I can drill down to my department.",
       "acceptanceCriteria": [
-        "Create src/components/severity/severity-badge.tsx showing colored circle with level label (Very Low/Low/Moderate/High/Very High)",
-        "Create src/components/severity/severity-summary.tsx showing national level: large badge + trend arrow + last updated date",
-        "Badge uses correct hex colors from PRD (#22c55e, #84cc16, #eab308, #f97316, #ef4444)",
-        "Trend arrow shows ↑ ↓ or → with label text",
-        "Component fetches national data via tRPC",
+        "Create `src/components/filters/department-select.tsx` using the shadcn Popover + Command combobox pattern (same as station-select)",
+        "Label above the selector reads 'Zone géographique — Urgences' styled as `text-sm font-medium text-muted-foreground`",
+        "Default display text in the button: 'France entière'",
+        "When a department is selected, the button shows e.g. '44 — Loire-Atlantique'",
+        "The combobox lists all departments from `FRENCH_DEPARTMENTS`, searchable by code and name",
+        "A first entry 'France entière' is always shown at the top and represents the national level (sets department to null)",
+        "Uses `accentInsensitiveFilter` from `@/lib/utils` for accent-insensitive search",
+        "Uses `useDepartmentPreferences` hook for state management",
         "Typecheck passes",
-        "Verify in browser using agent-browser CLI"
+        "Verify in browser using dev-browser skill"
       ],
       "priority": 7,
-      "passes": true,
-      "notes": ""
+      "passes": false,
+      "notes": "The combobox should show a check icon next to the selected item. Selecting 'France entière' clears the department selection. Use the Hospital icon from lucide-react to visually distinguish from the wastewater station select which uses MapPin."
     },
     {
-      "id": "US-008",
-      "title": "Build station multi-select filter",
-      "description": "As a user, I want to search and select up to 5 wastewater stations to display on the graph.",
+      "id": "US-029",
+      "title": "Integrate department selector into dashboard and pass to chart",
+      "description": "As a user, I want the department selection to filter the clinical overlay data on the chart, with the legend reflecting the selected geographic scope.",
       "acceptanceCriteria": [
-        "Create src/components/filters/station-select.tsx using shadcn/ui Combobox pattern",
-        "Searchable by station name or commune name",
-        "National Average is a permanent option at the top, enabled by default",
-        "Selected stations appear as removable chips/tags",
-        "Maximum 5 stations selectable (plus national)",
-        "Selection persisted in localStorage via a custom hook",
-        "On first visit only National Average is selected",
+        "Add `DepartmentSelect` to `src/app/page.tsx` in the filters section, alongside (but visually separate from) the station select",
+        "The layout should clearly group: wastewater station select on one side, department select on the other — they should not look like they control the same data",
+        "Pass `department` from `useDepartmentPreferences` to the `trpc.clinical.getIndicators` query in `src/components/chart/wastewater-chart.tsx`",
+        "When a department is selected, clinical legend labels include the department name in parentheses — e.g., 'Grippe (Loire-Atlantique)' instead of just 'Grippe'",
+        "When 'France entière' is selected, legend labels show the disease name only (current behavior, e.g., 'Grippe')",
+        "The tooltip also reflects the updated label",
         "Typecheck passes",
-        "Verify in browser using agent-browser CLI"
+        "Verify in browser using dev-browser skill"
       ],
       "priority": 8,
-      "passes": true,
-      "notes": "Create src/hooks/use-station-preferences.ts and src/hooks/use-local-storage.ts for persistence."
+      "passes": false,
+      "notes": "The `WastewaterChart` component needs access to the selected department — either via props or by calling `useDepartmentPreferences` internally. The legend label modification is in the `legendEntries` useMemo and `fullChartConfig` useMemo. The department code must be included in the tRPC query key so React Query refetches when it changes."
     },
     {
-      "id": "US-009",
-      "title": "Build date range picker",
-      "description": "As a user, I want to select a custom date range for the wastewater chart, defaulting to the last 6 months.",
+      "id": "US-030",
+      "title": "Sync department selection to URL params",
+      "description": "As a user, I want my department selection to be reflected in the URL so that I can share a link that opens the dashboard filtered to a specific department.",
       "acceptanceCriteria": [
-        "Create src/components/filters/date-range-picker.tsx using shadcn/ui DatePicker",
-        "Default range is last 6 months from today",
-        "User can select custom start and end dates",
-        "Date range persisted in localStorage",
-        "Typecheck passes",
-        "Verify in browser using agent-browser CLI"
+        "Add a `dep` URL parameter to `src/hooks/use-url-sync.ts`",
+        "When a department is selected, URL includes `dep=44` (the department code); when national is selected, `dep` param is absent or empty",
+        "On mount, if `dep` is present in URL params, it overrides the localStorage value",
+        "The `useUrlSync` options interface accepts `department: string | null` and `setDepartment: (code: string | null) => void`",
+        "`buildSearchString` includes `dep` param when department is not null",
+        "`parseDepartmentParam` validates the value is a non-empty string",
+        "Typecheck passes"
       ],
       "priority": 9,
-      "passes": true,
-      "notes": ""
-    },
-    {
-      "id": "US-010",
-      "title": "Build wastewater time-series chart",
-      "description": "As a user, I want to see an interactive line chart showing SARS-CoV-2 concentration trends over time for my selected stations.",
-      "acceptanceCriteria": [
-        "Create src/components/chart/wastewater-chart.tsx using shadcn/ui Charts (Recharts)",
-        "Smoothed trend line as solid colored line per station",
-        "Raw data points shown as dots/markers overlay",
-        "X-axis shows time (weeks), Y-axis shows normalized viral indicator",
-        "Each selected station is a separate colored line",
-        "Tooltip on hover shows exact value, date, and station name",
-        "Chart is responsive: full-width on mobile, constrained on desktop",
-        "Chart fetches data via tRPC using selected stations and date range",
-        "Typecheck passes",
-        "Verify in browser using agent-browser CLI"
-      ],
-      "priority": 10,
-      "passes": true,
-      "notes": ""
-    },
-    {
-      "id": "US-011",
-      "title": "Build chart legend component",
-      "description": "As a user, I want to see a legend identifying each line on the chart by station name and color.",
-      "acceptanceCriteria": [
-        "Create src/components/chart/chart-legend.tsx",
-        "Shows colored line swatch + station name for each selected station",
-        "Below chart on mobile, side panel on desktop",
-        "Clickable: clicking a legend item toggles that line's visibility",
-        "Typecheck passes",
-        "Verify in browser using agent-browser CLI"
-      ],
-      "priority": 11,
-      "passes": true,
-      "notes": ""
-    },
-    {
-      "id": "US-012",
-      "title": "Build France map with station markers",
-      "description": "As a user, I want to see an interactive map of France with color-coded markers for each wastewater monitoring station.",
-      "acceptanceCriteria": [
-        "Create src/components/map/france-map.tsx using React Leaflet with dynamic import (no SSR)",
-        "OpenStreetMap tiles (free, no API key)",
-        "Default view centered on mainland France showing all 54 stations",
-        "Create src/components/map/station-marker.tsx for each station marker",
-        "Marker is a circle filled with severity color + trend arrow overlay",
-        "Map is responsive: full-width on mobile, ~40% width on desktop",
-        "Typecheck passes",
-        "Verify in browser using agent-browser CLI"
-      ],
-      "priority": 12,
-      "passes": true,
-      "notes": "React Leaflet must be dynamically imported in Next.js to avoid SSR issues. Use next/dynamic with ssr: false."
-    },
-    {
-      "id": "US-013",
-      "title": "Add map station popups with 'Add to graph' action",
-      "description": "As a user, I want to click a station on the map and see its details, with an option to add it to the graph.",
-      "acceptanceCriteria": [
-        "Clicking a map marker opens a popup with: station name, commune, current severity value, trend arrow",
-        "Popup has an 'Add to graph' button that adds the station to the selected stations list",
-        "If station is already selected, button says 'Remove from graph'",
-        "If 5 stations already selected, button is disabled with tooltip explaining the limit",
-        "Typecheck passes",
-        "Verify in browser using agent-browser CLI"
-      ],
-      "priority": 13,
-      "passes": true,
-      "notes": ""
-    },
-    {
-      "id": "US-014",
-      "title": "Assemble main dashboard page with responsive layout",
-      "description": "As a user, I want the dashboard to arrange all components in the correct responsive layout from the PRD.",
-      "acceptanceCriteria": [
-        "src/app/page.tsx composes: severity summary, filters, chart, legend, map, disclaimer, footer",
-        "Mobile layout (<768px): single column, stacked vertically per PRD wireframe",
-        "Desktop layout (>=1024px): two-column with chart ~60% and map ~40% per PRD wireframe",
-        "Tablet (768-1023px): single column with larger heights",
-        "Disclaimer text from PRD Section 7.4 is visible near severity indicators",
-        "Typecheck passes",
-        "Verify in browser using agent-browser CLI"
-      ],
-      "priority": 14,
-      "passes": true,
-      "notes": ""
-    },
-    {
-      "id": "US-015",
-      "title": "Add localStorage preference persistence",
-      "description": "As a returning user, I want my selected stations, date range, and theme to be remembered between visits.",
-      "acceptanceCriteria": [
-        "src/hooks/use-local-storage.ts provides a generic typed hook for localStorage read/write",
-        "selectedStations defaults to ['national'] on first visit",
-        "dateRange defaults to last 6 months on first visit",
-        "theme defaults to 'system' on first visit",
-        "All preferences load correctly on page refresh",
-        "Typecheck passes"
-      ],
-      "priority": 15,
-      "passes": true,
-      "notes": "This may already be partially done in US-008/US-009. This story ensures full coverage and tests the persistence end-to-end."
-    },
-    {
-      "id": "US-016",
-      "title": "Define clinical surveillance types and constants",
-      "description": "As a developer, I need TypeScript types and configuration constants for clinical surveillance data (Flu, Bronchiolitis, COVID-19 ER visit rates) from Santé publique France's Odissé API so that subsequent stories have a typed foundation.",
-      "acceptanceCriteria": [
-        "Create src/types/clinical.ts with: ClinicalDiseaseId union type ('flu' | 'bronchiolitis' | 'covid_clinical'), ClinicalIndicator interface (week, diseaseId, erVisitRate), ClinicalDatasetMeta interface (id, label, datasetId, rateFieldName, color)",
-        "Add to src/lib/constants.ts: CLINICAL_DATASETS record mapping each disease ID to its Odissé dataset ID, API rate field name, French display label, and HSL line color",
-        "Add to src/lib/constants.ts: CLINICAL_DISEASE_IDS ordered array for iteration, ODISSE_API_BASE URL constant ('https://odisse.santepubliquefrance.fr/api/explore/v2.1/catalog/datasets')",
-        "Clinical colors are visually distinct from existing LINE_COLORS (6 wastewater colors): use red hsl(0,75%,55%), cyan hsl(190,80%,45%), amber hsl(45,90%,50%)",
-        "Rate field names: taux_passages_grippe_sau (flu), taux_passages_bronchio_sau (bronchiolitis), taux_passages_covid_sau (covid_clinical)",
-        "French labels: 'Grippe (urgences)', 'Bronchiolite (urgences)', 'COVID-19 (urgences)'",
-        "Typecheck passes"
-      ],
-      "priority": 16,
-      "passes": true,
-      "notes": "These types and constants are used by all subsequent clinical stories. The Odissé API v2.1 returns records with flat fields (not nested in fields object like v1). Datasets: grippe-passages-aux-urgences-et-actes-sos-medecins-france, bronchiolite-passages-aux-urgences-et-actes-sos-medecins-france, covid-19-passages-aux-urgences-et-actes-sos-medecins-france."
-    },
-    {
-      "id": "US-017",
-      "title": "Build clinical data fetching service",
-      "description": "As a developer, I need a server-side service that fetches clinical surveillance data (ER visit rates) from the Odissé API v2.1 for each disease, using Promise.allSettled for parallel fetching with isolated failure handling.",
-      "acceptanceCriteria": [
-        "Create src/server/services/clinical.ts",
-        "Function fetchClinicalIndicators() fetches all 3 diseases in parallel and returns ClinicalIndicator[] sorted by week",
-        "Function fetchClinicalIndicatorsByDisease(diseaseIds) fetches only the requested diseases",
-        "Use Promise.allSettled to fetch all diseases in parallel — each disease gets its own fetch wrapped as a promise",
-        "For each settled result: if fulfilled, include its ClinicalIndicator[]; if rejected, log a console.warn with the disease ID and error, and contribute an empty array",
-        "This ensures one API failure does not block the other diseases from returning data",
-        "API calls filter to sursaud_cl_age_gene='Tous âges' (all-age aggregate only)",
-        "Week format normalized from 'YYYY-SWW' to 'YYYY-WWW' using the same pattern as sumeau.ts normalizeWeek()",
-        "Uses REVALIDATE_INTERVAL (6 hours) for Next.js fetch caching",
-        "Odissé API v2.1 response shape: { total_count: number, results: [...] } with flat record fields (not nested in 'fields' object)",
-        "Typecheck passes"
-      ],
-      "priority": 17,
-      "passes": true,
-      "notes": "IMPORTANT: Use Promise.allSettled (NOT Promise.all). Promise.allSettled runs all fetches in parallel but never rejects — each result is either {status:'fulfilled', value:...} or {status:'rejected', reason:...}. Filter to fulfilled results and flatten. This way if e.g. the flu API is down, bronchiolitis and COVID clinical data still load. On the frontend side, wastewater and clinical data use separate tRPC queries, so a total clinical failure still lets wastewater data display normally."
-    },
-    {
-      "id": "US-018",
-      "title": "Create clinical tRPC router",
-      "description": "As a developer, I need tRPC procedures that expose clinical surveillance data to the frontend, following the same pattern as the existing wastewater router.",
-      "acceptanceCriteria": [
-        "Create src/server/trpc/routers/clinical.ts with a getIndicators procedure",
-        "getIndicators accepts optional diseaseIds (validated as enum via zod) and optional dateRange {from, to}",
-        "If diseaseIds provided, calls fetchClinicalIndicatorsByDisease; otherwise calls fetchClinicalIndicators",
-        "Date range filtering uses lexicographic ISO week string comparison (same as wastewater router)",
-        "Register clinicalRouter in src/server/trpc/router.ts as 'clinical' namespace alongside existing 'wastewater'",
-        "Typecheck passes"
-      ],
-      "priority": 18,
-      "passes": true,
-      "notes": "Follow the exact pattern of src/server/trpc/routers/wastewater.ts. The root router at src/server/trpc/router.ts just needs clinical: clinicalRouter added. AppRouter type auto-updates."
-    },
-    {
-      "id": "US-019",
-      "title": "Build clinical preferences hook and toggle UI",
-      "description": "As a user, I want toggle buttons to enable/disable clinical data overlays (Flu, Bronchiolitis, COVID-19 ER visits), with my preferences persisted across visits.",
-      "acceptanceCriteria": [
-        "Create src/hooks/use-clinical-preferences.ts using the existing useLocalStorage hook",
-        "localStorage key: 'eauxvid:clinical-overlays', default: all 3 diseases enabled",
-        "Hook returns: enabledDiseases array, toggleDisease(id), isEnabled(id)",
-        "Create src/components/filters/clinical-toggle.tsx with pill-style toggle buttons for each disease",
-        "Enabled pills show colored background (disease color), disabled pills are muted/transparent",
-        "Label 'Données cliniques :' before the pills",
-        "Mount ClinicalToggle in src/app/page.tsx between the existing filter bar and the chart/map row",
-        "Preferences persist on page reload",
-        "Typecheck passes",
-        "Verify in browser using agent-browser CLI"
-      ],
-      "priority": 19,
-      "passes": true,
-      "notes": "Reuse src/hooks/use-local-storage.ts (generic typed hook already built in US-008). Follow the same pattern as use-station-preferences.ts. Import CLINICAL_DATASETS and CLINICAL_DISEASE_IDS from constants for iteration."
-    },
-    {
-      "id": "US-020",
-      "title": "Extend chart legend with dashed line support",
-      "description": "As a user, I want the chart legend to visually distinguish wastewater lines (solid) from clinical overlay lines (dashed) so I can tell the data sources apart.",
-      "acceptanceCriteria": [
-        "Add optional 'dashed' boolean property to LegendEntry interface in src/components/chart/chart-legend.tsx",
-        "When dashed=true, render a small SVG dashed line swatch instead of the existing solid span",
-        "When dashed=false or undefined, keep the existing solid line swatch (backward compatible)",
-        "Dashed swatch uses strokeDasharray='4 2' to match the chart's dashed line style",
-        "Typecheck passes"
-      ],
-      "priority": 20,
-      "passes": true,
-      "notes": "Minimal change: just add the optional prop and conditional rendering. Existing callers are unaffected since dashed defaults to undefined/false."
-    },
-    {
-      "id": "US-021",
-      "title": "Add clinical data overlay to wastewater chart",
-      "description": "As a user, I want to see Flu, Bronchiolitis, and COVID-19 ER visit rate trends overlaid as dashed lines on the wastewater chart, using a secondary Y-axis, so I can compare clinical activity with wastewater viral concentration.",
-      "acceptanceCriteria": [
-        "Chart fetches clinical data via trpc.clinical.getIndicators.useQuery(), filtered by enabled diseases from useClinicalPreferences and current date range",
-        "Clinical data is merged into the existing chartData by week (same ChartDataPoint map), using keys like 'clinical_flu', 'clinical_bronchiolitis', 'clinical_covid_clinical'",
-        "Wastewater data displays even if clinical data fetch fails (separate useQuery hooks, independent loading)",
-        "Existing left YAxis gets yAxisId='wastewater'; all existing Line components get yAxisId='wastewater' prop",
-        "New right YAxis with yAxisId='clinical', orientation='right', label 'Passages urgences /100k'",
-        "Clinical diseases rendered as dashed Line components (strokeDasharray='6 3') bound to yAxisId='clinical'",
-        "Clinical lines use dedicated colors from CLINICAL_DATASETS (distinct from wastewater LINE_COLORS)",
-        "Legend entries include clinical diseases with dashed=true",
-        "Tooltip shows clinical values with '/100k' suffix, no raw/smoothed distinction for clinical entries",
-        "Clinical lines are toggleable via legend click (same hiddenKeys mechanism)",
-        "Right Y-axis only appears when at least one clinical disease is enabled",
-        "Typecheck passes",
-        "Verify in browser using agent-browser CLI"
-      ],
-      "priority": 21,
-      "passes": true,
-      "notes": "This is the largest change. Key files: src/components/chart/wastewater-chart.tsx. Import useClinicalPreferences from hooks, CLINICAL_DATASETS from constants. The chart uses two independent tRPC queries (wastewater + clinical) so failure of one does not affect the other. ChartContainer config must include both wastewater and clinical entries. Use fullChartConfig that merges both."
+      "passes": false,
+      "notes": "Follow the same pattern as the existing URL params (stations, clinical, from, to, hidden). The department param is a simple string, not a comma-separated list."
     }
   ]
 }
