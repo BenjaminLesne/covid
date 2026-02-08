@@ -44,6 +44,9 @@ Started: Sam  7 fév 2026 18:37:38 CET
 - Vitest uses jsdom environment (`environment: "jsdom"` in vitest.config.ts) — provides localStorage, window, DOM for React hook tests
 - React hook tests use `@testing-library/react` `renderHook` + `act` — no special mocking needed for `useSyncExternalStore` in jsdom
 - Theme persistence handled by `next-themes` automatically (localStorage key `theme`, default `'system'`)
+- Clinical types in `src/types/clinical.ts` — import `ClinicalDiseaseId`, `ClinicalIndicator`, `ClinicalDatasetMeta` from `@/types/clinical`
+- Clinical constants in `src/lib/constants.ts` — `ODISSE_API_BASE`, `CLINICAL_DISEASE_IDS`, `CLINICAL_DATASETS` record with Odissé API config per disease
+- Odissé API v2.1 returns flat record fields (not nested in `fields` object like v1); filter `sursaud_cl_age_gene='Tous âges'` for all-age data
 ---
 
 ## 2026-02-07 - US-001
@@ -285,4 +288,19 @@ Started: Sam  7 fév 2026 18:37:38 CET
   - `useSyncExternalStore` in `useLocalStorage` works transparently in jsdom — no special mocking needed
   - next-themes handles its own localStorage persistence (key `theme`) — no custom hook needed for theme
   - When a story is "ensure full coverage", focus on writing tests that prove the implementation works
+---
+
+## 2026-02-08 - US-016
+- Created `src/types/clinical.ts` with: `ClinicalDiseaseId` union type ('flu' | 'bronchiolitis' | 'covid_clinical'), `ClinicalIndicator` interface (week, diseaseId, erVisitRate), `ClinicalDatasetMeta` interface (id, label, datasetId, rateFieldName, color)
+- Added to `src/lib/constants.ts`: `ODISSE_API_BASE` URL constant, `CLINICAL_DISEASE_IDS` ordered array, `CLINICAL_DATASETS` record mapping each disease ID to its Odissé dataset ID, API rate field name, French label, and HSL color
+- Clinical colors chosen to be distinct from wastewater LINE_COLORS: red hsl(0,75%,55%), cyan hsl(190,80%,45%), amber hsl(45,90%,50%)
+- Files created: src/types/clinical.ts
+- Files modified: src/lib/constants.ts
+- **Learnings for future iterations:**
+  - Clinical types follow same patterns as wastewater types — `number | null` for optional numeric fields, ISO week strings
+  - Odissé API v2.1 base URL: `https://odisse.santepubliquefrance.fr/api/explore/v2.1/catalog/datasets`
+  - Dataset IDs are URL-slug format: `grippe-passages-aux-urgences-et-actes-sos-medecins-france`, etc.
+  - Rate field names: `taux_passages_grippe_sau`, `taux_passages_bronchio_sau`, `taux_passages_covid_sau`
+  - Clinical data filters to `sursaud_cl_age_gene='Tous âges'` for all-age aggregate
+  - Import clinical types from `@/types/clinical`, constants from `@/lib/constants`
 ---

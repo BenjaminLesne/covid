@@ -1,7 +1,7 @@
 {
   "project": "EauxVid",
   "branchName": "ralph/eauxvid-dashboard",
-  "description": "French Wastewater Covid Surveillance Dashboard — mobile-friendly web app showing SARS-CoV-2 concentration trends from SUM'Eau wastewater data",
+  "description": "French Wastewater Covid Surveillance Dashboard — mobile-friendly web app showing SARS-CoV-2 concentration trends from SUM'Eau wastewater data, with clinical surveillance overlays (Flu, RSV, COVID ER visits)",
   "userStories": [
     {
       "id": "US-001",
@@ -254,6 +254,118 @@
       "priority": 15,
       "passes": true,
       "notes": "This may already be partially done in US-008/US-009. This story ensures full coverage and tests the persistence end-to-end."
+    },
+    {
+      "id": "US-016",
+      "title": "Define clinical surveillance types and constants",
+      "description": "As a developer, I need TypeScript types and configuration constants for clinical surveillance data (Flu, Bronchiolitis, COVID-19 ER visit rates) from Santé publique France's Odissé API so that subsequent stories have a typed foundation.",
+      "acceptanceCriteria": [
+        "Create src/types/clinical.ts with: ClinicalDiseaseId union type ('flu' | 'bronchiolitis' | 'covid_clinical'), ClinicalIndicator interface (week, diseaseId, erVisitRate), ClinicalDatasetMeta interface (id, label, datasetId, rateFieldName, color)",
+        "Add to src/lib/constants.ts: CLINICAL_DATASETS record mapping each disease ID to its Odissé dataset ID, API rate field name, French display label, and HSL line color",
+        "Add to src/lib/constants.ts: CLINICAL_DISEASE_IDS ordered array for iteration, ODISSE_API_BASE URL constant ('https://odisse.santepubliquefrance.fr/api/explore/v2.1/catalog/datasets')",
+        "Clinical colors are visually distinct from existing LINE_COLORS (6 wastewater colors): use red hsl(0,75%,55%), cyan hsl(190,80%,45%), amber hsl(45,90%,50%)",
+        "Rate field names: taux_passages_grippe_sau (flu), taux_passages_bronchio_sau (bronchiolitis), taux_passages_covid_sau (covid_clinical)",
+        "French labels: 'Grippe (urgences)', 'Bronchiolite (urgences)', 'COVID-19 (urgences)'",
+        "Typecheck passes"
+      ],
+      "priority": 16,
+      "passes": true,
+      "notes": "These types and constants are used by all subsequent clinical stories. The Odissé API v2.1 returns records with flat fields (not nested in fields object like v1). Datasets: grippe-passages-aux-urgences-et-actes-sos-medecins-france, bronchiolite-passages-aux-urgences-et-actes-sos-medecins-france, covid-19-passages-aux-urgences-et-actes-sos-medecins-france."
+    },
+    {
+      "id": "US-017",
+      "title": "Build clinical data fetching service",
+      "description": "As a developer, I need a server-side service that fetches clinical surveillance data (ER visit rates) from the Odissé API v2.1 for each disease, using Promise.allSettled for parallel fetching with isolated failure handling.",
+      "acceptanceCriteria": [
+        "Create src/server/services/clinical.ts",
+        "Function fetchClinicalIndicators() fetches all 3 diseases in parallel and returns ClinicalIndicator[] sorted by week",
+        "Function fetchClinicalIndicatorsByDisease(diseaseIds) fetches only the requested diseases",
+        "Use Promise.allSettled to fetch all diseases in parallel — each disease gets its own fetch wrapped as a promise",
+        "For each settled result: if fulfilled, include its ClinicalIndicator[]; if rejected, log a console.warn with the disease ID and error, and contribute an empty array",
+        "This ensures one API failure does not block the other diseases from returning data",
+        "API calls filter to sursaud_cl_age_gene='Tous âges' (all-age aggregate only)",
+        "Week format normalized from 'YYYY-SWW' to 'YYYY-WWW' using the same pattern as sumeau.ts normalizeWeek()",
+        "Uses REVALIDATE_INTERVAL (6 hours) for Next.js fetch caching",
+        "Odissé API v2.1 response shape: { total_count: number, results: [...] } with flat record fields (not nested in 'fields' object)",
+        "Typecheck passes"
+      ],
+      "priority": 17,
+      "passes": false,
+      "notes": "IMPORTANT: Use Promise.allSettled (NOT Promise.all). Promise.allSettled runs all fetches in parallel but never rejects — each result is either {status:'fulfilled', value:...} or {status:'rejected', reason:...}. Filter to fulfilled results and flatten. This way if e.g. the flu API is down, bronchiolitis and COVID clinical data still load. On the frontend side, wastewater and clinical data use separate tRPC queries, so a total clinical failure still lets wastewater data display normally."
+    },
+    {
+      "id": "US-018",
+      "title": "Create clinical tRPC router",
+      "description": "As a developer, I need tRPC procedures that expose clinical surveillance data to the frontend, following the same pattern as the existing wastewater router.",
+      "acceptanceCriteria": [
+        "Create src/server/trpc/routers/clinical.ts with a getIndicators procedure",
+        "getIndicators accepts optional diseaseIds (validated as enum via zod) and optional dateRange {from, to}",
+        "If diseaseIds provided, calls fetchClinicalIndicatorsByDisease; otherwise calls fetchClinicalIndicators",
+        "Date range filtering uses lexicographic ISO week string comparison (same as wastewater router)",
+        "Register clinicalRouter in src/server/trpc/router.ts as 'clinical' namespace alongside existing 'wastewater'",
+        "Typecheck passes"
+      ],
+      "priority": 18,
+      "passes": false,
+      "notes": "Follow the exact pattern of src/server/trpc/routers/wastewater.ts. The root router at src/server/trpc/router.ts just needs clinical: clinicalRouter added. AppRouter type auto-updates."
+    },
+    {
+      "id": "US-019",
+      "title": "Build clinical preferences hook and toggle UI",
+      "description": "As a user, I want toggle buttons to enable/disable clinical data overlays (Flu, Bronchiolitis, COVID-19 ER visits), with my preferences persisted across visits.",
+      "acceptanceCriteria": [
+        "Create src/hooks/use-clinical-preferences.ts using the existing useLocalStorage hook",
+        "localStorage key: 'eauxvid:clinical-overlays', default: all 3 diseases enabled",
+        "Hook returns: enabledDiseases array, toggleDisease(id), isEnabled(id)",
+        "Create src/components/filters/clinical-toggle.tsx with pill-style toggle buttons for each disease",
+        "Enabled pills show colored background (disease color), disabled pills are muted/transparent",
+        "Label 'Données cliniques :' before the pills",
+        "Mount ClinicalToggle in src/app/page.tsx between the existing filter bar and the chart/map row",
+        "Preferences persist on page reload",
+        "Typecheck passes",
+        "Verify in browser using agent-browser CLI"
+      ],
+      "priority": 19,
+      "passes": false,
+      "notes": "Reuse src/hooks/use-local-storage.ts (generic typed hook already built in US-008). Follow the same pattern as use-station-preferences.ts. Import CLINICAL_DATASETS and CLINICAL_DISEASE_IDS from constants for iteration."
+    },
+    {
+      "id": "US-020",
+      "title": "Extend chart legend with dashed line support",
+      "description": "As a user, I want the chart legend to visually distinguish wastewater lines (solid) from clinical overlay lines (dashed) so I can tell the data sources apart.",
+      "acceptanceCriteria": [
+        "Add optional 'dashed' boolean property to LegendEntry interface in src/components/chart/chart-legend.tsx",
+        "When dashed=true, render a small SVG dashed line swatch instead of the existing solid span",
+        "When dashed=false or undefined, keep the existing solid line swatch (backward compatible)",
+        "Dashed swatch uses strokeDasharray='4 2' to match the chart's dashed line style",
+        "Typecheck passes"
+      ],
+      "priority": 20,
+      "passes": false,
+      "notes": "Minimal change: just add the optional prop and conditional rendering. Existing callers are unaffected since dashed defaults to undefined/false."
+    },
+    {
+      "id": "US-021",
+      "title": "Add clinical data overlay to wastewater chart",
+      "description": "As a user, I want to see Flu, Bronchiolitis, and COVID-19 ER visit rate trends overlaid as dashed lines on the wastewater chart, using a secondary Y-axis, so I can compare clinical activity with wastewater viral concentration.",
+      "acceptanceCriteria": [
+        "Chart fetches clinical data via trpc.clinical.getIndicators.useQuery(), filtered by enabled diseases from useClinicalPreferences and current date range",
+        "Clinical data is merged into the existing chartData by week (same ChartDataPoint map), using keys like 'clinical_flu', 'clinical_bronchiolitis', 'clinical_covid_clinical'",
+        "Wastewater data displays even if clinical data fetch fails (separate useQuery hooks, independent loading)",
+        "Existing left YAxis gets yAxisId='wastewater'; all existing Line components get yAxisId='wastewater' prop",
+        "New right YAxis with yAxisId='clinical', orientation='right', label 'Passages urgences /100k'",
+        "Clinical diseases rendered as dashed Line components (strokeDasharray='6 3') bound to yAxisId='clinical'",
+        "Clinical lines use dedicated colors from CLINICAL_DATASETS (distinct from wastewater LINE_COLORS)",
+        "Legend entries include clinical diseases with dashed=true",
+        "Tooltip shows clinical values with '/100k' suffix, no raw/smoothed distinction for clinical entries",
+        "Clinical lines are toggleable via legend click (same hiddenKeys mechanism)",
+        "Right Y-axis only appears when at least one clinical disease is enabled",
+        "Typecheck passes",
+        "Verify in browser using agent-browser CLI"
+      ],
+      "priority": 21,
+      "passes": false,
+      "notes": "This is the largest change. Key files: src/components/chart/wastewater-chart.tsx. Import useClinicalPreferences from hooks, CLINICAL_DATASETS from constants. The chart uses two independent tRPC queries (wastewater + clinical) so failure of one does not affect the other. ChartContainer config must include both wastewater and clinical entries. Use fullChartConfig that merges both."
     }
   ]
 }
