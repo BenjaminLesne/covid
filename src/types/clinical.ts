@@ -28,6 +28,8 @@ export interface ClinicalDatasetMeta {
   datasetId: string;
   /** Field name containing the ER visit rate in the API response */
   rateFieldName: string;
+  /** Odissé dataset ID for department-level API requests */
+  departmentDatasetId: string;
   /** HSL color string for chart rendering */
   color: string;
   /** Age group filter value for the Odissé API query */
