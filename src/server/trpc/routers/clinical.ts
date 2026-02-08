@@ -21,6 +21,7 @@ export const clinicalRouter = router({
       z
         .object({
           diseaseIds: z.array(clinicalDiseaseIdEnum).optional(),
+          department: z.string().optional(),
           dateRange: z
             .object({
               from: z.string(),
@@ -31,11 +32,13 @@ export const clinicalRouter = router({
         .optional()
     )
     .query(async ({ input }) => {
+      const department = input?.department;
       let indicators = input?.diseaseIds && input.diseaseIds.length > 0
         ? await fetchClinicalIndicatorsByDisease(
-            input.diseaseIds as ClinicalDiseaseId[]
+            input.diseaseIds as ClinicalDiseaseId[],
+            department
           )
-        : await fetchClinicalIndicators();
+        : await fetchClinicalIndicators(department);
 
       // Filter by date range if provided (lexicographic ISO week comparison)
       if (input?.dateRange) {

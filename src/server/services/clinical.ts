@@ -44,15 +44,24 @@ interface OdisseV2Response {
 
 /**
  * Fetch clinical indicators for a single disease from the Odissé API v2.1.
+ * When `department` is provided, queries the department-level dataset with a
+ * `dep` filter instead of the national dataset.
  */
 async function fetchSingleDisease(
-  diseaseId: ClinicalDiseaseId
+  diseaseId: ClinicalDiseaseId,
+  department?: string
 ): Promise<ClinicalIndicator[]> {
   const meta = CLINICAL_DATASETS[diseaseId];
 
+  // Use department-level dataset when a department code is provided
+  const datasetId = department ? meta.departmentDatasetId : meta.datasetId;
+
   // Build the API URL with query parameters
-  const url = new URL(`${ODISSE_API_BASE}/${meta.datasetId}/records`);
-  url.searchParams.set("where", `sursaud_cl_age_gene='${meta.ageFilter}'`);
+  const url = new URL(`${ODISSE_API_BASE}/${datasetId}/records`);
+  const whereClause = department
+    ? `sursaud_cl_age_gene='${meta.ageFilter}' AND dep='${department}'`
+    : `sursaud_cl_age_gene='${meta.ageFilter}'`;
+  url.searchParams.set("where", whereClause);
   url.searchParams.set("select", `semaine,${meta.rateFieldName}`);
   url.searchParams.set("order_by", "semaine ASC");
   url.searchParams.set("limit", "100");
@@ -113,8 +122,10 @@ async function fetchSingleDisease(
  *
  * Returns ClinicalIndicator[] sorted by week.
  */
-export async function fetchClinicalIndicators(): Promise<ClinicalIndicator[]> {
-  return fetchClinicalIndicatorsByDisease([...CLINICAL_DISEASE_IDS]);
+export async function fetchClinicalIndicators(
+  department?: string
+): Promise<ClinicalIndicator[]> {
+  return fetchClinicalIndicatorsByDisease([...CLINICAL_DISEASE_IDS], department);
 }
 
 /**
@@ -127,10 +138,11 @@ export async function fetchClinicalIndicators(): Promise<ClinicalIndicator[]> {
  * Returns ClinicalIndicator[] sorted by week.
  */
 export async function fetchClinicalIndicatorsByDisease(
-  diseaseIds: ClinicalDiseaseId[]
+  diseaseIds: ClinicalDiseaseId[],
+  department?: string
 ): Promise<ClinicalIndicator[]> {
   const results = await Promise.allSettled(
-    diseaseIds.map((id) => fetchSingleDisease(id))
+    diseaseIds.map((id) => fetchSingleDisease(id, department))
   );
 
   const indicators: ClinicalIndicator[] = [];

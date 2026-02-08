@@ -1,5 +1,5 @@
 # Ralph Progress Log
-Started: Sam  7 fév 2026 18:37:38 CET
+Started: Sat  8 Feb 2026
 
 ## Codebase Patterns
 - Project uses Next.js 15 App Router with TypeScript strict mode (downgraded from 16 due to bundled React canary version mismatch)
@@ -11,39 +11,6 @@ Started: Sam  7 fév 2026 18:37:38 CET
 - Shared types in `src/types/wastewater.ts` — import `SeverityLevel`, `TrendDirection`, etc. from `@/types/wastewater`
 - Constants (colors, thresholds, URLs) in `src/lib/constants.ts` — import from `@/lib/constants`
 - Data fetching service in `src/server/services/sumeau.ts` — use `fetchIndicators()` and `fetchStations()` for server-side data access
-- CSV uses wide format (station names as columns), semicolon delimiter, French decimal separator (comma)
-- Indicators CSV week column `semaine` uses `YYYY-SWW` format — normalized to `YYYY-WWW` (ISO week)
-- `NA` in CSV = null value; JSON fallback has proper nulls (missing fields)
-- JSON fallback station names are snake_cased; CSV station names are original display names
-- Vitest configured in `vitest.config.ts` with `@/` path alias; test script is `npm run test`
-- Severity functions in `src/lib/severity.ts` — import `calculateSeverityLevel`, `calculateTrend`, `getSeverityColor`
-- Dark/light mode: `next-themes` ThemeProvider wraps app in `src/components/providers.tsx`; toggle in `src/components/layout/theme-toggle.tsx`
-- Layout components in `src/components/layout/` — header.tsx, footer.tsx, theme-toggle.tsx
-- Root layout uses `suppressHydrationWarning` on `<html>` for next-themes compatibility
-- shadcn/ui button component at `src/components/ui/button.tsx`
-- shadcn/ui card, badge, skeleton components in `src/components/ui/`
-- Severity components in `src/components/severity/` — severity-badge.tsx, severity-summary.tsx
-- SeveritySummary fetches national trend via tRPC, computes severity level + trend, displays in Card
-- Hooks in `src/hooks/` — `use-local-storage.ts` (generic typed localStorage), `use-station-preferences.ts` (station selection state with max 5 limit)
-- Station select combobox in `src/components/filters/station-select.tsx` — uses shadcn/ui Popover + Command (cmdk) pattern
-- shadcn/ui popover, command, dialog components in `src/components/ui/`
-- Station IDs use SANDRE identifiers from `Station.sandreId`; national uses `NATIONAL_STATION_ID` constant ("national")
-- localStorage keys prefixed with `eauxvid:` (e.g. `eauxvid:selected-stations`, `eauxvid:date-range`)
-- Date range hook in `src/hooks/use-date-range.ts` — provides `fromDate`, `toDate`, `setRange`, `reset`
-- Date range picker in `src/components/filters/date-range-picker.tsx` — Popover + Calendar (react-day-picker range mode)
-- shadcn/ui calendar component in `src/components/ui/calendar.tsx` — wraps react-day-picker
-- `useLocalStorage` uses `useSyncExternalStore` for SSR-safe client detection (no setState in useEffect)
-- Chart legend in `src/components/chart/chart-legend.tsx` — accepts `LegendEntry[]`, `hiddenKeys: Set<string>`, `onToggle` callback
-- Recharts `Line` `hide` prop toggles line visibility without removing from DOM — use for legend toggle functionality
-- Chart + legend layout: `flex-col` on mobile (legend below), `lg:flex-row` on desktop (legend as side panel)
-- React Leaflet must use `next/dynamic` with `ssr: false` — inner map component imports `leaflet/dist/leaflet.css`
-- Map components in `src/components/map/` — france-map.tsx (dynamic wrapper), france-map-inner.tsx (actual map), station-marker.tsx
-- CircleMarker is preferable to Marker for Leaflet in Next.js — no PNG icon assets needed
-- France mainland center: [46.6, 2.5] at zoom 6 fits all 54 stations
-- Dashboard layout: `flex-col` + `lg:flex-row` for two-column desktop, `lg:w-3/5` / `lg:w-2/5` for ~60/40 split; always add `min-w-0` on flex children
-- Vitest uses jsdom environment (`environment: "jsdom"` in vitest.config.ts) — provides localStorage, window, DOM for React hook tests
-- React hook tests use `@testing-library/react` `renderHook` + `act` — no special mocking needed for `useSyncExternalStore` in jsdom
-- Theme persistence handled by `next-themes` automatically (localStorage key `theme`, default `'system'`)
 - Clinical types in `src/types/clinical.ts` — import `ClinicalDiseaseId`, `ClinicalIndicator`, `ClinicalDatasetMeta` from `@/types/clinical`
 - Clinical constants in `src/lib/constants.ts` — `ODISSE_API_BASE`, `CLINICAL_DISEASE_IDS`, `CLINICAL_DATASETS` record with Odissé API config per disease
 - Odissé API v2.1 returns flat record fields (not nested in `fields` object like v1); filter `sursaud_cl_age_gene='Tous âges'` for all-age data
@@ -51,349 +18,118 @@ Started: Sam  7 fév 2026 18:37:38 CET
 - Odissé API v2.1 records endpoint: `${ODISSE_API_BASE}/${datasetId}/records` with pagination (limit=100, offset-based)
 - Clinical tRPC router in `src/server/trpc/routers/clinical.ts` — `getIndicators` procedure with optional diseaseIds + dateRange filters
 - `CLINICAL_DISEASE_IDS` readonly array needs `as unknown as [string, ...string[]]` cast for `z.enum()` which requires a non-empty tuple type
-- Clinical preferences hook in `src/hooks/use-clinical-preferences.ts` — `enabledDiseases`, `toggleDisease(id)`, `isEnabled(id)` with localStorage key `eauxvid:clinical-overlays`
-- Clinical toggle UI in `src/components/filters/clinical-toggle.tsx` — pill buttons iterating `CLINICAL_DISEASE_IDS`, colors from `CLINICAL_DATASETS`
-- Recharts dual Y-axis: every `Line` `yAxisId` must have a matching `YAxis` rendered, even if the line has `hide=true` — use `hide` prop on the axis itself instead of conditional rendering
-- Clinical overlay keys in chart data: `clinical_${diseaseId}` (e.g. `clinical_flu`, `clinical_bronchiolitis`, `clinical_covid_clinical`)
----
-
-## 2026-02-07 - US-001
-- Scaffolded Next.js 16 project with App Router, TypeScript strict, Tailwind CSS v4
-- Set up tRPC v11 with root router, wastewater sub-router (ping placeholder), and fetch adapter API route
-- Initialized shadcn/ui with default theme
-- Created tRPC + React Query provider component
-- Updated root layout with French lang, EauxVid metadata
-- Files created: package.json, tsconfig.json, src/app/layout.tsx, src/app/page.tsx, src/server/trpc/init.ts, src/server/trpc/router.ts, src/server/trpc/routers/wastewater.ts, src/app/api/trpc/[trpc]/route.ts, src/components/providers.tsx, src/lib/trpc.ts, src/lib/utils.ts, components.json, globals.css
-- **Learnings for future iterations:**
-  - create-next-app v16 prompts for React Compiler (answer N to skip)
-  - create-next-app won't run in a directory with existing files — scaffold in temp dir then rsync
-  - shadcn/ui `init -d` picks sensible defaults (New York style, neutral colors)
-  - Tailwind CSS v4 uses `@import "tailwindcss"` instead of v3 `@tailwind` directives
----
-
-## 2026-02-07 - US-002
-- Created `src/types/wastewater.ts` with typed interfaces: WastewaterIndicator, Station, NationalAggregate, SeverityLevel, TrendDirection, SeverityClassification
-- Created `src/lib/constants.ts` with: SEVERITY_LEVELS (colors + labels), PERCENTILE_THRESHOLDS, TREND_THRESHOLD, REVALIDATE_INTERVAL, MAX_SELECTED_STATIONS, NATIONAL_STATION_ID, DATA_URLS, DEFAULT_DATE_RANGE_MONTHS
-- Files created: src/types/wastewater.ts, src/lib/constants.ts
-- **Learnings for future iterations:**
-  - Types use `number | null` for indicator values since some weeks may have missing data
-  - `SeverityLevel` is a union type `1 | 2 | 3 | 4 | 5` (not a plain number) for type safety
-  - `SEVERITY_LEVELS` uses `as const satisfies Record<...>` pattern for strict typing with autocomplete
-  - Station IDs use the SANDRE identifier system; national aggregate uses the special ID "national"
----
-
-## 2026-02-07 - US-003
-- Created `src/server/services/sumeau.ts` with `fetchIndicators()` and `fetchStations()` functions
-- Installed papaparse + @types/papaparse for CSV parsing
-- Primary: data.gouv.fr CSV endpoints (semicolon-delimited, wide format for indicators)
-- Fallback: Odissé JSON endpoints (snake_cased station names, proper floats)
-- Handles French number locale (comma → dot), NA → null, week format normalization (YYYY-SWW → YYYY-WWW)
-- Both functions use Next.js fetch with `revalidate: 21600` (6 hours)
-- Files created: src/server/services/sumeau.ts
-- Files modified: package.json, package-lock.json
-- **Learnings for future iterations:**
-  - Indicators CSV is wide format — each station is a column, rows are weeks. Need to pivot to long format for WastewaterIndicator[]
-  - CSV uses semicolons as delimiters (French CSV convention), not commas
-  - French number format uses comma as decimal separator — must replace with dot before parsing
-  - `National_12` (original 12 stations) and `National_54` (all 54 stations) are national aggregate columns
-  - Odissé JSON has `date_complet` field (Monday of the week) not present in CSV — useful if ISO date needed
-  - JSON fallback wraps data in `{ datasetid, recordid, fields: {...}, record_timestamp }` envelope
-  - Station names in CSV indicators are display names (e.g. "PARIS SEINE-CENTRE"), in JSON they're snake_cased (e.g. "paris_seine_centre")
-- tRPC procedures go in `src/server/trpc/routers/wastewater.ts` — use zod v4 for input validation
-- National aggregate column in indicators data is `National_54` (all 54 stations)
-- Week strings are ISO-week format (e.g. "2024-W03") — string comparison works for date range filtering
----
-
-## 2026-02-07 - US-004
-- Created tRPC wastewater router with three procedures: getIndicators, getStations, getNationalTrend
-- getIndicators: accepts optional stationIds string[] and dateRange {from, to}, filters indicators from fetchIndicators()
-- getStations: returns all stations from fetchStations()
-- getNationalTrend: extracts National_54 column from indicators, returns sorted NationalAggregate[]
-- Used zod v4 for input validation schemas
-- Router was already merged into root router from US-001 scaffold
-- Files modified: src/server/trpc/routers/wastewater.ts
-- **Learnings for future iterations:**
-  - The wastewater router was already scaffolded with a placeholder `ping` procedure in US-001 — just needed to replace it
-  - Root router (`src/server/trpc/router.ts`) already imports and merges the wastewater router — no changes needed there
-  - National aggregate uses column name `National_54` in the indicators data (not the `NATIONAL_STATION_ID` constant "national")
-  - ISO week strings (YYYY-WWW) sort lexicographically, so string comparison works for date range filtering
-  - zod v4 API is compatible with zod v3 for basic schemas (z.object, z.string, z.array, z.optional)
----
-
-## 2026-02-07 - US-005
-- Created `src/lib/severity.ts` with three functions:
-  - `calculateSeverityLevel(currentValue, historicalValues)` — quintile-based classification returning SeverityLevel 1–5
-  - `calculateTrend(currentValue, twoWeeksAgoValue)` — ±10% threshold comparison returning TrendDirection
-  - `getSeverityColor(level)` — maps SeverityLevel to hex color from SEVERITY_LEVELS constant
-- Set up Vitest test framework: installed vitest, created `vitest.config.ts` with `@/` path alias, added `npm run test` script
-- Created `src/lib/severity.test.ts` with 25 unit tests covering all functions and edge cases
-- Files created: src/lib/severity.ts, src/lib/severity.test.ts, vitest.config.ts
-- Files modified: package.json, package-lock.json
-- **Learnings for future iterations:**
-  - Vitest v4 works out of the box with TypeScript — no extra config needed beyond path aliases
-  - Percentile calculation uses linear interpolation between sorted values for non-integer indices
-  - For severity: null currentValue → level 3 (Moderate), empty historical → level 3 (safe default)
-  - For trend: null values → "stable" (safe default), zero baseline handled specially to avoid division by zero
-  - Trend uses `Math.abs(twoWeeksAgoValue)` as denominator to handle negative values correctly
----
-
-## 2026-02-07 - US-006
-- Created `src/components/layout/header.tsx` with app name "EauxVid", Droplets icon, subtitle (hidden on mobile)
-- Created `src/components/layout/footer.tsx` with data source attribution links to SUM'Eau and Santé publique France
-- Created `src/components/layout/theme-toggle.tsx` with Sun/Moon icon toggle using next-themes
-- Created `src/components/theme-provider.tsx` wrapping next-themes ThemeProvider (attribute="class", defaultTheme="system")
-- Updated `src/app/layout.tsx` with responsive container (max-w-7xl), flex column layout, header/main/footer structure
-- Updated `src/components/providers.tsx` to include ThemeProvider wrapping tRPC/React Query providers
-- Added shadcn button component and next-themes dependency
-- Files created: src/components/layout/header.tsx, src/components/layout/footer.tsx, src/components/layout/theme-toggle.tsx, src/components/theme-provider.tsx, src/components/ui/button.tsx
-- Files modified: src/app/layout.tsx, src/app/page.tsx, src/components/providers.tsx, package.json, package-lock.json
-- **Learnings for future iterations:**
-  - next-themes requires `suppressHydrationWarning` on `<html>` element to avoid React hydration mismatch warnings
-  - next-themes `attribute="class"` works with shadcn/ui's `.dark` class-based theming out of the box
-  - Theme toggle uses `resolvedTheme` (not `theme`) to get the actual applied theme when system preference is active
-  - Header subtitle hidden on mobile with `hidden sm:block` — keeps header compact on small screens
-  - Layout uses `flex min-h-screen flex-col` on a wrapper div so footer is pushed to the bottom
----
-
-## 2026-02-07 - US-007
-- Created `src/components/severity/severity-badge.tsx` — color-coded circle + severity label (Very Low/Low/Moderate/High/Very High)
-- Created `src/components/severity/severity-summary.tsx` — national level card with large badge, trend arrow (↑↓→), last updated date
-- SeveritySummary fetches national trend data via tRPC `getNationalTrend`, computes severity using `calculateSeverityLevel` and trend using `calculateTrend`
-- Added shadcn/ui card, badge, skeleton components
-- Updated `src/app/page.tsx` to include SeveritySummary as first dashboard component
-- Downgraded Next.js from 16.1.6 to 15.5.12 to fix React canary version mismatch (react 19.3.0-canary vs react-dom 19.2.0-canary bundled internally)
-- Verified in browser: card displays "Low" severity (green), "En baisse" trend, "Semaine 2, 2026" date
-- Files created: src/components/severity/severity-badge.tsx, src/components/severity/severity-summary.tsx, src/components/ui/card.tsx, src/components/ui/badge.tsx, src/components/ui/skeleton.tsx
-- Files modified: src/app/page.tsx, package.json, package-lock.json, tasks/prd.json
-- **Learnings for future iterations:**
-  - Next.js 16 has a React canary version mismatch bug — bundled react (19.3.0-canary) and react-dom (19.2.0-canary) don't match, preventing client-side hydration entirely. Downgrade to Next.js 15 to fix.
-  - Loading states are important for tRPC queries — use shadcn Skeleton components for loading UI
-  - National trend data is sorted chronologically by week — latest entry is `array[length-1]`, two weeks ago is `array[length-3]`
-  - French UI labels: "En hausse" (increasing), "Stable" (stable), "En baisse" (decreasing), "Niveau national" (national level)
-  - Week format `YYYY-WNN` can be parsed with regex to display "Semaine N, YYYY" in French
----
-
-## 2026-02-07 - US-008
-- Created `src/hooks/use-local-storage.ts` — generic typed hook for localStorage read/write with SSR safety and hydration handling
-- Created `src/hooks/use-station-preferences.ts` — manages selected station IDs with national always included, max 5 limit, add/remove/toggle
-- Added shadcn/ui popover, command, and dialog components
-- Created `src/components/filters/station-select.tsx` — searchable multi-select combobox using Popover + Command (cmdk) pattern
-- Combobox searches by station name and commune name, shows checkmarks for selected items
-- National average shown as permanent disabled option with "toujours actif" label
-- Selected stations shown as removable Badge chips below the combobox
-- Updated `src/app/page.tsx` to include StationSelect
-- Verified in browser: search, select, remove, localStorage persistence across reload all working
-- Files created: src/hooks/use-local-storage.ts, src/hooks/use-station-preferences.ts, src/components/filters/station-select.tsx, src/components/ui/popover.tsx, src/components/ui/command.tsx, src/components/ui/dialog.tsx
-- Files modified: src/app/page.tsx, package.json, package-lock.json
-- **Learnings for future iterations:**
-  - shadcn/ui combobox pattern uses Popover + Command (from cmdk library) — not a built-in component
-  - `npx shadcn@latest add popover command` installs dialog as a dependency of command
-  - cmdk CommandInput has built-in search filtering that matches against CommandItem `value` prop — set value to `"name commune"` for multi-field search
-  - useLocalStorage hook needs hydration awareness — return defaultValue until `useEffect` runs to avoid SSR/client mismatch
-  - Station SANDRE IDs are the canonical identifiers; station `name` is the display name (e.g. "PARIS MARNE AVAL")
-  - French UI: "Ajouter une station" (add), "sélectionnée(s)" (selected), "Rechercher par nom ou commune" (search), "Aucune station trouvée" (no results)
-  - Popover width matches trigger with `w-[var(--radix-popover-trigger-width)]`
+- Hooks in `src/hooks/` — `use-local-storage.ts` (generic typed localStorage), `use-station-preferences.ts` (station selection state with max 5 limit)
+- Station select combobox in `src/components/filters/station-select.tsx` — uses shadcn/ui Popover + Command (cmdk) pattern
 - `useSyncExternalStore` can detect client vs server without useEffect — avoids React lint warning about setState in effects
-- shadcn/ui calendar uses `react-day-picker` — supports `mode="range"` for date range selection with `numberOfMonths={2}` for dual-month view
-- Date range hook in `src/hooks/use-date-range.ts` — uses `useLocalStorage` with `eauxvid:date-range` key
-- Date range picker in `src/components/filters/date-range-picker.tsx` — uses Popover + Calendar (react-day-picker range mode)
+- shadcn/ui combobox pattern uses Popover + Command (from cmdk library) — not a built-in component
+- Clinical preferences hook in `src/hooks/use-clinical-preferences.ts` — `enabledDiseases`, `toggleDisease(id)`, `isEnabled(id)` with localStorage key `eauxvid:clinical-overlays`
+- Recharts dual Y-axis: every `Line` `yAxisId` must have a matching `YAxis` rendered, even if the line has `hide=true` — use `hide` prop on the axis itself instead of conditional rendering
+- URL state sync in `src/hooks/use-url-sync.ts` — params: from, to, stations, clinical, hidden
+- localStorage keys prefixed with `eauxvid:` (e.g. `eauxvid:selected-stations`, `eauxvid:date-range`, `eauxvid:clinical-overlays`)
+- Department-level Odissé datasets use suffix `-departement` instead of `-france`, same rate fields, add WHERE `dep='XX'` to filter
+- Vitest configured in `vitest.config.ts` with `@/` path alias; test script is `npm run test`
+- `stripDiacritics` and `accentInsensitiveFilter` utilities in `src/lib/utils.ts` for accent-insensitive search
 ---
 
-## 2026-02-07 - US-009
-- Created `src/hooks/use-date-range.ts` — manages date range with localStorage persistence via `useLocalStorage` hook
-- Created `src/components/filters/date-range-picker.tsx` — dual-month calendar popover with range selection using shadcn/ui Calendar + Popover
-- Added shadcn/ui calendar component (installs `react-day-picker` dependency)
-- Default range is last 6 months from today (uses `DEFAULT_DATE_RANGE_MONTHS` from constants)
-- Calendar uses `captionLayout="dropdown"` for month/year navigation, `disabled={{ after: new Date() }}` to prevent future dates
-- Reset button (RotateCcw icon) resets to default 6-month range
-- French date formatting via `toLocaleDateString("fr-FR")` — displays "7 août 2025 — 7 févr. 2026" style
-- Updated `src/app/page.tsx` to include DateRangePicker alongside StationSelect in a responsive flex layout
-- Fixed pre-existing lint error in `use-local-storage.ts`: replaced `useState+useEffect` hydration pattern with `useSyncExternalStore` to avoid React lint warning about setState in effects
-- Verified in browser: calendar opens, range selection works, dates display correctly in French, no console errors
-- Files created: src/hooks/use-date-range.ts, src/components/filters/date-range-picker.tsx, src/components/ui/calendar.tsx
-- Files modified: src/app/page.tsx, src/hooks/use-local-storage.ts, package.json, package-lock.json
+## 2026-02-08 - US-022
+- Implemented `stripDiacritics(str)` and `accentInsensitiveFilter(value, search)` in `src/lib/utils.ts`
+- `stripDiacritics` uses `String.normalize('NFD')` + regex to strip combining diacritical marks
+- `accentInsensitiveFilter` returns 1/0 for cmdk Command filter prop compatibility
+- Files changed: `src/lib/utils.ts`
 - **Learnings for future iterations:**
-  - shadcn/ui Calendar component wraps `react-day-picker` — use `mode="range"` with `onSelect` receiving `DateRange | undefined`
-  - `react-day-picker` DateRange type: `{ from?: Date; to?: Date }` — both optional during selection
-  - `captionLayout="dropdown"` enables month/year dropdown navigation; `startMonth`/`endMonth` control dropdown range
-  - `useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot)` is the React-approved way to detect client vs server — returns server snapshot during SSR, client snapshot after hydration
-  - The subscribe function for static values (like isClient) can be a no-op that returns a cleanup function
-  - `numberOfMonths={2}` shows two months side by side; responsive on desktop, may need adjustment on mobile
-  - Date stored as ISO string (YYYY-MM-DD) in localStorage for JSON serialization; parsed to Date objects in the hook
+  - The shadcn/ui Command filter prop expects `(value: string, search: string) => number` — return 1 for match, 0 for no match
+  - NFD normalization separates base characters from combining marks, making it easy to strip accents with a single regex
 ---
 
-## 2026-02-07 - US-011
-- Created `src/components/chart/chart-legend.tsx` — standalone legend component with clickable entries to toggle line visibility
-- Updated `src/components/chart/wastewater-chart.tsx` to integrate legend alongside chart with responsive layout
-- Legend entries show colored line swatch + station name; clicking toggles line visibility (dimmed when hidden)
-- Layout: below chart on mobile (`flex-col`), side panel on desktop (`lg:flex-row`)
-- Recharts `Line` component `hide` prop used to toggle line visibility without removing from DOM
-- Hidden state managed via `useState<Set<string>>` in WastewaterChart component
-- Verified in browser: legend displays correctly, toggle hides/shows lines, Y-axis rescales automatically
-- Files created: src/components/chart/chart-legend.tsx
-- Files modified: src/components/chart/wastewater-chart.tsx, tasks/prd.json
+## 2026-02-08 - US-023
+- Applied `accentInsensitiveFilter` to station select combobox via `filter` prop on `<Command>`
+- Added "Stations eaux usées" label above the combobox with `text-sm font-medium text-muted-foreground` styling
+- Files changed: `src/components/filters/station-select.tsx`
 - **Learnings for future iterations:**
-  - Recharts `Line` component has a `hide` prop that hides the line while keeping it in the DOM (axis still computes without it)
-  - Legend is best co-located with the chart component rather than a sibling in the page — keeps state management simple
-  - `LINE_COLORS` exported from wastewater-chart.tsx for reuse in legend color swatches
-  - Using `Set<string>` for hidden keys is more efficient than array includes for toggle operations
+  - SUM'Eau station names and commune names are all uppercase ASCII — no accented characters in the dataset
+  - The accent-insensitive filter still works correctly as a case-insensitive substring search for unaccented data
+  - cmdk `filter` prop on `<Command>` replaces the default fuzzy matching with custom logic — pass `(value, search) => number`
+  - The `value` prop on `<CommandItem>` is what gets passed to the filter function — set it to searchable text (e.g., `{station.name} {station.commune}`)
 ---
 
-## 2026-02-07 - US-012
-- Created `src/components/map/station-marker.tsx` — CircleMarker with severity color fill, white border, and tooltip showing station name + commune + trend arrow
-- Created `src/components/map/france-map-inner.tsx` — MapContainer with OpenStreetMap tiles, centered on mainland France (46.6°N, 2.5°E, zoom 6), fetches all stations + indicators via tRPC, computes per-station severity/trend
-- Created `src/components/map/france-map.tsx` — dynamic import wrapper using `next/dynamic` with `ssr: false` to avoid Leaflet SSR issues
-- Installed `react-leaflet`, `leaflet`, `@types/leaflet`
-- Map is responsive: h-[400px] on mobile, h-[500px] on desktop (lg:)
-- Leaflet CSS imported directly in france-map-inner.tsx
-- Updated `src/app/page.tsx` to include FranceMap below the chart
-- Verified in browser: map renders correctly with all station markers color-coded by severity level, no console errors
-- Files created: src/components/map/station-marker.tsx, src/components/map/france-map-inner.tsx, src/components/map/france-map.tsx
-- Files modified: src/app/page.tsx, package.json, package-lock.json, tasks/prd.json
+## 2026-02-08 - US-024
+- Added `departmentDatasetId` field to `ClinicalDatasetMeta` in `src/types/clinical.ts`
+- Populated `departmentDatasetId` for each disease in `CLINICAL_DATASETS` (flu, bronchiolitis, covid_clinical)
+- Added `FRENCH_DEPARTMENTS` constant with all 101 departments (96 metropolitan + 5 overseas)
+- Files changed: `src/types/clinical.ts`, `src/lib/constants.ts`
 - **Learnings for future iterations:**
-  - React Leaflet must be dynamically imported in Next.js to prevent SSR `window is not defined` error — use `next/dynamic` with `ssr: false`
-  - Separate the inner map component (with `leaflet/dist/leaflet.css` import) from the dynamic wrapper to keep concerns clean
-  - Leaflet CSS must be imported in the client component that renders the map, not in a global stylesheet
-  - CircleMarker from react-leaflet is SVG-based and doesn't require icon image files, unlike the default Marker which needs PNG assets
-  - France mainland center: [46.6, 2.5] at zoom 6 shows all 54 stations nicely
-  - Per-station severity is computed client-side by fetching all indicators and grouping by station name column
-  - Station names in indicator data match `Station.name` — use this to correlate indicator data with station metadata
+  - France has 101 departments: 01-19, 2A, 2B, 21-95 (metropolitan) + 971-976 (overseas, excluding 975 Saint-Pierre-et-Miquelon)
+  - Department codes are strings, not numbers (important for '2A', '2B', '971' etc.)
+  - Department-level Odissé dataset IDs follow the pattern: replace `-france` suffix with `-departement`
 ---
 
-## 2026-02-07 - US-014
-- Assembled main dashboard page with responsive two-column layout
-- Desktop (lg: >=1024px): chart ~60% (`lg:w-3/5`) and map ~40% (`lg:w-2/5`) side by side using `lg:flex-row`
-- Mobile (<768px): single column stacked vertically
-- Tablet (md: 768-1023px): single column with taller chart/map heights (`md:h-[450px]`)
-- Added disclaimer text below severity card: "Les niveaux de circulation virale sont issus de l'analyse des eaux usées..."
-- Also committed previously uncommitted US-013 changes (map station popups with add/remove toggle, MutationObserver for Leaflet popup click handling)
-- Files modified: src/app/page.tsx, src/components/chart/wastewater-chart.tsx, src/components/map/france-map-inner.tsx, src/components/map/france-map.tsx, src/components/map/station-marker.tsx, src/hooks/use-local-storage.ts, src/server/services/sumeau.ts, tasks/prd.json
+## 2026-02-08 - US-025
+- Modified `fetchSingleDisease` to accept optional `department?: string` parameter
+- When department is provided: uses `meta.departmentDatasetId` and adds `AND dep='${department}'` to WHERE clause
+- Updated `fetchClinicalIndicatorsByDisease` and `fetchClinicalIndicators` signatures to pass through department
+- Files changed: `src/server/services/clinical.ts`
 - **Learnings for future iterations:**
-  - Tailwind responsive layout: `flex-col` default + `lg:flex-row` for desktop two-column; use `lg:w-3/5` and `lg:w-2/5` for ~60/40 split
-  - `min-w-0` on flex children prevents content from overflowing the flex container (important for chart/map)
-  - Tablet breakpoint uses `md:` prefix (768px) — distinct from desktop `lg:` (1024px) for single-column-with-larger-heights
-  - Disclaimer text uses `text-muted-foreground text-xs leading-relaxed` for subtle, readable disclaimer styling
-  - Use `&apos;` for apostrophes in JSX text content to avoid HTML entity issues
+  - The Odissé WHERE clause for department queries: `sursaud_cl_age_gene='Tous âges' AND dep='44'`
+  - URL.searchParams.set handles encoding, so the WHERE clause with quotes and spaces is properly escaped
+  - The `dep` field in Odissé uses string codes matching `FRENCH_DEPARTMENTS` codes
 ---
 
-## 2026-02-07 - US-015
-- Verified all localStorage preferences are already fully implemented from US-008/US-009:
-  - `useLocalStorage<T>` generic typed hook with SSR-safe `useSyncExternalStore`, cross-instance sync via custom events
-  - `useStationPreferences` persists to `eauxvid:selected-stations`, defaults to `['national']`
-  - `useDateRange` persists to `eauxvid:date-range`, defaults to last 6 months
-  - Theme persisted by `next-themes` (localStorage key `theme`, defaults to `'system'`)
-- Wrote 25 new tests across 3 test files verifying end-to-end persistence:
-  - `src/hooks/use-local-storage.test.tsx` (8 tests): default values, read/write, functional updates, complex objects, corruption recovery
-  - `src/hooks/use-station-preferences.test.tsx` (10 tests): defaults, add/remove/toggle, national protection, max limit, localStorage round-trip
-  - `src/hooks/use-date-range.test.tsx` (7 tests): default 6-month range, custom range, persistence, reset, ISO string format
-- Added `@testing-library/react` + `jsdom` dev dependencies for hook testing
-- Updated `vitest.config.ts`: added `environment: "jsdom"` and `.tsx` test file support
-- Files created: src/hooks/use-local-storage.test.tsx, src/hooks/use-station-preferences.test.tsx, src/hooks/use-date-range.test.tsx
-- Files modified: vitest.config.ts, package.json, package-lock.json, tasks/prd.json
+## 2026-02-08 - US-026
+- Added optional `department: z.string().optional()` to `getIndicators` input schema
+- Passes `input.department` through to both `fetchClinicalIndicatorsByDisease` and `fetchClinicalIndicators`
+- Files changed: `src/server/trpc/routers/clinical.ts`
 - **Learnings for future iterations:**
-  - `@testing-library/react` `renderHook` works with vitest + jsdom for testing React hooks
-  - vitest `environment: "jsdom"` provides localStorage, window, and DOM APIs needed for React hook tests
-  - `useSyncExternalStore` in `useLocalStorage` works transparently in jsdom — no special mocking needed
-  - next-themes handles its own localStorage persistence (key `theme`) — no custom hook needed for theme
-  - When a story is "ensure full coverage", focus on writing tests that prove the implementation works
+  - tRPC input schema is `.optional()` at the top level, so accessing `input?.department` safely handles when no input is provided
 ---
 
-## 2026-02-08 - US-016
-- Created `src/types/clinical.ts` with: `ClinicalDiseaseId` union type ('flu' | 'bronchiolitis' | 'covid_clinical'), `ClinicalIndicator` interface (week, diseaseId, erVisitRate), `ClinicalDatasetMeta` interface (id, label, datasetId, rateFieldName, color)
-- Added to `src/lib/constants.ts`: `ODISSE_API_BASE` URL constant, `CLINICAL_DISEASE_IDS` ordered array, `CLINICAL_DATASETS` record mapping each disease ID to its Odissé dataset ID, API rate field name, French label, and HSL color
-- Clinical colors chosen to be distinct from wastewater LINE_COLORS: red hsl(0,75%,55%), cyan hsl(190,80%,45%), amber hsl(45,90%,50%)
-- Files created: src/types/clinical.ts
-- Files modified: src/lib/constants.ts
+## 2026-02-08 - US-027
+- Created `src/hooks/use-department-preferences.ts` with `useDepartmentPreferences` hook
+- Returns `{ department, setDepartment, departmentLabel }` — `null` means "France entière"
+- Uses `useLocalStorage` with key `eauxvid:clinical-department`, default `null`
+- `departmentLabel` resolves department code to name via `FRENCH_DEPARTMENTS` lookup
+- Files changed: `src/hooks/use-department-preferences.ts` (new)
 - **Learnings for future iterations:**
-  - Clinical types follow same patterns as wastewater types — `number | null` for optional numeric fields, ISO week strings
-  - Odissé API v2.1 base URL: `https://odisse.santepubliquefrance.fr/api/explore/v2.1/catalog/datasets`
-  - Dataset IDs are URL-slug format: `grippe-passages-aux-urgences-et-actes-sos-medecins-france`, etc.
-  - Rate field names: `taux_passages_grippe_sau`, `taux_passages_bronchio_sau`, `taux_passages_covid_sau`
-  - Clinical data filters to `sursaud_cl_age_gene='Tous âges'` for all-age aggregate
-  - Import clinical types from `@/types/clinical`, constants from `@/lib/constants`
+  - Follow the same pattern as `use-station-preferences.ts` and `use-clinical-preferences.ts` for new preference hooks
+  - All localStorage keys use `eauxvid:` prefix
 ---
 
-## 2026-02-08 - US-017
-- Created `src/server/services/clinical.ts` with `fetchClinicalIndicators()` and `fetchClinicalIndicatorsByDisease(diseaseIds)` functions
-- `fetchSingleDisease(diseaseId)` fetches a single disease from Odissé API v2.1, handles pagination (limit=100, offset-based)
-- `fetchClinicalIndicatorsByDisease` uses `Promise.allSettled` for parallel fetching — each disease is independent; failures log console.warn and contribute empty array
-- `fetchClinicalIndicators()` is a convenience wrapper that fetches all 3 diseases
-- API filters: `sursaud_cl_age_gene='Tous âges'` for all-age aggregate, selects only `semaine` and rate field
-- Week format normalized from `YYYY-SWW` to `YYYY-WWW` (same `normalizeWeek()` as sumeau.ts)
-- Results sorted by week (lexicographic ISO week comparison)
-- Uses `REVALIDATE_INTERVAL` (6 hours) for Next.js fetch caching
-- Files created: src/server/services/clinical.ts
+## 2026-02-08 - US-028
+- Created `src/components/filters/department-select.tsx` with Popover + Command combobox pattern
+- Uses Hospital icon from lucide-react to visually distinguish from station select (MapPin)
+- "France entière" is the first entry and sets department to null
+- Uses `accentInsensitiveFilter` for accent-insensitive department search
+- Check icon shows next to selected item
+- Files changed: `src/components/filters/department-select.tsx` (new)
 - **Learnings for future iterations:**
-  - Odissé API v2.1 endpoint pattern: `${ODISSE_API_BASE}/${datasetId}/records?where=...&select=...&order_by=...&limit=100&offset=N`
-  - v2.1 response shape: `{ total_count: number, results: Record<string, unknown>[] }` — flat fields, not nested in `fields` object
-  - Pagination: API returns max 100 records per request; use `offset` parameter to fetch subsequent pages; stop when `results.length < 100` or `offset >= total_count`
-  - `Promise.allSettled` returns `{status:'fulfilled', value:...}` or `{status:'rejected', reason:...}` — iterate with index to correlate back to disease IDs
-  - Clinical service follows same patterns as sumeau.ts: Next.js fetch with revalidate, normalizeWeek, typed interfaces
+  - cmdk CommandItem `value` is what gets passed to the filter function — include searchable fields like code and name
+  - The combobox closes on select by calling `setOpen(false)` in `onSelect`
 ---
 
-## 2026-02-08 - US-018
-- Created `src/server/trpc/routers/clinical.ts` with `getIndicators` procedure
-- `getIndicators` accepts optional `diseaseIds` (validated as zod enum from `CLINICAL_DISEASE_IDS`) and optional `dateRange {from, to}`
-- If `diseaseIds` provided, calls `fetchClinicalIndicatorsByDisease`; otherwise calls `fetchClinicalIndicators`
-- Date range filtering uses lexicographic ISO week string comparison (same pattern as wastewater router)
-- Registered `clinicalRouter` in `src/server/trpc/router.ts` as `clinical` namespace alongside existing `wastewater`
-- Files created: src/server/trpc/routers/clinical.ts
-- Files modified: src/server/trpc/router.ts, tasks/prd.json
+## 2026-02-08 - US-029
+- Integrated `DepartmentSelect` into dashboard page alongside `StationSelect` in the filters section
+- Passed `department` and `departmentLabel` props from `useDepartmentPreferences` to `WastewaterChart`
+- Chart passes `department` to the clinical tRPC query for department-scoped data fetching
+- Clinical legend labels and tooltip labels include department name suffix when a department is selected (e.g., "Grippe (Loire-Atlantique)")
+- When "France entière" is selected, labels show disease name only (unchanged behavior)
+- Files changed: `src/app/page.tsx`, `src/components/chart/wastewater-chart.tsx`
 - **Learnings for future iterations:**
-  - Clinical router follows exact same pattern as wastewater router — `publicProcedure.input(z.object({...}).optional()).query(async ({input}) => {...})`
-  - `CLINICAL_DISEASE_IDS` is `readonly ClinicalDiseaseId[]` — needs `as unknown as [string, ...string[]]` cast for `z.enum()` which requires a non-empty tuple
-  - After zod validation, `diseaseIds` comes back as `string[]` — cast to `ClinicalDiseaseId[]` since zod enum already validates the values
-  - Root router auto-exports `AppRouter` type — adding `clinical: clinicalRouter` automatically makes `trpc.clinical.getIndicators` available on the client
+  - The `clinicalLabelSuffix` pattern (computed from department state) is a clean way to conditionally append scope info to labels
+  - tRPC React Query automatically includes all input params in the query key, so passing `department` to the input ensures automatic refetch on department change
+  - Browser verification was blocked by dev server hanging — may need to restart the dev server between iterations
 ---
 
-## 2026-02-08 - US-019
-- Created `src/hooks/use-clinical-preferences.ts` — manages enabled clinical disease overlays with localStorage persistence
-- Hook returns: `enabledDiseases` array, `toggleDisease(id)`, `isEnabled(id)`
-- localStorage key: `eauxvid:clinical-overlays`, defaults to all 3 diseases enabled
-- Created `src/components/filters/clinical-toggle.tsx` — pill-style toggle buttons for each disease
-- Enabled pills show colored background (disease HSL color from CLINICAL_DATASETS), disabled pills are muted/transparent with border
-- Label "Données cliniques :" before the pills, uses `aria-pressed` for accessibility
-- Mounted ClinicalToggle in `src/app/page.tsx` between the filter bar and the chart/map row
-- Verified in browser: toggle on/off works, persistence survives page reload
-- Files created: src/hooks/use-clinical-preferences.ts, src/components/filters/clinical-toggle.tsx
-- Files modified: src/app/page.tsx, tasks/prd.json
+## 2026-02-08 - US-030
+- Added `dep` URL parameter support to `useUrlSync` hook
+- Added `parseDepartmentParam` helper that validates non-empty string values
+- Extended `buildSearchString` to include `dep` param when department is not null
+- Added `department` and `setDepartment` to `UseUrlSyncOptions` interface
+- On mount, if `dep` param is present in URL, it overrides the localStorage value via `setDepartment`
+- Updated `page.tsx` to pass `department` and `setDepartment` through to `useUrlSync`
+- URL sync effect now includes `department` in its dependency array
+- Files changed: `src/hooks/use-url-sync.ts`, `src/app/page.tsx`
 - **Learnings for future iterations:**
-  - Clinical preferences hook follows exact same pattern as `use-station-preferences.ts` — `useLocalStorage` + `useCallback` wrappers
-  - HSL color strings from `CLINICAL_DATASETS` can be used directly in inline `style` for background/border color
-  - `aria-pressed` on toggle buttons provides accessibility state for screen readers
-  - Pills with inline `style` for enabled state and no inline style for disabled state — Tailwind `border` class provides the muted appearance
+  - The `dep` param follows the same pattern as other URL params — simple string, no comma-separated list
+  - `parseDepartmentParam` is minimal since department codes are simple non-empty strings (unlike dates or comma-lists)
+  - Adding a new URL param requires: parse helper, `hasAny` check, mount-time parse + setter call, `buildSearchString` inclusion, sync effect dependency
 ---
 
-## 2026-02-08 - US-020
-- Extended `LegendEntry` interface with optional `dashed?: boolean` property in `src/components/chart/chart-legend.tsx`
-- When `dashed=true`, renders an SVG `<line>` element with `strokeDasharray="4 2"` instead of the solid `<span>` swatch
-- When `dashed=false` or undefined, keeps the existing solid span (fully backward compatible)
-- SVG swatch is 20×4 viewBox, `aria-hidden="true"`, using `shrink-0` to match existing swatch sizing
-- Files modified: src/components/chart/chart-legend.tsx
-- **Learnings for future iterations:**
-  - SVG `<line>` with `strokeDasharray` is simpler and more flexible than CSS border-style dashed for small inline swatches
-  - `aria-hidden="true"` on decorative SVG swatches prevents screen readers from announcing them
-  - Existing callers of `ChartLegend` are unaffected since `dashed` is optional — no changes needed outside the component
----
-
-## 2026-02-08 - US-021
-- Added clinical data overlay to wastewater chart with dual Y-axis support
-- Chart fetches clinical data via independent `trpc.clinical.getIndicators.useQuery()` — wastewater displays even if clinical fetch fails
-- Clinical data merged into existing `chartData` by week using keys `clinical_flu`, `clinical_bronchiolitis`, `clinical_covid_clinical`
-- Left YAxis (`yAxisId="wastewater"`) for wastewater lines; right YAxis (`yAxisId="clinical"`, orientation right) for clinical rates with "/100k" label
-- Clinical diseases rendered as dashed `Line` components (`strokeDasharray="6 3"`) bound to `yAxisId="clinical"`
-- Clinical lines use colors from `CLINICAL_DATASETS` (red/cyan/amber), distinct from wastewater `LINE_COLORS`
-- Legend entries include clinical diseases with `dashed=true` — dashed SVG swatches from US-020
-- Tooltip shows clinical values with `/100k` suffix and dashed SVG indicator, no raw/smoothed distinction
-- Clinical lines toggleable via legend click (same `hiddenKeys` mechanism as wastewater)
-- Right Y-axis hidden when no clinical lines are visible (`hide` prop), but always rendered when diseases are enabled to avoid Recharts yAxisId reference errors
-- `fullChartConfig` merges both wastewater and clinical entries for `ChartContainer`
-- Verified in browser: dual axes, dashed lines, legend toggle, tooltip formatting all working correctly
-- Files modified: src/components/chart/wastewater-chart.tsx, tasks/prd.json
-- **Learnings for future iterations:**
-  - Recharts requires a matching `YAxis` for every `yAxisId` referenced by a `Line`, even if the line has `hide=true` — render the axis but use `hide` prop on the axis itself
-  - `useClinicalPreferences` returns `enabledDiseases` as `ClinicalDiseaseId[]` — use directly for disease iteration and tRPC query input
-  - Clinical and wastewater data are fetched via separate independent `useQuery` hooks — one failing does not affect the other
-  - Chart data merge by week: clinical indicators share the same `weekMap`, so points are aligned on the x-axis
-  - Clinical tooltip uses an inline SVG dashed line indicator (3px dash) to visually distinguish from solid wastewater dots
----

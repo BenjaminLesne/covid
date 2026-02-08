@@ -5,7 +5,7 @@ import { Check, ChevronsUpDown, X, MapPin } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { useStationPreferences } from "@/hooks/use-station-preferences";
 import { NATIONAL_STATION_ID, MAX_SELECTED_STATIONS } from "@/lib/constants";
-import { cn } from "@/lib/utils";
+import { cn, accentInsensitiveFilter } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import {
   Command,
@@ -65,6 +65,9 @@ export function StationSelect() {
 
   return (
     <div className="flex flex-col gap-3">
+      <label className="text-sm font-medium text-muted-foreground">
+        Stations eaux usées
+      </label>
       <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>
           <Button
@@ -82,7 +85,7 @@ export function StationSelect() {
           </Button>
         </PopoverTrigger>
         <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0" align="start">
-          <Command>
+          <Command filter={accentInsensitiveFilter}>
             <CommandInput placeholder="Rechercher par nom ou commune…" />
             <CommandList>
               <CommandEmpty>Aucune station trouvée.</CommandEmpty>
