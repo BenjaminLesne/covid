@@ -1,3 +1,4 @@
+import type { ClinicalDatasetMeta, ClinicalDiseaseId } from "@/types/clinical";
 import type { SeverityLevel } from "@/types/wastewater";
 
 /**
@@ -51,3 +52,43 @@ export const DATA_URLS = {
 
 /** Default date range: last 6 months. */
 export const DEFAULT_DATE_RANGE_MONTHS = 6;
+
+// ---------------------------------------------------------------------------
+// Clinical surveillance (Odissé API)
+// ---------------------------------------------------------------------------
+
+/** Odissé API v2.1 base URL. */
+export const ODISSE_API_BASE =
+  "https://odisse.santepubliquefrance.fr/api/explore/v2.1/catalog/datasets" as const;
+
+/** Ordered list of clinical disease IDs for iteration. */
+export const CLINICAL_DISEASE_IDS: readonly ClinicalDiseaseId[] = [
+  "flu",
+  "bronchiolitis",
+  "covid_clinical",
+] as const;
+
+/** Configuration for each clinical surveillance dataset. */
+export const CLINICAL_DATASETS: Record<ClinicalDiseaseId, ClinicalDatasetMeta> = {
+  flu: {
+    id: "flu",
+    label: "Grippe (urgences)",
+    datasetId: "grippe-passages-aux-urgences-et-actes-sos-medecins-france",
+    rateFieldName: "taux_passages_grippe_sau",
+    color: "hsl(0, 75%, 55%)",
+  },
+  bronchiolitis: {
+    id: "bronchiolitis",
+    label: "Bronchiolite (urgences)",
+    datasetId: "bronchiolite-passages-aux-urgences-et-actes-sos-medecins-france",
+    rateFieldName: "taux_passages_bronchio_sau",
+    color: "hsl(190, 80%, 45%)",
+  },
+  covid_clinical: {
+    id: "covid_clinical",
+    label: "COVID-19 (urgences)",
+    datasetId: "covid-19-passages-aux-urgences-et-actes-sos-medecins-france",
+    rateFieldName: "taux_passages_covid_sau",
+    color: "hsl(45, 90%, 50%)",
+  },
+} as const;
