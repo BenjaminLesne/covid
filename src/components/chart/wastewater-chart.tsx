@@ -6,7 +6,7 @@ import { trpc } from "@/lib/trpc";
 import { useStationPreferences } from "@/hooks/use-station-preferences";
 import { useDateRange } from "@/hooks/use-date-range";
 import { useClinicalPreferences } from "@/hooks/use-clinical-preferences";
-import { NATIONAL_STATION_ID, CLINICAL_DATASETS, CLINICAL_DISEASE_IDS } from "@/lib/constants";
+import { NATIONAL_STATION_ID, CLINICAL_DATASETS } from "@/lib/constants";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   ChartContainer,
@@ -16,7 +16,7 @@ import {
 } from "@/components/ui/chart";
 import { ChartLegend, type LegendEntry } from "@/components/chart/chart-legend";
 import type { Station } from "@/types/wastewater";
-import type { ClinicalDiseaseId } from "@/types/clinical";
+
 
 /** Predefined colors for chart lines. */
 export const LINE_COLORS = [
@@ -99,9 +99,11 @@ interface ChartDataPoint {
 interface WastewaterChartProps {
   hiddenKeys: Set<string>;
   onToggle: (key: string) => void;
+  department: string | null;
+  departmentLabel: string;
 }
 
-export function WastewaterChart({ hiddenKeys, onToggle }: WastewaterChartProps) {
+export function WastewaterChart({ hiddenKeys, onToggle, department, departmentLabel }: WastewaterChartProps) {
   const { selectedIds } = useStationPreferences();
   const { dateRange } = useDateRange();
   const { enabledDiseases } = useClinicalPreferences();
@@ -148,6 +150,7 @@ export function WastewaterChart({ hiddenKeys, onToggle }: WastewaterChartProps) 
       {
         diseaseIds: enabledDiseases.length > 0 ? enabledDiseases : undefined,
         dateRange: weekRange,
+        department: department ?? undefined,
       },
       {
         enabled: enabledDiseases.length > 0,
@@ -165,6 +168,9 @@ export function WastewaterChart({ hiddenKeys, onToggle }: WastewaterChartProps) 
     }
     return map;
   }, [stations]);
+
+  // Build clinical label suffix for department scope
+  const clinicalLabelSuffix = department ? ` (${departmentLabel})` : "";
 
   // Build chart config for both wastewater and clinical lines
   const fullChartConfig = useMemo(() => {
@@ -188,12 +194,12 @@ export function WastewaterChart({ hiddenKeys, onToggle }: WastewaterChartProps) 
       const meta = CLINICAL_DATASETS[diseaseId];
       const key = `${CLINICAL_KEY_PREFIX}${diseaseId}`;
       config[key] = {
-        label: meta.label,
+        label: `${meta.label}${clinicalLabelSuffix}`,
         color: meta.color,
       };
     }
     return config;
-  }, [indicatorStationIds, displayNames, enabledDiseases]);
+  }, [indicatorStationIds, displayNames, enabledDiseases, clinicalLabelSuffix]);
 
   // Pivot indicators into Recharts data format: one row per week, merged with clinical data
   const chartData = useMemo(() => {
@@ -241,13 +247,13 @@ export function WastewaterChart({ hiddenKeys, onToggle }: WastewaterChartProps) 
       const meta = CLINICAL_DATASETS[diseaseId];
       entries.push({
         key: `${CLINICAL_KEY_PREFIX}${diseaseId}`,
-        label: meta.label,
+        label: `${meta.label}${clinicalLabelSuffix}`,
         color: meta.color,
         dashed: true,
       });
     }
     return entries;
-  }, [indicatorStationIds, displayNames, enabledDiseases]);
+  }, [indicatorStationIds, displayNames, enabledDiseases, clinicalLabelSuffix]);
 
   // Determine if any clinical diseases are enabled and visible (not hidden)
   const hasClinicalVisible = useMemo(() => {

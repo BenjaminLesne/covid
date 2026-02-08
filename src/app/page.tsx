@@ -7,9 +7,11 @@ import { DateRangePicker } from "@/components/filters/date-range-picker";
 import { WastewaterChart } from "@/components/chart/wastewater-chart";
 import { FranceMap } from "@/components/map/france-map";
 import { ClinicalToggle } from "@/components/filters/clinical-toggle";
+import { DepartmentSelect } from "@/components/filters/department-select";
 import { useStationPreferences } from "@/hooks/use-station-preferences";
 import { useDateRange } from "@/hooks/use-date-range";
 import { useClinicalPreferences } from "@/hooks/use-clinical-preferences";
+import { useDepartmentPreferences } from "@/hooks/use-department-preferences";
 import { useUrlSync } from "@/hooks/use-url-sync";
 
 export default function Home() {
@@ -17,6 +19,7 @@ export default function Home() {
     useStationPreferences();
   const { dateRange, setRange } = useDateRange();
   const { enabledDiseases, setDiseases } = useClinicalPreferences();
+  const { department, departmentLabel } = useDepartmentPreferences();
 
   const [hiddenKeys, setHiddenKeys] = useState<Set<string>>(new Set());
   const toggleLine = useCallback((key: string) => {
@@ -55,10 +58,13 @@ export default function Home() {
         </p>
       </div>
 
-      {/* Filters: station select + date range */}
+      {/* Filters: station select + department select + date range */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
         <div className="flex-1">
           <StationSelect />
+        </div>
+        <div className="flex-1">
+          <DepartmentSelect />
         </div>
         <DateRangePicker />
       </div>
@@ -72,7 +78,12 @@ export default function Home() {
           <h2 className="text-muted-foreground mb-2 text-sm font-medium">
             Concentration virale (eaux usées) · Passages aux urgences (clinique)
           </h2>
-          <WastewaterChart hiddenKeys={hiddenKeys} onToggle={toggleLine} />
+          <WastewaterChart
+            hiddenKeys={hiddenKeys}
+            onToggle={toggleLine}
+            department={department}
+            departmentLabel={departmentLabel}
+          />
         </div>
         <div className="min-w-0 lg:w-2/5">
           <h2 className="text-muted-foreground mb-2 text-sm font-medium">
