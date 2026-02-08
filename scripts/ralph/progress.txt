@@ -52,3 +52,69 @@ Started: Sat  8 Feb 2026
   - The `value` prop on `<CommandItem>` is what gets passed to the filter function — set it to searchable text (e.g., `{station.name} {station.commune}`)
 ---
 
+## 2026-02-08 - US-024
+- Added `departmentDatasetId` field to `ClinicalDatasetMeta` in `src/types/clinical.ts`
+- Populated `departmentDatasetId` for each disease in `CLINICAL_DATASETS` (flu, bronchiolitis, covid_clinical)
+- Added `FRENCH_DEPARTMENTS` constant with all 101 departments (96 metropolitan + 5 overseas)
+- Files changed: `src/types/clinical.ts`, `src/lib/constants.ts`
+- **Learnings for future iterations:**
+  - France has 101 departments: 01-19, 2A, 2B, 21-95 (metropolitan) + 971-976 (overseas, excluding 975 Saint-Pierre-et-Miquelon)
+  - Department codes are strings, not numbers (important for '2A', '2B', '971' etc.)
+  - Department-level Odissé dataset IDs follow the pattern: replace `-france` suffix with `-departement`
+---
+
+## 2026-02-08 - US-025
+- Modified `fetchSingleDisease` to accept optional `department?: string` parameter
+- When department is provided: uses `meta.departmentDatasetId` and adds `AND dep='${department}'` to WHERE clause
+- Updated `fetchClinicalIndicatorsByDisease` and `fetchClinicalIndicators` signatures to pass through department
+- Files changed: `src/server/services/clinical.ts`
+- **Learnings for future iterations:**
+  - The Odissé WHERE clause for department queries: `sursaud_cl_age_gene='Tous âges' AND dep='44'`
+  - URL.searchParams.set handles encoding, so the WHERE clause with quotes and spaces is properly escaped
+  - The `dep` field in Odissé uses string codes matching `FRENCH_DEPARTMENTS` codes
+---
+
+## 2026-02-08 - US-026
+- Added optional `department: z.string().optional()` to `getIndicators` input schema
+- Passes `input.department` through to both `fetchClinicalIndicatorsByDisease` and `fetchClinicalIndicators`
+- Files changed: `src/server/trpc/routers/clinical.ts`
+- **Learnings for future iterations:**
+  - tRPC input schema is `.optional()` at the top level, so accessing `input?.department` safely handles when no input is provided
+---
+
+## 2026-02-08 - US-027
+- Created `src/hooks/use-department-preferences.ts` with `useDepartmentPreferences` hook
+- Returns `{ department, setDepartment, departmentLabel }` — `null` means "France entière"
+- Uses `useLocalStorage` with key `eauxvid:clinical-department`, default `null`
+- `departmentLabel` resolves department code to name via `FRENCH_DEPARTMENTS` lookup
+- Files changed: `src/hooks/use-department-preferences.ts` (new)
+- **Learnings for future iterations:**
+  - Follow the same pattern as `use-station-preferences.ts` and `use-clinical-preferences.ts` for new preference hooks
+  - All localStorage keys use `eauxvid:` prefix
+---
+
+## 2026-02-08 - US-028
+- Created `src/components/filters/department-select.tsx` with Popover + Command combobox pattern
+- Uses Hospital icon from lucide-react to visually distinguish from station select (MapPin)
+- "France entière" is the first entry and sets department to null
+- Uses `accentInsensitiveFilter` for accent-insensitive department search
+- Check icon shows next to selected item
+- Files changed: `src/components/filters/department-select.tsx` (new)
+- **Learnings for future iterations:**
+  - cmdk CommandItem `value` is what gets passed to the filter function — include searchable fields like code and name
+  - The combobox closes on select by calling `setOpen(false)` in `onSelect`
+---
+
+## 2026-02-08 - US-029
+- Integrated `DepartmentSelect` into dashboard page alongside `StationSelect` in the filters section
+- Passed `department` and `departmentLabel` props from `useDepartmentPreferences` to `WastewaterChart`
+- Chart passes `department` to the clinical tRPC query for department-scoped data fetching
+- Clinical legend labels and tooltip labels include department name suffix when a department is selected (e.g., "Grippe (Loire-Atlantique)")
+- When "France entière" is selected, labels show disease name only (unchanged behavior)
+- Files changed: `src/app/page.tsx`, `src/components/chart/wastewater-chart.tsx`
+- **Learnings for future iterations:**
+  - The `clinicalLabelSuffix` pattern (computed from department state) is a clean way to conditionally append scope info to labels
+  - tRPC React Query automatically includes all input params in the query key, so passing `department` to the input ensures automatic refetch on department change
+  - Browser verification was blocked by dev server hanging — may need to restart the dev server between iterations
+---
+

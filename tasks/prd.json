@@ -47,7 +47,7 @@
         "Typecheck passes"
       ],
       "priority": 3,
-      "passes": false,
+      "passes": true,
       "notes": "The department list is static and small (~106 entries). Hardcoding is simpler and faster than an API call. The department-level datasets use the same rate field names and age filters as national ones — only the dataset ID differs, plus the `dep` field in the WHERE clause."
     },
     {
@@ -63,7 +63,7 @@
         "Typecheck passes"
       ],
       "priority": 4,
-      "passes": false,
+      "passes": true,
       "notes": "The Odissé API v2.1 WHERE clause for department queries should be: `sursaud_cl_age_gene='Tous âges' AND dep='44'` (or the relevant age filter for bronchiolitis). The `dep` field is a string like '44', '2A', '971', etc."
     },
     {
@@ -78,7 +78,7 @@
         "Typecheck passes"
       ],
       "priority": 5,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
@@ -93,7 +93,7 @@
         "Typecheck passes"
       ],
       "priority": 6,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
@@ -113,7 +113,7 @@
         "Verify in browser using dev-browser skill"
       ],
       "priority": 7,
-      "passes": false,
+      "passes": true,
       "notes": "The combobox should show a check icon next to the selected item. Selecting 'France entière' clears the department selection. Use the Hospital icon from lucide-react to visually distinguish from the wastewater station select which uses MapPin."
     },
     {
@@ -131,7 +131,7 @@
         "Verify in browser using dev-browser skill"
       ],
       "priority": 8,
-      "passes": false,
+      "passes": true,
       "notes": "The `WastewaterChart` component needs access to the selected department — either via props or by calling `useDepartmentPreferences` internally. The legend label modification is in the `legendEntries` useMemo and `fullChartConfig` useMemo. The department code must be included in the tRPC query key so React Query refetches when it changes."
     },
     {
