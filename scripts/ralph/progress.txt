@@ -118,3 +118,18 @@ Started: Sat  8 Feb 2026
   - Browser verification was blocked by dev server hanging — may need to restart the dev server between iterations
 ---
 
+## 2026-02-08 - US-030
+- Added `dep` URL parameter support to `useUrlSync` hook
+- Added `parseDepartmentParam` helper that validates non-empty string values
+- Extended `buildSearchString` to include `dep` param when department is not null
+- Added `department` and `setDepartment` to `UseUrlSyncOptions` interface
+- On mount, if `dep` param is present in URL, it overrides the localStorage value via `setDepartment`
+- Updated `page.tsx` to pass `department` and `setDepartment` through to `useUrlSync`
+- URL sync effect now includes `department` in its dependency array
+- Files changed: `src/hooks/use-url-sync.ts`, `src/app/page.tsx`
+- **Learnings for future iterations:**
+  - The `dep` param follows the same pattern as other URL params — simple string, no comma-separated list
+  - `parseDepartmentParam` is minimal since department codes are simple non-empty strings (unlike dates or comma-lists)
+  - Adding a new URL param requires: parse helper, `hasAny` check, mount-time parse + setter call, `buildSearchString` inclusion, sync effect dependency
+---
+

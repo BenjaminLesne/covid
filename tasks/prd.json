@@ -148,7 +148,7 @@
         "Typecheck passes"
       ],
       "priority": 9,
-      "passes": false,
+      "passes": true,
       "notes": "Follow the same pattern as the existing URL params (stations, clinical, from, to, hidden). The department param is a simple string, not a comma-separated list."
     }
   ]
