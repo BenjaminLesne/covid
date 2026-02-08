@@ -364,7 +364,7 @@
         "Verify in browser using agent-browser CLI"
       ],
       "priority": 21,
-      "passes": false,
+      "passes": true,
       "notes": "This is the largest change. Key files: src/components/chart/wastewater-chart.tsx. Import useClinicalPreferences from hooks, CLINICAL_DATASETS from constants. The chart uses two independent tRPC queries (wastewater + clinical) so failure of one does not affect the other. ChartContainer config must include both wastewater and clinical entries. Use fullChartConfig that merges both."
     }
   ]

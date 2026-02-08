@@ -5,7 +5,8 @@ import { Line, XAxis, YAxis, CartesianGrid, ComposedChart } from "recharts";
 import { trpc } from "@/lib/trpc";
 import { useStationPreferences } from "@/hooks/use-station-preferences";
 import { useDateRange } from "@/hooks/use-date-range";
-import { NATIONAL_STATION_ID } from "@/lib/constants";
+import { useClinicalPreferences } from "@/hooks/use-clinical-preferences";
+import { NATIONAL_STATION_ID, CLINICAL_DATASETS, CLINICAL_DISEASE_IDS } from "@/lib/constants";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   ChartContainer,
@@ -15,6 +16,7 @@ import {
 } from "@/components/ui/chart";
 import { ChartLegend, type LegendEntry } from "@/components/chart/chart-legend";
 import type { Station } from "@/types/wastewater";
+import type { ClinicalDiseaseId } from "@/types/clinical";
 
 /** Predefined colors for chart lines. */
 export const LINE_COLORS = [
@@ -28,6 +30,9 @@ export const LINE_COLORS = [
 
 /** The national aggregate column name in the indicators data. */
 const NATIONAL_COLUMN = "National_54";
+
+/** Prefix for clinical data keys in chart data points. */
+const CLINICAL_KEY_PREFIX = "clinical_";
 
 /** Build a mapping from SANDRE ID → station display name (column name in indicators). */
 function buildSandreToColumnMap(stations: Station[]): Map<string, string> {
@@ -94,6 +99,7 @@ interface ChartDataPoint {
 export function WastewaterChart() {
   const { selectedIds } = useStationPreferences();
   const { dateRange } = useDateRange();
+  const { enabledDiseases } = useClinicalPreferences();
 
   // Map "national" to "National_54" for querying, and get station names for others
   const { data: stations, isLoading: stationsLoading } =
@@ -131,6 +137,18 @@ export function WastewaterChart() {
       }
     );
 
+  // Fetch clinical data independently — wastewater displays even if this fails
+  const { data: clinicalIndicators } =
+    trpc.clinical.getIndicators.useQuery(
+      {
+        diseaseIds: enabledDiseases.length > 0 ? enabledDiseases : undefined,
+        dateRange: weekRange,
+      },
+      {
+        enabled: enabledDiseases.length > 0,
+      }
+    );
+
   // Build stable display name mapping: stationId → label
   const displayNames = useMemo(() => {
     const map = new Map<string, string>();
@@ -143,9 +161,10 @@ export function WastewaterChart() {
     return map;
   }, [stations]);
 
-  // Build chart config
-  const chartConfig = useMemo(() => {
+  // Build chart config for both wastewater and clinical lines
+  const fullChartConfig = useMemo(() => {
     const config: ChartConfig = {};
+    // Wastewater entries
     indicatorStationIds.forEach((stationId, index) => {
       const smoothedKey = `${stationId}_smoothed`;
       const rawKey = `${stationId}_raw`;
@@ -159,10 +178,19 @@ export function WastewaterChart() {
         color: LINE_COLORS[index % LINE_COLORS.length],
       };
     });
+    // Clinical entries
+    for (const diseaseId of enabledDiseases) {
+      const meta = CLINICAL_DATASETS[diseaseId];
+      const key = `${CLINICAL_KEY_PREFIX}${diseaseId}`;
+      config[key] = {
+        label: meta.label,
+        color: meta.color,
+      };
+    }
     return config;
-  }, [indicatorStationIds, displayNames]);
+  }, [indicatorStationIds, displayNames, enabledDiseases]);
 
-  // Pivot indicators into Recharts data format: one row per week
+  // Pivot indicators into Recharts data format: one row per week, merged with clinical data
   const chartData = useMemo(() => {
     if (!indicators || indicators.length === 0) return [];
 
@@ -178,20 +206,43 @@ export function WastewaterChart() {
       point[`${ind.stationId}_raw`] = ind.value;
     }
 
+    // Merge clinical data into existing chart points by week
+    if (clinicalIndicators) {
+      for (const ci of clinicalIndicators) {
+        let point = weekMap.get(ci.week);
+        if (!point) {
+          point = { week: ci.week };
+          weekMap.set(ci.week, point);
+        }
+        point[`${CLINICAL_KEY_PREFIX}${ci.diseaseId}`] = ci.erVisitRate;
+      }
+    }
+
     // Sort by week chronologically
     return Array.from(weekMap.values()).sort((a, b) =>
       (a.week as string).localeCompare(b.week as string)
     );
-  }, [indicators]);
+  }, [indicators, clinicalIndicators]);
 
-  // Legend entries derived from chart config
+  // Legend entries: wastewater (solid) + clinical (dashed)
   const legendEntries: LegendEntry[] = useMemo(() => {
-    return indicatorStationIds.map((stationId, index) => ({
+    const entries: LegendEntry[] = indicatorStationIds.map((stationId, index) => ({
       key: stationId,
       label: displayNames.get(stationId) ?? stationId,
       color: LINE_COLORS[index % LINE_COLORS.length],
     }));
-  }, [indicatorStationIds, displayNames]);
+    // Add clinical entries with dashed style
+    for (const diseaseId of enabledDiseases) {
+      const meta = CLINICAL_DATASETS[diseaseId];
+      entries.push({
+        key: `${CLINICAL_KEY_PREFIX}${diseaseId}`,
+        label: meta.label,
+        color: meta.color,
+        dashed: true,
+      });
+    }
+    return entries;
+  }, [indicatorStationIds, displayNames, enabledDiseases]);
 
   // Track which lines are hidden
   const [hiddenKeys, setHiddenKeys] = useState<Set<string>>(new Set());
@@ -207,6 +258,13 @@ export function WastewaterChart() {
       return next;
     });
   }, []);
+
+  // Determine if any clinical diseases are enabled and visible (not hidden)
+  const hasClinicalVisible = useMemo(() => {
+    return enabledDiseases.some(
+      (id) => !hiddenKeys.has(`${CLINICAL_KEY_PREFIX}${id}`)
+    );
+  }, [enabledDiseases, hiddenKeys]);
 
   const isLoading = stationsLoading || indicatorsLoading;
 
@@ -231,8 +289,8 @@ export function WastewaterChart() {
   return (
     <div className="flex flex-col gap-3 lg:flex-row lg:gap-4">
       <div className="min-w-0 flex-1">
-        <ChartContainer config={chartConfig} className="h-[300px] w-full sm:h-[400px] md:h-[450px]">
-          <ComposedChart data={chartData} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
+        <ChartContainer config={fullChartConfig} className="h-[300px] w-full sm:h-[400px] md:h-[450px]">
+          <ComposedChart data={chartData} margin={{ top: 5, right: hasClinicalVisible ? 5 : 10, left: 0, bottom: 5 }}>
             <CartesianGrid strokeDasharray="3 3" />
             <XAxis
               dataKey="week"
@@ -242,12 +300,29 @@ export function WastewaterChart() {
               minTickGap={40}
             />
             <YAxis
+              yAxisId="wastewater"
               tick={{ fontSize: 11 }}
               tickFormatter={(v: number) =>
                 v >= 1000 ? `${(v / 1000).toFixed(1)}k` : String(Math.round(v))
               }
               width={45}
             />
+            {enabledDiseases.length > 0 && (
+              <YAxis
+                yAxisId="clinical"
+                orientation="right"
+                tick={hasClinicalVisible ? { fontSize: 11 } : false}
+                tickFormatter={(v: number) => String(Math.round(v * 10) / 10)}
+                width={hasClinicalVisible ? 55 : 0}
+                hide={!hasClinicalVisible}
+                label={hasClinicalVisible ? {
+                  value: "/100k",
+                  position: "insideTopRight",
+                  offset: -5,
+                  style: { fontSize: 10, fill: "var(--color-muted-foreground, #888)" },
+                } : undefined}
+              />
+            )}
             <ChartTooltip
               content={
                 <ChartTooltipContent
@@ -259,8 +334,32 @@ export function WastewaterChart() {
                     const key = String(name);
                     // Hide raw data entries from tooltip (they duplicate smoothed)
                     if (key.endsWith("_raw")) return null;
-                    const configEntry = chartConfig[key];
-                    // Show raw value alongside smoothed if they differ
+
+                    const configEntry = fullChartConfig[key];
+                    const isClinical = key.startsWith(CLINICAL_KEY_PREFIX);
+
+                    if (isClinical) {
+                      // Clinical: show value with /100k suffix, no raw/smoothed distinction
+                      const valueStr =
+                        value != null
+                          ? `${Number(value).toLocaleString("fr-FR", { maximumFractionDigits: 1 })}/100k`
+                          : "—";
+                      return (
+                        <span className="flex items-center gap-2">
+                          <svg className="shrink-0" width="10" height="10" viewBox="0 0 10 10" aria-hidden="true">
+                            <line x1="0" y1="5" x2="10" y2="5" stroke={configEntry?.color as string} strokeWidth="2" strokeDasharray="3 1.5" />
+                          </svg>
+                          <span className="text-muted-foreground">
+                            {configEntry?.label ?? key}
+                          </span>
+                          <span className="font-mono font-medium ml-auto">
+                            {valueStr}
+                          </span>
+                        </span>
+                      );
+                    }
+
+                    // Wastewater: show raw value alongside smoothed if they differ
                     const rawKey = key.replace(/_smoothed$/, "_raw");
                     const rawValue = payload?.[rawKey as keyof typeof payload];
                     const smoothedStr =
@@ -292,7 +391,7 @@ export function WastewaterChart() {
               }
             />
 
-            {/* Smoothed trend lines (solid) */}
+            {/* Smoothed trend lines (solid) — wastewater */}
             {indicatorStationIds.map((stationId, index) => (
               <Line
                 key={`${stationId}_smoothed`}
@@ -303,11 +402,12 @@ export function WastewaterChart() {
                 dot={false}
                 connectNulls
                 name={`${stationId}_smoothed`}
+                yAxisId="wastewater"
                 hide={hiddenKeys.has(stationId)}
               />
             ))}
 
-            {/* Raw data points (dots overlay) */}
+            {/* Raw data points (dots overlay) — wastewater */}
             {indicatorStationIds.map((stationId, index) => (
               <Line
                 key={`${stationId}_raw`}
@@ -326,9 +426,31 @@ export function WastewaterChart() {
                 connectNulls={false}
                 legendType="none"
                 name={`${stationId}_raw`}
+                yAxisId="wastewater"
                 hide={hiddenKeys.has(stationId)}
               />
             ))}
+
+            {/* Clinical overlay lines (dashed) */}
+            {enabledDiseases.map((diseaseId) => {
+              const meta = CLINICAL_DATASETS[diseaseId];
+              const key = `${CLINICAL_KEY_PREFIX}${diseaseId}`;
+              return (
+                <Line
+                  key={key}
+                  type="monotone"
+                  dataKey={key}
+                  stroke={meta.color}
+                  strokeWidth={2}
+                  strokeDasharray="6 3"
+                  dot={false}
+                  connectNulls
+                  name={key}
+                  yAxisId="clinical"
+                  hide={hiddenKeys.has(key)}
+                />
+              );
+            })}
           </ComposedChart>
         </ChartContainer>
       </div>

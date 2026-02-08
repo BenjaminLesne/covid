@@ -53,6 +53,8 @@ Started: Sam  7 fév 2026 18:37:38 CET
 - `CLINICAL_DISEASE_IDS` readonly array needs `as unknown as [string, ...string[]]` cast for `z.enum()` which requires a non-empty tuple type
 - Clinical preferences hook in `src/hooks/use-clinical-preferences.ts` — `enabledDiseases`, `toggleDisease(id)`, `isEnabled(id)` with localStorage key `eauxvid:clinical-overlays`
 - Clinical toggle UI in `src/components/filters/clinical-toggle.tsx` — pill buttons iterating `CLINICAL_DISEASE_IDS`, colors from `CLINICAL_DATASETS`
+- Recharts dual Y-axis: every `Line` `yAxisId` must have a matching `YAxis` rendered, even if the line has `hide=true` — use `hide` prop on the axis itself instead of conditional rendering
+- Clinical overlay keys in chart data: `clinical_${diseaseId}` (e.g. `clinical_flu`, `clinical_bronchiolitis`, `clinical_covid_clinical`)
 ---
 
 ## 2026-02-07 - US-001
@@ -372,4 +374,26 @@ Started: Sam  7 fév 2026 18:37:38 CET
   - SVG `<line>` with `strokeDasharray` is simpler and more flexible than CSS border-style dashed for small inline swatches
   - `aria-hidden="true"` on decorative SVG swatches prevents screen readers from announcing them
   - Existing callers of `ChartLegend` are unaffected since `dashed` is optional — no changes needed outside the component
+---
+
+## 2026-02-08 - US-021
+- Added clinical data overlay to wastewater chart with dual Y-axis support
+- Chart fetches clinical data via independent `trpc.clinical.getIndicators.useQuery()` — wastewater displays even if clinical fetch fails
+- Clinical data merged into existing `chartData` by week using keys `clinical_flu`, `clinical_bronchiolitis`, `clinical_covid_clinical`
+- Left YAxis (`yAxisId="wastewater"`) for wastewater lines; right YAxis (`yAxisId="clinical"`, orientation right) for clinical rates with "/100k" label
+- Clinical diseases rendered as dashed `Line` components (`strokeDasharray="6 3"`) bound to `yAxisId="clinical"`
+- Clinical lines use colors from `CLINICAL_DATASETS` (red/cyan/amber), distinct from wastewater `LINE_COLORS`
+- Legend entries include clinical diseases with `dashed=true` — dashed SVG swatches from US-020
+- Tooltip shows clinical values with `/100k` suffix and dashed SVG indicator, no raw/smoothed distinction
+- Clinical lines toggleable via legend click (same `hiddenKeys` mechanism as wastewater)
+- Right Y-axis hidden when no clinical lines are visible (`hide` prop), but always rendered when diseases are enabled to avoid Recharts yAxisId reference errors
+- `fullChartConfig` merges both wastewater and clinical entries for `ChartContainer`
+- Verified in browser: dual axes, dashed lines, legend toggle, tooltip formatting all working correctly
+- Files modified: src/components/chart/wastewater-chart.tsx, tasks/prd.json
+- **Learnings for future iterations:**
+  - Recharts requires a matching `YAxis` for every `yAxisId` referenced by a `Line`, even if the line has `hide=true` — render the axis but use `hide` prop on the axis itself
+  - `useClinicalPreferences` returns `enabledDiseases` as `ClinicalDiseaseId[]` — use directly for disease iteration and tRPC query input
+  - Clinical and wastewater data are fetched via separate independent `useQuery` hooks — one failing does not affect the other
+  - Chart data merge by week: clinical indicators share the same `weekMap`, so points are aligned on the x-axis
+  - Clinical tooltip uses an inline SVG dashed line indicator (3px dash) to visually distinguish from solid wastewater dots
 ---
