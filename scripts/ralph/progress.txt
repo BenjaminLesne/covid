@@ -361,3 +361,15 @@ Started: Sam  7 fév 2026 18:37:38 CET
   - `aria-pressed` on toggle buttons provides accessibility state for screen readers
   - Pills with inline `style` for enabled state and no inline style for disabled state — Tailwind `border` class provides the muted appearance
 ---
+
+## 2026-02-08 - US-020
+- Extended `LegendEntry` interface with optional `dashed?: boolean` property in `src/components/chart/chart-legend.tsx`
+- When `dashed=true`, renders an SVG `<line>` element with `strokeDasharray="4 2"` instead of the solid `<span>` swatch
+- When `dashed=false` or undefined, keeps the existing solid span (fully backward compatible)
+- SVG swatch is 20×4 viewBox, `aria-hidden="true"`, using `shrink-0` to match existing swatch sizing
+- Files modified: src/components/chart/chart-legend.tsx
+- **Learnings for future iterations:**
+  - SVG `<line>` with `strokeDasharray` is simpler and more flexible than CSS border-style dashed for small inline swatches
+  - `aria-hidden="true"` on decorative SVG swatches prevents screen readers from announcing them
+  - Existing callers of `ChartLegend` are unaffected since `dashed` is optional — no changes needed outside the component
+---

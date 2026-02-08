@@ -6,6 +6,7 @@ export interface LegendEntry {
   key: string;
   label: string;
   color: string;
+  dashed?: boolean;
 }
 
 interface ChartLegendProps {
@@ -31,10 +32,30 @@ export function ChartLegend({ entries, hiddenKeys, onToggle }: ChartLegendProps)
               hidden && "opacity-40"
             )}
           >
-            <span
-              className="inline-block h-0.5 w-5 shrink-0 rounded-full"
-              style={{ backgroundColor: entry.color }}
-            />
+            {entry.dashed ? (
+              <svg
+                className="shrink-0"
+                width="20"
+                height="4"
+                viewBox="0 0 20 4"
+                aria-hidden="true"
+              >
+                <line
+                  x1="0"
+                  y1="2"
+                  x2="20"
+                  y2="2"
+                  stroke={entry.color}
+                  strokeWidth="2"
+                  strokeDasharray="4 2"
+                />
+              </svg>
+            ) : (
+              <span
+                className="inline-block h-0.5 w-5 shrink-0 rounded-full"
+                style={{ backgroundColor: entry.color }}
+              />
+            )}
             <span className="text-left">{entry.label}</span>
           </button>
         );

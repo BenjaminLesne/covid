@@ -341,7 +341,7 @@
         "Typecheck passes"
       ],
       "priority": 20,
-      "passes": false,
+      "passes": true,
       "notes": "Minimal change: just add the optional prop and conditional rendering. Existing callers are unaffected since dashed defaults to undefined/false."
     },
     {
