@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useCallback } from "react";
 import { SeveritySummary } from "@/components/severity/severity-summary";
 import { StationSelect } from "@/components/filters/station-select";
 import { DateRangePicker } from "@/components/filters/date-range-picker";
@@ -7,9 +8,39 @@ import { WastewaterChart } from "@/components/chart/wastewater-chart";
 import { FranceMap } from "@/components/map/france-map";
 import { ClinicalToggle } from "@/components/filters/clinical-toggle";
 import { useStationPreferences } from "@/hooks/use-station-preferences";
+import { useDateRange } from "@/hooks/use-date-range";
+import { useClinicalPreferences } from "@/hooks/use-clinical-preferences";
+import { useUrlSync } from "@/hooks/use-url-sync";
 
 export default function Home() {
-  const { selectedIds, toggleStation, canAddMore } = useStationPreferences();
+  const { selectedIds, toggleStation, canAddMore, setStations } =
+    useStationPreferences();
+  const { dateRange, setRange } = useDateRange();
+  const { enabledDiseases, setDiseases } = useClinicalPreferences();
+
+  const [hiddenKeys, setHiddenKeys] = useState<Set<string>>(new Set());
+  const toggleLine = useCallback((key: string) => {
+    setHiddenKeys((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) {
+        next.delete(key);
+      } else {
+        next.add(key);
+      }
+      return next;
+    });
+  }, []);
+
+  useUrlSync({
+    dateRange,
+    stationIds: selectedIds,
+    clinicalIds: enabledDiseases,
+    hiddenKeys,
+    setRange,
+    setStations,
+    setDiseases,
+    setHiddenKeys,
+  });
 
   return (
     <div className="flex flex-col gap-6">
@@ -41,7 +72,7 @@ export default function Home() {
           <h2 className="text-muted-foreground mb-2 text-sm font-medium">
             Concentration virale (eaux usées) · Passages aux urgences (clinique)
           </h2>
-          <WastewaterChart />
+          <WastewaterChart hiddenKeys={hiddenKeys} onToggle={toggleLine} />
         </div>
         <div className="min-w-0 lg:w-2/5">
           <h2 className="text-muted-foreground mb-2 text-sm font-medium">

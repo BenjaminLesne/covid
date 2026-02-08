@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useCallback } from "react";
+import { useMemo } from "react";
 import { Line, XAxis, YAxis, CartesianGrid, ComposedChart } from "recharts";
 import { trpc } from "@/lib/trpc";
 import { useStationPreferences } from "@/hooks/use-station-preferences";
@@ -96,7 +96,12 @@ interface ChartDataPoint {
   [key: string]: number | string | null;
 }
 
-export function WastewaterChart() {
+interface WastewaterChartProps {
+  hiddenKeys: Set<string>;
+  onToggle: (key: string) => void;
+}
+
+export function WastewaterChart({ hiddenKeys, onToggle }: WastewaterChartProps) {
   const { selectedIds } = useStationPreferences();
   const { dateRange } = useDateRange();
   const { enabledDiseases } = useClinicalPreferences();
@@ -243,21 +248,6 @@ export function WastewaterChart() {
     }
     return entries;
   }, [indicatorStationIds, displayNames, enabledDiseases]);
-
-  // Track which lines are hidden
-  const [hiddenKeys, setHiddenKeys] = useState<Set<string>>(new Set());
-
-  const toggleLine = useCallback((key: string) => {
-    setHiddenKeys((prev) => {
-      const next = new Set(prev);
-      if (next.has(key)) {
-        next.delete(key);
-      } else {
-        next.add(key);
-      }
-      return next;
-    });
-  }, []);
 
   // Determine if any clinical diseases are enabled and visible (not hidden)
   const hasClinicalVisible = useMemo(() => {
@@ -463,7 +453,7 @@ export function WastewaterChart() {
           </ComposedChart>
         </ChartContainer>
       </div>
-      <ChartLegend entries={legendEntries} hiddenKeys={hiddenKeys} onToggle={toggleLine} />
+      <ChartLegend entries={legendEntries} hiddenKeys={hiddenKeys} onToggle={onToggle} />
     </div>
   );
 }

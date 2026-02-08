@@ -65,6 +65,24 @@ export function useStationPreferences() {
     [setSelectedIds]
   );
 
+  const setStations = useCallback(
+    (ids: string[]) => {
+      const unique = Array.from(new Set(ids));
+      const withNational = unique.includes(NATIONAL_STATION_ID)
+        ? unique
+        : [NATIONAL_STATION_ID, ...unique];
+      const nonNational = withNational.filter(
+        (id) => id !== NATIONAL_STATION_ID
+      );
+      const clamped = [
+        NATIONAL_STATION_ID,
+        ...nonNational.slice(0, MAX_SELECTED_STATIONS),
+      ];
+      setSelectedIds(clamped);
+    },
+    [setSelectedIds]
+  );
+
   const isSelected = useCallback(
     (stationId: string) => selectedIds.includes(stationId),
     [selectedIds]
@@ -79,6 +97,7 @@ export function useStationPreferences() {
     addStation,
     removeStation,
     toggleStation,
+    setStations,
     isSelected,
     canAddMore,
   };

@@ -28,6 +28,16 @@ export function useClinicalPreferences() {
     [setEnabledDiseases]
   );
 
+  const setDiseases = useCallback(
+    (ids: ClinicalDiseaseId[]) => {
+      const valid = ids.filter((id) =>
+        (CLINICAL_DISEASE_IDS as readonly string[]).includes(id)
+      );
+      setEnabledDiseases(valid);
+    },
+    [setEnabledDiseases]
+  );
+
   const isEnabled = useCallback(
     (id: ClinicalDiseaseId) => enabledDiseases.includes(id),
     [enabledDiseases]
@@ -36,6 +46,7 @@ export function useClinicalPreferences() {
   return {
     enabledDiseases,
     toggleDisease,
+    setDiseases,
     isEnabled,
   };
 }
