@@ -51,11 +51,17 @@ function parseHiddenParam(value: string | null): string[] | null {
     .filter(Boolean);
 }
 
+function parseDepartmentParam(value: string | null): string | null {
+  if (!value || value.trim() === "") return null;
+  return value.trim();
+}
+
 function buildSearchString(
   dateRange: DateRange,
   stationIds: string[],
   clinicalIds: ClinicalDiseaseId[],
-  hiddenKeys: Set<string>
+  hiddenKeys: Set<string>,
+  department: string | null
 ): string {
   const params = new URLSearchParams();
   params.set("from", dateRange.from);
@@ -64,6 +70,9 @@ function buildSearchString(
   params.set("clinical", clinicalIds.join(","));
   if (hiddenKeys.size > 0) {
     params.set("hidden", Array.from(hiddenKeys).join(","));
+  }
+  if (department) {
+    params.set("dep", department);
   }
   return params.toString();
 }
@@ -77,10 +86,12 @@ interface UseUrlSyncOptions {
   stationIds: string[];
   clinicalIds: ClinicalDiseaseId[];
   hiddenKeys: Set<string>;
+  department: string | null;
   setRange: (from: Date, to: Date) => void;
   setStations: (ids: string[]) => void;
   setDiseases: (ids: ClinicalDiseaseId[]) => void;
   setHiddenKeys: (keys: Set<string>) => void;
+  setDepartment: (code: string | null) => void;
 }
 
 export function useUrlSync({
@@ -88,10 +99,12 @@ export function useUrlSync({
   stationIds,
   clinicalIds,
   hiddenKeys,
+  department,
   setRange,
   setStations,
   setDiseases,
   setHiddenKeys,
+  setDepartment,
 }: UseUrlSyncOptions) {
   const initialized = useRef(false);
 
@@ -106,7 +119,8 @@ export function useUrlSync({
       params.has("to") ||
       params.has("stations") ||
       params.has("clinical") ||
-      params.has("hidden");
+      params.has("hidden") ||
+      params.has("dep");
 
     if (hasAny) {
       // Override localStorage with URL values (only for params that exist)
@@ -134,9 +148,14 @@ export function useUrlSync({
       if (hidden !== null) {
         setHiddenKeys(new Set(hidden));
       }
+
+      const dep = parseDepartmentParam(params.get("dep"));
+      if (dep !== null) {
+        setDepartment(dep);
+      }
     } else {
       // No URL params — push current state to URL
-      const qs = buildSearchString(dateRange, stationIds, clinicalIds, hiddenKeys);
+      const qs = buildSearchString(dateRange, stationIds, clinicalIds, hiddenKeys, department);
       window.history.replaceState(null, "", `?${qs}`);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -149,7 +168,7 @@ export function useUrlSync({
       mountSkipped.current = true;
       return;
     }
-    const qs = buildSearchString(dateRange, stationIds, clinicalIds, hiddenKeys);
+    const qs = buildSearchString(dateRange, stationIds, clinicalIds, hiddenKeys, department);
     window.history.replaceState(null, "", `?${qs}`);
-  }, [dateRange, stationIds, clinicalIds, hiddenKeys]);
+  }, [dateRange, stationIds, clinicalIds, hiddenKeys, department]);
 }

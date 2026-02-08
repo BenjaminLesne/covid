@@ -19,7 +19,7 @@ export default function Home() {
     useStationPreferences();
   const { dateRange, setRange } = useDateRange();
   const { enabledDiseases, setDiseases } = useClinicalPreferences();
-  const { department, departmentLabel } = useDepartmentPreferences();
+  const { department, setDepartment, departmentLabel } = useDepartmentPreferences();
 
   const [hiddenKeys, setHiddenKeys] = useState<Set<string>>(new Set());
   const toggleLine = useCallback((key: string) => {
@@ -39,10 +39,12 @@ export default function Home() {
     stationIds: selectedIds,
     clinicalIds: enabledDiseases,
     hiddenKeys,
+    department,
     setRange,
     setStations,
     setDiseases,
     setHiddenKeys,
+    setDepartment,
   });
 
   return (
