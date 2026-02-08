@@ -152,7 +152,7 @@ export function WastewaterChart() {
   // Build stable display name mapping: stationId → label
   const displayNames = useMemo(() => {
     const map = new Map<string, string>();
-    map.set(NATIONAL_COLUMN, "Moyenne nationale");
+    map.set(NATIONAL_COLUMN, "Moyenne nationale Covid");
     if (stations) {
       for (const s of stations) {
         map.set(s.name, s.name);
@@ -305,7 +305,14 @@ export function WastewaterChart() {
               tickFormatter={(v: number) =>
                 v >= 1000 ? `${(v / 1000).toFixed(1)}k` : String(Math.round(v))
               }
-              width={45}
+              width={55}
+              label={{
+                value: "Concentration eaux usées",
+                angle: -90,
+                position: "insideLeft",
+                offset: 10,
+                style: { fontSize: 11, fill: "var(--color-muted-foreground, #888)", textAnchor: "middle" },
+              }}
             />
             {enabledDiseases.length > 0 && (
               <YAxis
@@ -313,13 +320,15 @@ export function WastewaterChart() {
                 orientation="right"
                 tick={hasClinicalVisible ? { fontSize: 11 } : false}
                 tickFormatter={(v: number) => String(Math.round(v * 10) / 10)}
-                width={hasClinicalVisible ? 55 : 0}
+                width={hasClinicalVisible ? 65 : 0}
                 hide={!hasClinicalVisible}
+                axisLine={{ strokeDasharray: "6 3" }}
                 label={hasClinicalVisible ? {
-                  value: "/100k",
-                  position: "insideTopRight",
-                  offset: -5,
-                  style: { fontSize: 10, fill: "var(--color-muted-foreground, #888)" },
+                  value: "Urgences /100k",
+                  angle: 90,
+                  position: "insideRight",
+                  offset: 10,
+                  style: { fontSize: 11, fill: "var(--color-muted-foreground, #888)", textAnchor: "middle" },
                 } : undefined}
               />
             )}

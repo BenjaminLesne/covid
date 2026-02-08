@@ -10,7 +10,7 @@ export function Header() {
           <div>
             <h1 className="text-lg font-bold leading-tight">EauxVid</h1>
             <p className="hidden text-xs text-muted-foreground sm:block">
-              Surveillance Covid eaux usées
+              Surveillance virale — eaux usées &amp; urgences
             </p>
           </div>
         </div>

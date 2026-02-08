@@ -38,9 +38,15 @@ export default function Home() {
       {/* Chart + Map: side-by-side on desktop, stacked on mobile/tablet */}
       <div className="flex flex-col gap-6 lg:flex-row lg:gap-6">
         <div className="min-w-0 lg:w-3/5">
+          <h2 className="text-muted-foreground mb-2 text-sm font-medium">
+            Concentration virale (eaux usées) · Passages aux urgences (clinique)
+          </h2>
           <WastewaterChart />
         </div>
         <div className="min-w-0 lg:w-2/5">
+          <h2 className="text-muted-foreground mb-2 text-sm font-medium">
+            Stations SUM&apos;Eau — sévérité Covid eaux usées
+          </h2>
           <FranceMap
             selectedIds={selectedIds}
             canAddMore={canAddMore}

@@ -52,7 +52,7 @@ async function fetchSingleDisease(
 
   // Build the API URL with query parameters
   const url = new URL(`${ODISSE_API_BASE}/${meta.datasetId}/records`);
-  url.searchParams.set("where", "sursaud_cl_age_gene='Tous âges'");
+  url.searchParams.set("where", `sursaud_cl_age_gene='${meta.ageFilter}'`);
   url.searchParams.set("select", `semaine,${meta.rateFieldName}`);
   url.searchParams.set("order_by", "semaine ASC");
   url.searchParams.set("limit", "100");

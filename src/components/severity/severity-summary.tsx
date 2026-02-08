@@ -49,7 +49,7 @@ export function SeveritySummary() {
     return (
       <Card>
         <CardHeader>
-          <CardTitle>Niveau national</CardTitle>
+          <CardTitle>Niveau national — eaux usées</CardTitle>
         </CardHeader>
         <CardContent className="flex flex-col gap-3">
           <Skeleton className="h-6 w-32" />
@@ -64,7 +64,7 @@ export function SeveritySummary() {
     return (
       <Card>
         <CardHeader>
-          <CardTitle>Niveau national</CardTitle>
+          <CardTitle>Niveau national — eaux usées</CardTitle>
         </CardHeader>
         <CardContent>
           <p className="text-muted-foreground text-sm">
@@ -94,7 +94,7 @@ export function SeveritySummary() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Niveau national</CardTitle>
+        <CardTitle>Niveau national — eaux usées</CardTitle>
       </CardHeader>
       <CardContent className="flex flex-col gap-3">
         <SeverityBadge level={level} size="lg" />

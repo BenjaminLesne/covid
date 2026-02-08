@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { CalendarIcon, RotateCcw } from "lucide-react";
+import { useCallback, useState } from "react";
+import { CalendarIcon } from "lucide-react";
 import { type DateRange as RDPDateRange } from "react-day-picker";
 import { useDateRange } from "@/hooks/use-date-range";
 import { Button } from "@/components/ui/button";
@@ -13,6 +13,12 @@ import {
 } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 
+const PRESETS = [
+  { label: "1 mois", months: 1 },
+  { label: "6 mois", months: 6 },
+  { label: "1 an", months: 12 },
+] as const;
+
 function formatDate(date: Date): string {
   return date.toLocaleDateString("fr-FR", {
     day: "numeric",
@@ -22,7 +28,7 @@ function formatDate(date: Date): string {
 }
 
 export function DateRangePicker() {
-  const { fromDate, toDate, setRange, reset } = useDateRange();
+  const { fromDate, toDate, setRange } = useDateRange();
   const [open, setOpen] = useState(false);
 
   const selected: RDPDateRange = {
@@ -39,8 +45,29 @@ export function DateRangePicker() {
     }
   };
 
+  const applyPreset = useCallback(
+    (months: number) => {
+      const to = new Date();
+      const from = new Date();
+      from.setMonth(from.getMonth() - months);
+      setRange(from, to);
+    },
+    [setRange]
+  );
+
   return (
     <div className="flex items-center gap-2">
+      {PRESETS.map((preset) => (
+        <Button
+          key={preset.months}
+          variant="outline"
+          size="sm"
+          className="text-xs"
+          onClick={() => applyPreset(preset.months)}
+        >
+          {preset.label}
+        </Button>
+      ))}
       <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>
           <Button
@@ -69,15 +96,6 @@ export function DateRangePicker() {
           />
         </PopoverContent>
       </Popover>
-      <Button
-        variant="ghost"
-        size="icon"
-        onClick={reset}
-        title="Réinitialiser (6 derniers mois)"
-        aria-label="Réinitialiser la période"
-      >
-        <RotateCcw className="h-4 w-4" />
-      </Button>
     </div>
   );
 }

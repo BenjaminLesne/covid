@@ -72,23 +72,26 @@ export const CLINICAL_DISEASE_IDS: readonly ClinicalDiseaseId[] = [
 export const CLINICAL_DATASETS: Record<ClinicalDiseaseId, ClinicalDatasetMeta> = {
   flu: {
     id: "flu",
-    label: "Grippe (urgences)",
+    label: "Grippe",
     datasetId: "grippe-passages-aux-urgences-et-actes-sos-medecins-france",
     rateFieldName: "taux_passages_grippe_sau",
     color: "hsl(0, 75%, 55%)",
+    ageFilter: "Tous âges",
   },
   bronchiolitis: {
     id: "bronchiolitis",
-    label: "Bronchiolite (urgences)",
+    label: "Bronchiolite <1 an",
     datasetId: "bronchiolite-passages-aux-urgences-et-actes-sos-medecins-france",
     rateFieldName: "taux_passages_bronchio_sau",
     color: "hsl(190, 80%, 45%)",
+    ageFilter: "0 an",
   },
   covid_clinical: {
     id: "covid_clinical",
-    label: "COVID-19 (urgences)",
+    label: "COVID-19",
     datasetId: "covid-19-passages-aux-urgences-et-actes-sos-medecins-france",
     rateFieldName: "taux_passages_covid_sau",
     color: "hsl(45, 90%, 50%)",
+    ageFilter: "Tous âges",
   },
 } as const;

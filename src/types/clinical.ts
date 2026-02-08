@@ -30,4 +30,6 @@ export interface ClinicalDatasetMeta {
   rateFieldName: string;
   /** HSL color string for chart rendering */
   color: string;
+  /** Age group filter value for the Odissé API query */
+  ageFilter: string;
 }
