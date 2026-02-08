@@ -51,6 +51,8 @@ Started: Sam  7 fév 2026 18:37:38 CET
 - Odissé API v2.1 records endpoint: `${ODISSE_API_BASE}/${datasetId}/records` with pagination (limit=100, offset-based)
 - Clinical tRPC router in `src/server/trpc/routers/clinical.ts` — `getIndicators` procedure with optional diseaseIds + dateRange filters
 - `CLINICAL_DISEASE_IDS` readonly array needs `as unknown as [string, ...string[]]` cast for `z.enum()` which requires a non-empty tuple type
+- Clinical preferences hook in `src/hooks/use-clinical-preferences.ts` — `enabledDiseases`, `toggleDisease(id)`, `isEnabled(id)` with localStorage key `eauxvid:clinical-overlays`
+- Clinical toggle UI in `src/components/filters/clinical-toggle.tsx` — pill buttons iterating `CLINICAL_DISEASE_IDS`, colors from `CLINICAL_DATASETS`
 ---
 
 ## 2026-02-07 - US-001
@@ -340,4 +342,22 @@ Started: Sam  7 fév 2026 18:37:38 CET
   - `CLINICAL_DISEASE_IDS` is `readonly ClinicalDiseaseId[]` — needs `as unknown as [string, ...string[]]` cast for `z.enum()` which requires a non-empty tuple
   - After zod validation, `diseaseIds` comes back as `string[]` — cast to `ClinicalDiseaseId[]` since zod enum already validates the values
   - Root router auto-exports `AppRouter` type — adding `clinical: clinicalRouter` automatically makes `trpc.clinical.getIndicators` available on the client
+---
+
+## 2026-02-08 - US-019
+- Created `src/hooks/use-clinical-preferences.ts` — manages enabled clinical disease overlays with localStorage persistence
+- Hook returns: `enabledDiseases` array, `toggleDisease(id)`, `isEnabled(id)`
+- localStorage key: `eauxvid:clinical-overlays`, defaults to all 3 diseases enabled
+- Created `src/components/filters/clinical-toggle.tsx` — pill-style toggle buttons for each disease
+- Enabled pills show colored background (disease HSL color from CLINICAL_DATASETS), disabled pills are muted/transparent with border
+- Label "Données cliniques :" before the pills, uses `aria-pressed` for accessibility
+- Mounted ClinicalToggle in `src/app/page.tsx` between the filter bar and the chart/map row
+- Verified in browser: toggle on/off works, persistence survives page reload
+- Files created: src/hooks/use-clinical-preferences.ts, src/components/filters/clinical-toggle.tsx
+- Files modified: src/app/page.tsx, tasks/prd.json
+- **Learnings for future iterations:**
+  - Clinical preferences hook follows exact same pattern as `use-station-preferences.ts` — `useLocalStorage` + `useCallback` wrappers
+  - HSL color strings from `CLINICAL_DATASETS` can be used directly in inline `style` for background/border color
+  - `aria-pressed` on toggle buttons provides accessibility state for screen readers
+  - Pills with inline `style` for enabled state and no inline style for disabled state — Tailwind `border` class provides the muted appearance
 ---

@@ -326,7 +326,7 @@
         "Verify in browser using agent-browser CLI"
       ],
       "priority": 19,
-      "passes": false,
+      "passes": true,
       "notes": "Reuse src/hooks/use-local-storage.ts (generic typed hook already built in US-008). Follow the same pattern as use-station-preferences.ts. Import CLINICAL_DATASETS and CLINICAL_DISEASE_IDS from constants for iteration."
     },
     {

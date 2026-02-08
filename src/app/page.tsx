@@ -5,6 +5,7 @@ import { StationSelect } from "@/components/filters/station-select";
 import { DateRangePicker } from "@/components/filters/date-range-picker";
 import { WastewaterChart } from "@/components/chart/wastewater-chart";
 import { FranceMap } from "@/components/map/france-map";
+import { ClinicalToggle } from "@/components/filters/clinical-toggle";
 import { useStationPreferences } from "@/hooks/use-station-preferences";
 
 export default function Home() {
@@ -30,6 +31,9 @@ export default function Home() {
         </div>
         <DateRangePicker />
       </div>
+
+      {/* Clinical data overlay toggles */}
+      <ClinicalToggle />
 
       {/* Chart + Map: side-by-side on desktop, stacked on mobile/tablet */}
       <div className="flex flex-col gap-6 lg:flex-row lg:gap-6">
