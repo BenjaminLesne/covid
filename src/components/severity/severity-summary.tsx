@@ -1,6 +1,6 @@
 "use client";
 
-import { trpc } from "@/lib/trpc";
+import { useNationalTrend } from "@/hooks/use-wastewater-data";
 import { calculateSeverityLevel, calculateTrend } from "@/lib/severity";
 import { SeverityBadge } from "./severity-badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -44,7 +44,7 @@ function formatWeekDate(week: string): string {
 
 export function SeveritySummary() {
   const { data: nationalTrend, isLoading, isError, refetch } =
-    trpc.wastewater.getNationalTrend.useQuery();
+    useNationalTrend();
 
   if (isLoading) {
     return (
