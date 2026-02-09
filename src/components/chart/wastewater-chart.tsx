@@ -8,6 +8,7 @@ import { useDateRange } from "@/hooks/use-date-range";
 import { useClinicalPreferences } from "@/hooks/use-clinical-preferences";
 import { NATIONAL_STATION_ID, CLINICAL_DATASETS } from "@/lib/constants";
 import { Skeleton } from "@/components/ui/skeleton";
+import { QueryError } from "@/components/query-error";
 import {
   ChartContainer,
   ChartTooltip,
@@ -109,7 +110,7 @@ export function WastewaterChart({ hiddenKeys, onToggle, department, departmentLa
   const { enabledDiseases } = useClinicalPreferences();
 
   // Map "national" to "National_54" for querying, and get station names for others
-  const { data: stations, isLoading: stationsLoading } =
+  const { data: stations, isLoading: stationsLoading, isError: stationsError, refetch: refetchStations } =
     trpc.wastewater.getStations.useQuery();
 
   const sandreToColumn = useMemo(
@@ -133,7 +134,7 @@ export function WastewaterChart({ hiddenKeys, onToggle, department, departmentLa
     };
   }, [dateRange]);
 
-  const { data: indicators, isLoading: indicatorsLoading } =
+  const { data: indicators, isLoading: indicatorsLoading, isError: indicatorsError, refetch: refetchIndicators } =
     trpc.wastewater.getIndicators.useQuery(
       {
         stationIds: indicatorStationIds,
@@ -263,12 +264,26 @@ export function WastewaterChart({ hiddenKeys, onToggle, department, departmentLa
   }, [enabledDiseases, hiddenKeys]);
 
   const isLoading = stationsLoading || indicatorsLoading;
+  const isError = stationsError || indicatorsError;
 
   if (isLoading) {
     return (
       <div className="flex flex-col gap-2">
         <Skeleton className="h-[300px] w-full sm:h-[400px] md:h-[450px]" />
       </div>
+    );
+  }
+
+  if (isError) {
+    return (
+      <QueryError
+        message="Impossible de charger les données. Veuillez réessayer."
+        onRetry={() => {
+          if (stationsError) void refetchStations();
+          if (indicatorsError) void refetchIndicators();
+        }}
+        className="h-[300px] sm:h-[400px] md:h-[450px]"
+      />
     );
   }
 
