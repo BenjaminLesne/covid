@@ -2,8 +2,9 @@
 
 import { useMemo } from "react";
 import { Line, XAxis, YAxis, CartesianGrid, ComposedChart } from "recharts";
-import { trpc } from "@/lib/trpc";
 import { useStationPreferences } from "@/hooks/use-station-preferences";
+import { useStations, useIndicators } from "@/hooks/use-wastewater-data";
+import { useClinicalIndicators } from "@/hooks/use-clinical-data";
 import { useDateRange } from "@/hooks/use-date-range";
 import { useClinicalPreferences } from "@/hooks/use-clinical-preferences";
 import { NATIONAL_STATION_ID, CLINICAL_DATASETS } from "@/lib/constants";
@@ -111,7 +112,7 @@ export function WastewaterChart({ hiddenKeys, onToggle, department, departmentLa
 
   // Map "national" to "National_54" for querying, and get station names for others
   const { data: stations, isLoading: stationsLoading, isError: stationsError, refetch: refetchStations } =
-    trpc.wastewater.getStations.useQuery();
+    useStations();
 
   const sandreToColumn = useMemo(
     () => (stations ? buildSandreToColumnMap(stations) : new Map<string, string>()),
@@ -135,27 +136,21 @@ export function WastewaterChart({ hiddenKeys, onToggle, department, departmentLa
   }, [dateRange]);
 
   const { data: indicators, isLoading: indicatorsLoading, isError: indicatorsError, refetch: refetchIndicators } =
-    trpc.wastewater.getIndicators.useQuery(
-      {
-        stationIds: indicatorStationIds,
-        dateRange: weekRange,
-      },
-      {
-        enabled: indicatorStationIds.length > 0 && !!stations,
-      }
-    );
+    useIndicators({
+      stationIds: indicatorStationIds.length > 0 && stations ? indicatorStationIds : undefined,
+      dateRange: weekRange,
+    });
 
   // Fetch clinical data independently — wastewater displays even if this fails
   const { data: clinicalIndicators } =
-    trpc.clinical.getIndicators.useQuery(
-      {
-        diseaseIds: enabledDiseases.length > 0 ? enabledDiseases : undefined,
-        dateRange: weekRange,
-        department: department ?? undefined,
-      },
-      {
-        enabled: enabledDiseases.length > 0,
-      }
+    useClinicalIndicators(
+      enabledDiseases.length > 0
+        ? {
+            diseaseIds: enabledDiseases,
+            dateRange: weekRange,
+            department: department ?? undefined,
+          }
+        : undefined
     );
 
   // Build stable display name mapping: stationId → label
