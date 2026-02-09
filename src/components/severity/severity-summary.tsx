@@ -5,6 +5,7 @@ import { calculateSeverityLevel, calculateTrend } from "@/lib/severity";
 import { SeverityBadge } from "./severity-badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Button } from "@/components/ui/button";
 import type { TrendDirection } from "@/types/wastewater";
 
 function TrendArrow({ trend }: { trend: TrendDirection }) {
@@ -42,7 +43,7 @@ function formatWeekDate(week: string): string {
 }
 
 export function SeveritySummary() {
-  const { data: nationalTrend, isLoading } =
+  const { data: nationalTrend, isLoading, isError, refetch } =
     trpc.wastewater.getNationalTrend.useQuery();
 
   if (isLoading) {
@@ -55,6 +56,24 @@ export function SeveritySummary() {
           <Skeleton className="h-6 w-32" />
           <Skeleton className="h-4 w-24" />
           <Skeleton className="h-4 w-40" />
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (isError) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Niveau national — eaux usées</CardTitle>
+        </CardHeader>
+        <CardContent className="flex flex-col items-start gap-2">
+          <p className="text-muted-foreground text-sm">
+            Données non disponibles — erreur de chargement
+          </p>
+          <Button variant="outline" size="sm" onClick={() => void refetch()}>
+            Réessayer
+          </Button>
         </CardContent>
       </Card>
     );
