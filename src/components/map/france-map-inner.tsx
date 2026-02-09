@@ -8,6 +8,7 @@ import { trpc } from "@/lib/trpc";
 import { calculateSeverityLevel, calculateTrend } from "@/lib/severity";
 import { StationMarker } from "./station-marker";
 import { Skeleton } from "@/components/ui/skeleton";
+import { QueryError } from "@/components/query-error";
 import type { SeverityLevel, TrendDirection } from "@/types/wastewater";
 
 /** Default center and zoom for mainland France. */
@@ -127,7 +128,7 @@ export function FranceMapInner({
   canAddMore,
   onToggle,
 }: FranceMapInnerProps) {
-  const { data: stations, isLoading: stationsLoading } =
+  const { data: stations, isLoading: stationsLoading, isError: stationsError, refetch: refetchStations } =
     trpc.wastewater.getStations.useQuery();
 
   const { data: indicators, isLoading: indicatorsLoading } =
@@ -181,6 +182,16 @@ export function FranceMapInner({
 
   if (isLoading) {
     return <Skeleton className="h-[400px] w-full rounded-lg md:h-[450px] lg:h-[500px]" />;
+  }
+
+  if (stationsError) {
+    return (
+      <QueryError
+        message="Impossible de charger la carte. Veuillez réessayer."
+        onRetry={() => void refetchStations()}
+        className="h-[400px] md:h-[450px] lg:h-[500px]"
+      />
+    );
   }
 
   if (!stations || stations.length === 0) {
