@@ -1,135 +1,102 @@
 # Ralph Progress Log
-Started: Sat  8 Feb 2026
+Started: Mon Feb  9 14:53:48 CET 2026
+---
 
 ## Codebase Patterns
-- Project uses Next.js 15 App Router with TypeScript strict mode (downgraded from 16 due to bundled React canary version mismatch)
-- tRPC v11 with superjson transformer — server init in `src/server/trpc/init.ts`, root router in `src/server/trpc/router.ts`
-- API route handler at `src/app/api/trpc/[trpc]/route.ts` using fetch adapter
-- shadcn/ui with Tailwind CSS v4 — use `npx shadcn@latest add <component>` to add components
-- Client-side tRPC provider in `src/components/providers.tsx` wrapping React Query
-- Path alias `@/*` maps to `./src/*`
-- Shared types in `src/types/wastewater.ts` — import `SeverityLevel`, `TrendDirection`, etc. from `@/types/wastewater`
-- Constants (colors, thresholds, URLs) in `src/lib/constants.ts` — import from `@/lib/constants`
-- Data fetching service in `src/server/services/sumeau.ts` — use `fetchIndicators()` and `fetchStations()` for server-side data access
-- Clinical types in `src/types/clinical.ts` — import `ClinicalDiseaseId`, `ClinicalIndicator`, `ClinicalDatasetMeta` from `@/types/clinical`
-- Clinical constants in `src/lib/constants.ts` — `ODISSE_API_BASE`, `CLINICAL_DISEASE_IDS`, `CLINICAL_DATASETS` record with Odissé API config per disease
-- Odissé API v2.1 returns flat record fields (not nested in `fields` object like v1); filter `sursaud_cl_age_gene='Tous âges'` for all-age data
-- Clinical data service in `src/server/services/clinical.ts` — use `fetchClinicalIndicators()` for all diseases, `fetchClinicalIndicatorsByDisease(ids)` for specific ones
-- Odissé API v2.1 records endpoint: `${ODISSE_API_BASE}/${datasetId}/records` with pagination (limit=100, offset-based)
-- Clinical tRPC router in `src/server/trpc/routers/clinical.ts` — `getIndicators` procedure with optional diseaseIds + dateRange filters
-- `CLINICAL_DISEASE_IDS` readonly array needs `as unknown as [string, ...string[]]` cast for `z.enum()` which requires a non-empty tuple type
-- Hooks in `src/hooks/` — `use-local-storage.ts` (generic typed localStorage), `use-station-preferences.ts` (station selection state with max 5 limit)
-- Station select combobox in `src/components/filters/station-select.tsx` — uses shadcn/ui Popover + Command (cmdk) pattern
-- `useSyncExternalStore` can detect client vs server without useEffect — avoids React lint warning about setState in effects
-- shadcn/ui combobox pattern uses Popover + Command (from cmdk library) — not a built-in component
-- Clinical preferences hook in `src/hooks/use-clinical-preferences.ts` — `enabledDiseases`, `toggleDisease(id)`, `isEnabled(id)` with localStorage key `eauxvid:clinical-overlays`
-- Recharts dual Y-axis: every `Line` `yAxisId` must have a matching `YAxis` rendered, even if the line has `hide=true` — use `hide` prop on the axis itself instead of conditional rendering
-- URL state sync in `src/hooks/use-url-sync.ts` — params: from, to, stations, clinical, hidden
-- localStorage keys prefixed with `eauxvid:` (e.g. `eauxvid:selected-stations`, `eauxvid:date-range`, `eauxvid:clinical-overlays`)
-- Department-level Odissé datasets use suffix `-departement` instead of `-france`, same rate fields, add WHERE `dep='XX'` to filter
-- Vitest configured in `vitest.config.ts` with `@/` path alias; test script is `npm run test`
-- `stripDiacritics` and `accentInsensitiveFilter` utilities in `src/lib/utils.ts` for accent-insensitive search
+- Client-side services go in `src/services/` (NOT `src/server/services/`)
+- Use `AbortSignal.timeout(15_000)` for browser fetch timeout (no `next: { revalidate }`)
+- CSV parsing uses Papa Parse with `;` delimiter and French locale handling
+- Week format normalized from "YYYY-SWW" to "YYYY-WWW"
+- DATA_URLS and constants imported from `@/lib/constants`
+- Types imported from `@/types/wastewater` and `@/types/clinical`
+- When deleting server code, clean `.next` cache first — stale type references in `.next/types/` cause phantom TS errors
+- `station-select.tsx` was missed by earlier migrations — always grep for `trpc.` before the final removal story
 ---
 
-## 2026-02-08 - US-022
-- Implemented `stripDiacritics(str)` and `accentInsensitiveFilter(value, search)` in `src/lib/utils.ts`
-- `stripDiacritics` uses `String.normalize('NFD')` + regex to strip combining diacritical marks
-- `accentInsensitiveFilter` returns 1/0 for cmdk Command filter prop compatibility
-- Files changed: `src/lib/utils.ts`
+## 2026-02-09 - US-207
+- Removed all tRPC infrastructure: server, services, API route, client, and provider wrapper
+- Fixed `station-select.tsx` which still had `trpc.wastewater.getStations.useQuery()` — replaced with `useStations()` hook
+- Simplified `providers.tsx` to only `QueryClientProvider` + `ThemeProvider` (preserved QueryClient config)
+- Deleted: `src/server/trpc/` (4 files), `src/server/services/` (2 files), `src/app/api/trpc/[trpc]/route.ts`, `src/lib/trpc.ts`
+- Removed empty `src/server/` directory
+- Grep confirms zero remaining `@/lib/trpc`, `@/server/`, or `trpc.` imports
+- Typecheck passes (needed `.next` cache clear for stale type refs)
+- Pre-existing lint warning in `use-wastewater-data.ts` (React Compiler memoization) — not introduced by this story
+- Browser verification: could not verify due to chrome-devtools MCP conflict (manual check needed)
+- Files changed: `src/components/filters/station-select.tsx`, `src/components/providers.tsx` + 8 deleted files
 - **Learnings for future iterations:**
-  - The shadcn/ui Command filter prop expects `(value: string, search: string) => number` — return 1 for match, 0 for no match
-  - NFD normalization separates base characters from combining marks, making it easy to strip accents with a single regex
+  - `.next/types/` caches auto-generated types for API routes — after deleting route files, run `rm -rf .next` before `tsc --noEmit`
+  - Always grep for ALL tRPC usage (`trpc.`, `@/lib/trpc`, `@/server/`) before starting the removal story — `station-select.tsx` was missed by component migration stories
+  - The `getBaseUrl()` helper in providers.tsx was only needed for tRPC — safe to remove along with the tRPC client
 ---
 
-## 2026-02-08 - US-023
-- Applied `accentInsensitiveFilter` to station select combobox via `filter` prop on `<Command>`
-- Added "Stations eaux usées" label above the combobox with `text-sm font-medium text-muted-foreground` styling
-- Files changed: `src/components/filters/station-select.tsx`
+## 2026-02-09 - US-206
+- Replaced `trpc.wastewater.getNationalTrend.useQuery()` with `useNationalTrend()` from new hooks
+- Removed `import { trpc }` from severity-summary.tsx
+- Loading, error, and data states remain exactly the same
+- Files changed: `src/components/severity/severity-summary.tsx`
+- Browser verification: could not verify due to chrome-devtools MCP conflict (manual check needed)
 - **Learnings for future iterations:**
-  - SUM'Eau station names and commune names are all uppercase ASCII — no accented characters in the dataset
-  - The accent-insensitive filter still works correctly as a case-insensitive substring search for unaccented data
-  - cmdk `filter` prop on `<Command>` replaces the default fuzzy matching with custom logic — pass `(value, search) => number`
-  - The `value` prop on `<CommandItem>` is what gets passed to the filter function — set it to searchable text (e.g., `{station.name} {station.commune}`)
+  - Simplest migration — just swap the import and the hook call, everything else stays identical
+  - The `useNationalTrend()` hook returns `{ data, isLoading, isError, refetch }` with the same shape as the tRPC hook
 ---
 
-## 2026-02-08 - US-024
-- Added `departmentDatasetId` field to `ClinicalDatasetMeta` in `src/types/clinical.ts`
-- Populated `departmentDatasetId` for each disease in `CLINICAL_DATASETS` (flu, bronchiolitis, covid_clinical)
-- Added `FRENCH_DEPARTMENTS` constant with all 101 departments (96 metropolitan + 5 overseas)
-- Files changed: `src/types/clinical.ts`, `src/lib/constants.ts`
+## 2026-02-09 - US-205
+- Replaced `trpc.wastewater.getStations.useQuery()` and `trpc.wastewater.getIndicators.useQuery()` with `useStations()` and `useIndicators()` from new hooks
+- Removed `import { trpc }` from france-map-inner.tsx
+- Loading, error, and empty states remain exactly the same
+- Files changed: `src/components/map/france-map-inner.tsx`
+- Browser verification: could not verify due to chrome-devtools MCP conflict (manual check needed)
 - **Learnings for future iterations:**
-  - France has 101 departments: 01-19, 2A, 2B, 21-95 (metropolitan) + 971-976 (overseas, excluding 975 Saint-Pierre-et-Miquelon)
-  - Department codes are strings, not numbers (important for '2A', '2B', '971' etc.)
-  - Department-level Odissé dataset IDs follow the pattern: replace `-france` suffix with `-departement`
+  - The `enabled: !!stations` pattern from tRPC was dropped — `useIndicators()` fetches independently; React Query deduplication means no extra network request
+  - The map component was already partially migrated in a previous working session (uncommitted changes on the branch)
 ---
 
-## 2026-02-08 - US-025
-- Modified `fetchSingleDisease` to accept optional `department?: string` parameter
-- When department is provided: uses `meta.departmentDatasetId` and adds `AND dep='${department}'` to WHERE clause
-- Updated `fetchClinicalIndicatorsByDisease` and `fetchClinicalIndicators` signatures to pass through department
-- Files changed: `src/server/services/clinical.ts`
+## 2026-02-09 - US-204
+- Replaced all `trpc.wastewater.*` and `trpc.clinical.*` useQuery calls with new hooks
+- Removed `import { trpc }` from wastewater-chart.tsx
+- Loading, error, and empty states preserved exactly as before
+- Files changed: `src/components/chart/wastewater-chart.tsx`
+- Browser verification: could not verify due to chrome-devtools MCP conflict (manual check needed)
 - **Learnings for future iterations:**
-  - The Odissé WHERE clause for department queries: `sursaud_cl_age_gene='Tous âges' AND dep='44'`
-  - URL.searchParams.set handles encoding, so the WHERE clause with quotes and spaces is properly escaped
-  - The `dep` field in Odissé uses string codes matching `FRENCH_DEPARTMENTS` codes
+  - The `useIndicators` hook always fetches all data; client-side filtering with stationIds/dateRange is done via useMemo in the hook
+  - The `enabled` pattern from tRPC is replaced by passing undefined stationIds when stations aren't loaded yet
+  - The `useClinicalIndicators` hook is passed undefined entirely when no diseases are enabled (vs the tRPC `enabled: false` pattern)
 ---
 
-## 2026-02-08 - US-026
-- Added optional `department: z.string().optional()` to `getIndicators` input schema
-- Passes `input.department` through to both `fetchClinicalIndicatorsByDisease` and `fetchClinicalIndicators`
-- Files changed: `src/server/trpc/routers/clinical.ts`
+## 2026-02-09 - US-203
+- Created `src/hooks/use-wastewater-data.ts` with `useStations()`, `useIndicators()`, `useNationalTrend()`
+- Created `src/hooks/use-clinical-data.ts` with `useClinicalIndicators()`
+- All hooks use `useQuery` from `@tanstack/react-query` directly (not tRPC)
+- Client-side filtering with `useMemo` for stationIds, dateRange, and national trend extraction
+- `useIndicators` and `useNationalTrend` share the same `['indicators']` queryKey (React Query dedupes)
+- `useClinicalIndicators` uses `['clinical-indicators', diseaseIds, department]` as queryKey
+- Files changed: `src/hooks/use-wastewater-data.ts` (new), `src/hooks/use-clinical-data.ts` (new)
 - **Learnings for future iterations:**
-  - tRPC input schema is `.optional()` at the top level, so accessing `input?.department` safely handles when no input is provided
+  - React Query v5 deduplicates queries with the same queryKey, so useIndicators and useNationalTrend share the fetch
+  - Client-side filtering via useMemo keeps the API simple while avoiding redundant fetches
+  - The `enabled` pattern from the PRD AC wasn't needed since the hooks don't depend on each other's data
 ---
 
-## 2026-02-08 - US-027
-- Created `src/hooks/use-department-preferences.ts` with `useDepartmentPreferences` hook
-- Returns `{ department, setDepartment, departmentLabel }` — `null` means "France entière"
-- Uses `useLocalStorage` with key `eauxvid:clinical-department`, default `null`
-- `departmentLabel` resolves department code to name via `FRENCH_DEPARTMENTS` lookup
-- Files changed: `src/hooks/use-department-preferences.ts` (new)
+## 2026-02-09 - US-202
+- Created `src/services/clinical.ts` with `fetchClinicalIndicators()` and `fetchClinicalIndicatorsByDisease()`
+- Uses browser-native fetch with 15s timeout, no `next: { revalidate }`
+- Preserves same pagination logic (limit=100, offset loop) and `Promise.allSettled` pattern
+- Same type output: `ClinicalIndicator[]`
+- Files changed: `src/services/clinical.ts` (new)
 - **Learnings for future iterations:**
-  - Follow the same pattern as `use-station-preferences.ts` and `use-clinical-preferences.ts` for new preference hooks
-  - All localStorage keys use `eauxvid:` prefix
+  - Odissé API supports CORS (`access-control-allow-origin: *`)
+  - The clinical service is nearly identical to the server version minus `next: { revalidate }` and import of `REVALIDATE_INTERVAL`
 ---
 
-## 2026-02-08 - US-028
-- Created `src/components/filters/department-select.tsx` with Popover + Command combobox pattern
-- Uses Hospital icon from lucide-react to visually distinguish from station select (MapPin)
-- "France entière" is the first entry and sets department to null
-- Uses `accentInsensitiveFilter` for accent-insensitive department search
-- Check icon shows next to selected item
-- Files changed: `src/components/filters/department-select.tsx` (new)
+## 2026-02-09 - US-201
+- Created `src/services/wastewater.ts` with `fetchIndicators()` and `fetchStations()`
+- Uses browser-native fetch with 15s timeout, primary endpoints only (no fallback)
+- Reuses same CSV parsing logic (Papa Parse, French locale numbers, wide→long unpivot)
+- Same type outputs: `WastewaterIndicator[]` and `Station[]`
+- Files changed: `src/services/wastewater.ts` (new)
 - **Learnings for future iterations:**
-  - cmdk CommandItem `value` is what gets passed to the filter function — include searchable fields like code and name
-  - The combobox closes on select by calling `setOpen(false)` in `onSelect`
+  - data.gouv.fr supports CORS, so direct browser fetch works
+  - Removing `next: { revalidate }` and fallback pattern significantly simplifies the code
+  - The helper functions (stripQuotes, parseFrenchNumber, normalizeWeek, isStationColumn) are duplicated from server version — could be extracted to shared utils if needed later
 ---
-
-## 2026-02-08 - US-029
-- Integrated `DepartmentSelect` into dashboard page alongside `StationSelect` in the filters section
-- Passed `department` and `departmentLabel` props from `useDepartmentPreferences` to `WastewaterChart`
-- Chart passes `department` to the clinical tRPC query for department-scoped data fetching
-- Clinical legend labels and tooltip labels include department name suffix when a department is selected (e.g., "Grippe (Loire-Atlantique)")
-- When "France entière" is selected, labels show disease name only (unchanged behavior)
-- Files changed: `src/app/page.tsx`, `src/components/chart/wastewater-chart.tsx`
-- **Learnings for future iterations:**
-  - The `clinicalLabelSuffix` pattern (computed from department state) is a clean way to conditionally append scope info to labels
-  - tRPC React Query automatically includes all input params in the query key, so passing `department` to the input ensures automatic refetch on department change
-  - Browser verification was blocked by dev server hanging — may need to restart the dev server between iterations
----
-
-## 2026-02-08 - US-030
-- Added `dep` URL parameter support to `useUrlSync` hook
-- Added `parseDepartmentParam` helper that validates non-empty string values
-- Extended `buildSearchString` to include `dep` param when department is not null
-- Added `department` and `setDepartment` to `UseUrlSyncOptions` interface
-- On mount, if `dep` param is present in URL, it overrides the localStorage value via `setDepartment`
-- Updated `page.tsx` to pass `department` and `setDepartment` through to `useUrlSync`
-- URL sync effect now includes `department` in its dependency array
-- Files changed: `src/hooks/use-url-sync.ts`, `src/app/page.tsx`
-- **Learnings for future iterations:**
-  - The `dep` param follows the same pattern as other URL params — simple string, no comma-separated list
-  - `parseDepartmentParam` is minimal since department codes are simple non-empty strings (unlike dates or comma-lists)
-  - Adding a new URL param requires: parse helper, `hasAny` check, mount-time parse + setter call, `buildSearchString` inclusion, sync effect dependency
----
-
