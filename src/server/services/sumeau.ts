@@ -204,6 +204,7 @@ export async function fetchIndicators(): Promise<WastewaterIndicator[]> {
   try {
     const res = await fetch(DATA_URLS.indicators.primary, {
       next: { revalidate: REVALIDATE_INTERVAL },
+      signal: AbortSignal.timeout(15_000),
     });
     if (res.ok) {
       const csvText = await res.text();
@@ -216,6 +217,7 @@ export async function fetchIndicators(): Promise<WastewaterIndicator[]> {
   // Fallback: Odissé JSON
   const res = await fetch(DATA_URLS.indicators.fallback, {
     next: { revalidate: REVALIDATE_INTERVAL },
+    signal: AbortSignal.timeout(15_000),
   });
   if (!res.ok) {
     throw new Error(
@@ -235,6 +237,7 @@ export async function fetchStations(): Promise<Station[]> {
   try {
     const res = await fetch(DATA_URLS.stations.primary, {
       next: { revalidate: REVALIDATE_INTERVAL },
+      signal: AbortSignal.timeout(15_000),
     });
     if (res.ok) {
       const csvText = await res.text();
@@ -247,6 +250,7 @@ export async function fetchStations(): Promise<Station[]> {
   // Fallback: Odissé JSON
   const res = await fetch(DATA_URLS.stations.fallback, {
     next: { revalidate: REVALIDATE_INTERVAL },
+    signal: AbortSignal.timeout(15_000),
   });
   if (!res.ok) {
     throw new Error(

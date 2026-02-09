@@ -75,6 +75,7 @@ async function fetchSingleDisease(
 
     const res = await fetch(url.toString(), {
       next: { revalidate: REVALIDATE_INTERVAL },
+      signal: AbortSignal.timeout(15_000),
     });
 
     if (!res.ok) {

@@ -13,7 +13,19 @@ function getBaseUrl() {
 }
 
 export function Providers({ children }: { children: React.ReactNode }) {
-  const [queryClient] = useState(() => new QueryClient());
+  const [queryClient] = useState(
+    () =>
+      new QueryClient({
+        defaultOptions: {
+          queries: {
+            staleTime: 5 * 60 * 1000, // 5 min — avoid refetching on every focus
+            gcTime: 10 * 60 * 1000, // 10 min cache
+            refetchOnWindowFocus: false, // prevents infinite reload on PWA resume
+            retry: 1,
+          },
+        },
+      })
+  );
   const [trpcClient] = useState(() =>
     trpc.createClient({
       links: [
