@@ -4,7 +4,7 @@ import "leaflet/dist/leaflet.css";
 
 import { useEffect, useMemo, useRef } from "react";
 import { MapContainer, TileLayer, useMap } from "react-leaflet";
-import { trpc } from "@/lib/trpc";
+import { useStations, useIndicators } from "@/hooks/use-wastewater-data";
 import { calculateSeverityLevel, calculateTrend } from "@/lib/severity";
 import { StationMarker } from "./station-marker";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -129,12 +129,10 @@ export function FranceMapInner({
   onToggle,
 }: FranceMapInnerProps) {
   const { data: stations, isLoading: stationsLoading, isError: stationsError, refetch: refetchStations } =
-    trpc.wastewater.getStations.useQuery();
+    useStations();
 
   const { data: indicators, isLoading: indicatorsLoading } =
-    trpc.wastewater.getIndicators.useQuery(undefined, {
-      enabled: !!stations,
-    });
+    useIndicators();
 
   // Compute severity level and trend for each station
   const stationSeverities = useMemo(() => {

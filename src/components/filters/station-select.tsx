@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from "react";
 import { Check, ChevronsUpDown, X, MapPin } from "lucide-react";
-import { trpc } from "@/lib/trpc";
+import { useStations } from "@/hooks/use-wastewater-data";
 import { useStationPreferences } from "@/hooks/use-station-preferences";
 import { NATIONAL_STATION_ID, MAX_SELECTED_STATIONS } from "@/lib/constants";
 import { cn, accentInsensitiveFilter } from "@/lib/utils";
@@ -26,8 +26,7 @@ import type { Station } from "@/types/wastewater";
 
 export function StationSelect() {
   const [open, setOpen] = useState(false);
-  const { data: stations, isLoading } =
-    trpc.wastewater.getStations.useQuery();
+  const { data: stations, isLoading } = useStations();
   const {
     selectedIds,
     toggleStation,

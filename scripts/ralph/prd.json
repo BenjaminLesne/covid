@@ -1,0 +1,123 @@
+{
+  "project": "EauxVid",
+  "branchName": "ralph/client-side-fetch",
+  "description": "Move data fetching from server-side tRPC to client-side React Query — fetch government APIs directly from the browser to eliminate the server middleman that causes infinite loading on mobile reload",
+  "userStories": [
+    {
+      "id": "US-201",
+      "title": "Create client-side wastewater fetch service",
+      "description": "As a developer, I need a client-side module that fetches and parses wastewater data directly from the browser so that we no longer depend on server-side tRPC for data fetching.",
+      "acceptanceCriteria": [
+        "Create `src/services/wastewater.ts` (NOT under src/server/) exporting `fetchIndicators()` and `fetchStations()`",
+        "Both functions use browser-native `fetch()` with `AbortSignal.timeout(15_000)`",
+        "No `next: { revalidate }` option (that is server-only)",
+        "Use only the primary endpoints from DATA_URLS (data.gouv.fr) — remove the fallback pattern entirely",
+        "Reuse the same CSV parsing logic (papaparse) and type outputs (WastewaterIndicator[], Station[]) as the existing server service",
+        "Typecheck passes"
+      ],
+      "priority": 1,
+      "passes": true,
+      "notes": "The fallback endpoints are removed because they double the timeout wait time for no benefit when the issue is the user's network. data.gouv.fr supports CORS (access-control-allow-origin is set). Import DATA_URLS and types from existing modules."
+    },
+    {
+      "id": "US-202",
+      "title": "Create client-side clinical fetch service",
+      "description": "As a developer, I need a client-side module that fetches clinical surveillance data directly from the browser.",
+      "acceptanceCriteria": [
+        "Create `src/services/clinical.ts` (NOT under src/server/) exporting `fetchClinicalIndicators(department?)` and `fetchClinicalIndicatorsByDisease(diseaseIds, department?)`",
+        "Uses browser-native `fetch()` with `AbortSignal.timeout(15_000)` on each paginated request",
+        "No `next: { revalidate }` option",
+        "Reuse the same pagination logic, `Promise.allSettled` pattern, and type output (ClinicalIndicator[]) as the existing server service",
+        "Odissé API base URL and dataset config imported from existing `src/lib/constants.ts`",
+        "Typecheck passes"
+      ],
+      "priority": 2,
+      "passes": true,
+      "notes": "Odissé API supports CORS (access-control-allow-origin: *). The paginated loop (limit=100, offset) and Promise.allSettled pattern should be preserved from the existing server service."
+    },
+    {
+      "id": "US-203",
+      "title": "Create React Query hooks for all data fetching",
+      "description": "As a developer, I need React Query hooks that wrap the client-side fetch services so that components can consume data with loading/error/retry states.",
+      "acceptanceCriteria": [
+        "Create `src/hooks/use-wastewater-data.ts` exporting `useStations()`, `useIndicators(options)`, and `useNationalTrend()`",
+        "Create `src/hooks/use-clinical-data.ts` exporting `useClinicalIndicators(options)`",
+        "All hooks use `useQuery` from `@tanstack/react-query` directly (NOT tRPC)",
+        "useIndicators accepts optional `{ stationIds, dateRange }` and filters client-side after fetch (same logic as current tRPC procedure)",
+        "useNationalTrend filters indicators for stationId 'National_54' client-side (same logic as current tRPC procedure)",
+        "useClinicalIndicators accepts optional `{ diseaseIds, dateRange, department }` and passes department to the fetch, filters dateRange client-side",
+        "Each hook sets `staleTime: 5 * 60 * 1000` (5 min) and `retry: 1`",
+        "useIndicators has `enabled: !!stations` pattern using `useStations` data internally or via parameter",
+        "Typecheck passes"
+      ],
+      "priority": 3,
+      "passes": true,
+      "notes": "These hooks replace the tRPC useQuery calls. The filtering logic currently in tRPC procedures (stationIds filter, dateRange filter, National_54 extraction) moves into these hooks. Use queryKey arrays like ['stations'], ['indicators', stationIds, dateRange], etc."
+    },
+    {
+      "id": "US-204",
+      "title": "Update WastewaterChart to use new hooks",
+      "description": "As a user, I want the wastewater chart to fetch data directly from government APIs so that reloading the page does not cause infinite loading.",
+      "acceptanceCriteria": [
+        "Replace all `trpc.wastewater.*` and `trpc.clinical.*` useQuery calls with the new hooks from US-203",
+        "Remove `import { trpc }` from this component",
+        "Loading, error, and empty states remain exactly the same (Skeleton, QueryError, empty-state div)",
+        "Chart renders identically — same data, same lines, same legend, same tooltip behavior",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 4,
+      "passes": true,
+      "notes": "This is the biggest component. The chart currently uses getStations, getIndicators, and clinical.getIndicators. All three must switch to the new hooks."
+    },
+    {
+      "id": "US-205",
+      "title": "Update FranceMap to use new hooks",
+      "description": "As a user, I want the map to fetch data directly so it works reliably on mobile.",
+      "acceptanceCriteria": [
+        "Replace `trpc.wastewater.getStations.useQuery()` and `trpc.wastewater.getIndicators.useQuery()` with new hooks in `france-map-inner.tsx`",
+        "Remove `import { trpc }` from this component",
+        "Loading, error, and empty states remain exactly the same",
+        "Map renders identically with station markers and severity colors",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 5,
+      "passes": true,
+      "notes": "FranceMapInner uses getStations and getIndicators (no input params for indicators, unlike chart). The enabled: !!stations pattern should be handled by the hook."
+    },
+    {
+      "id": "US-206",
+      "title": "Update SeveritySummary to use new hooks",
+      "description": "As a user, I want the severity summary card to fetch data directly.",
+      "acceptanceCriteria": [
+        "Replace `trpc.wastewater.getNationalTrend.useQuery()` with `useNationalTrend()` from new hooks",
+        "Remove `import { trpc }` from this component",
+        "Loading, error, and data states remain exactly the same",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 6,
+      "passes": true,
+      "notes": "Simplest component to migrate — single query, no conditional dependencies."
+    },
+    {
+      "id": "US-207",
+      "title": "Remove tRPC infrastructure",
+      "description": "As a developer, I want to remove all tRPC code since data fetching is now client-side.",
+      "acceptanceCriteria": [
+        "Delete `src/server/trpc/` directory (init.ts, router.ts, routers/wastewater.ts, routers/clinical.ts)",
+        "Delete `src/server/services/` directory (sumeau.ts, clinical.ts)",
+        "Delete `src/app/api/trpc/[trpc]/route.ts`",
+        "Delete `src/lib/trpc.ts`",
+        "Remove tRPC Provider wrapper from `src/components/providers.tsx` — keep only QueryClientProvider (and ThemeProvider)",
+        "Remove tRPC-related imports (httpBatchLink, superjson, createTRPCReact) from providers.tsx",
+        "No file in the project imports from `@/lib/trpc` or `@/server/`",
+        "Typecheck passes"
+      ],
+      "priority": 7,
+      "passes": true,
+      "notes": "Run grep to confirm no remaining imports from deleted modules before committing. The QueryClient configuration in providers.tsx must be preserved (staleTime, gcTime, refetchOnWindowFocus, retry settings)."
+    }
+  ]
+}

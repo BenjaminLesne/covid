@@ -1,8 +1,8 @@
 /**
- * Clinical surveillance data fetching service.
+ * Client-side clinical surveillance data fetching service.
  *
  * Fetches ER visit rate data for Flu, Bronchiolitis, and COVID-19
- * from the Santé publique France Odissé API v2.1.
+ * directly from the Santé publique France Odissé API v2.1.
  *
  * Uses Promise.allSettled for parallel fetching so that failure of one
  * disease API does not block others from returning data.
@@ -13,18 +13,12 @@ import {
   CLINICAL_DATASETS,
   CLINICAL_DISEASE_IDS,
   ODISSE_API_BASE,
-  REVALIDATE_INTERVAL,
 } from "@/lib/constants";
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
-/**
- * Normalize the week string from Odissé (`YYYY-SWW`) to ISO-week format
- * (`YYYY-WWW`). E.g. "2024-S03" → "2024-W03".
- * Same normalization as sumeau.ts normalizeWeek().
- */
 function normalizeWeek(raw: string): string {
   return raw.replace("-S", "-W");
 }
@@ -42,21 +36,14 @@ interface OdisseV2Response {
 // Per-disease fetching
 // ---------------------------------------------------------------------------
 
-/**
- * Fetch clinical indicators for a single disease from the Odissé API v2.1.
- * When `department` is provided, queries the department-level dataset with a
- * `dep` filter instead of the national dataset.
- */
 async function fetchSingleDisease(
   diseaseId: ClinicalDiseaseId,
   department?: string
 ): Promise<ClinicalIndicator[]> {
   const meta = CLINICAL_DATASETS[diseaseId];
 
-  // Use department-level dataset when a department code is provided
   const datasetId = department ? meta.departmentDatasetId : meta.datasetId;
 
-  // Build the API URL with query parameters
   const url = new URL(`${ODISSE_API_BASE}/${datasetId}/records`);
   const whereClause = department
     ? `sursaud_cl_age_gene='${meta.ageFilter}' AND dep='${department}'`
@@ -74,7 +61,6 @@ async function fetchSingleDisease(
     url.searchParams.set("offset", String(offset));
 
     const res = await fetch(url.toString(), {
-      next: { revalidate: REVALIDATE_INTERVAL },
       signal: AbortSignal.timeout(15_000),
     });
 
@@ -116,11 +102,7 @@ async function fetchSingleDisease(
 
 /**
  * Fetch clinical indicators for all 3 diseases in parallel.
- *
- * Uses Promise.allSettled so that failure of one disease API does not
- * block the others. Failed fetches log a warning and contribute an empty
- * array.
- *
+ * Uses Promise.allSettled so that failure of one disease does not block others.
  * Returns ClinicalIndicator[] sorted by week.
  */
 export async function fetchClinicalIndicators(
@@ -131,11 +113,7 @@ export async function fetchClinicalIndicators(
 
 /**
  * Fetch clinical indicators for specific diseases in parallel.
- *
- * Uses Promise.allSettled — each disease gets its own fetch. If a fetch
- * fails, a console.warn is logged and that disease contributes no data.
- * Other diseases still return normally.
- *
+ * Uses Promise.allSettled — failed fetches log a warning and contribute no data.
  * Returns ClinicalIndicator[] sorted by week.
  */
 export async function fetchClinicalIndicatorsByDisease(
@@ -160,7 +138,6 @@ export async function fetchClinicalIndicatorsByDisease(
     }
   }
 
-  // Sort by week (lexicographic ISO week comparison)
   indicators.sort((a, b) => a.week.localeCompare(b.week));
 
   return indicators;
