@@ -191,7 +191,7 @@
         "Verify in browser using dev-browser skill"
       ],
       "priority": 12,
-      "passes": false,
+      "passes": true,
       "notes": "The health page is a client component at `src/app/health/page.tsx`. The new `/api/health/db` route is a lightweight server-side endpoint. The DB health check should use `db.execute(sql`SELECT 1`)` to test connectivity. For the last sync, query `sync_metadata` ORDER BY started_at DESC LIMIT 1. The 48-hour staleness threshold is a reasonable default since sync runs daily."
     },
     {
@@ -205,7 +205,7 @@
         "Typecheck passes"
       ],
       "priority": 13,
-      "passes": false,
+      "passes": true,
       "notes": "The seed process reuses the sync API route — no separate seed logic needed. `db:push` creates the tables from the schema (faster than running migrations for initial setup). The curl command assumes the dev server is running on port 3000. The `jq .` at the end pretty-prints the JSON response. If jq is not installed, the output will still work, just not be formatted."
     }
   ]

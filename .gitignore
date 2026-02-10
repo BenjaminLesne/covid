@@ -42,3 +42,4 @@ next-env.d.ts
 
 # ralph agent archives
 scripts/ralph/archive/
+.env*.local

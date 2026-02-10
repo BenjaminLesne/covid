@@ -22,6 +22,21 @@ interface HealthCheck {
   errorType: "timeout" | "cors" | "network" | "http" | "unknown" | null;
 }
 
+interface DbHealthResponse {
+  connected: boolean;
+  lastSync: {
+    status: string;
+    startedAt: string;
+    completedAt: string | null;
+    stationsCount: number;
+    wastewaterCount: number;
+    clinicalCount: number;
+  } | null;
+  responseTimeMs: number;
+}
+
+type DbCheckStatus = "idle" | "loading" | "ok" | "warning" | "error";
+
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
@@ -30,6 +45,21 @@ function statusColor(status: CheckStatus) {
   switch (status) {
     case "ok":
       return "bg-green-500";
+    case "error":
+      return "bg-red-500";
+    case "loading":
+      return "bg-amber-400 animate-pulse";
+    default:
+      return "bg-gray-300";
+  }
+}
+
+function dbStatusColor(status: DbCheckStatus) {
+  switch (status) {
+    case "ok":
+      return "bg-green-500";
+    case "warning":
+      return "bg-amber-400";
     case "error":
       return "bg-red-500";
     case "loading":
@@ -146,6 +176,8 @@ export default function HealthPage() {
   const [checks, setChecks] = useState<HealthCheck[]>(buildInitialChecks);
   const [lastChecked, setLastChecked] = useState<Date | null>(null);
   const [running, setRunning] = useState(false);
+  const [dbStatus, setDbStatus] = useState<DbCheckStatus>("idle");
+  const [dbData, setDbData] = useState<DbHealthResponse | null>(null);
 
   const updateCheck = useCallback(
     (url: string, patch: Partial<HealthCheck>) => {
@@ -264,6 +296,31 @@ export default function HealthPage() {
     [updateCheck]
   );
 
+  const runDbCheck = useCallback(async () => {
+    setDbStatus("loading");
+    setDbData(null);
+    try {
+      const res = await fetch("/api/health/db", {
+        signal: AbortSignal.timeout(10000),
+      });
+      const data: DbHealthResponse = await res.json();
+      setDbData(data);
+      if (!data.connected) {
+        setDbStatus("error");
+      } else if (data.lastSync) {
+        const syncAge =
+          Date.now() - new Date(data.lastSync.startedAt).getTime();
+        const hours48 = 48 * 60 * 60 * 1000;
+        setDbStatus(syncAge > hours48 ? "warning" : "ok");
+      } else {
+        // Connected but no sync yet
+        setDbStatus("warning");
+      }
+    } catch {
+      setDbStatus("error");
+    }
+  }, []);
+
   const runAllChecks = useCallback(async () => {
     setRunning(true);
     // Reset all checks
@@ -275,11 +332,14 @@ export default function HealthPage() {
       ...TRPC_CHECKS.map((c) => ({ url: c.url, isTrpc: true })),
     ];
 
-    await Promise.allSettled(all.map((c) => runCheck(c.url, c.isTrpc)));
+    await Promise.allSettled([
+      ...all.map((c) => runCheck(c.url, c.isTrpc)),
+      runDbCheck(),
+    ]);
 
     setLastChecked(new Date());
     setRunning(false);
-  }, [runCheck]);
+  }, [runCheck, runDbCheck]);
 
   // Run checks automatically on mount
   const hasRun = useRef(false);
@@ -291,14 +351,22 @@ export default function HealthPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Derived state
+  // Derived state (include DB check in totals)
+  const totalServices = checks.length + 1; // +1 for DB check
   const completedChecks = checks.filter(
     (c) => c.status === "ok" || c.status === "error"
   );
-  const okCount = checks.filter((c) => c.status === "ok").length;
-  const errorCount = checks.filter((c) => c.status === "error").length;
-  const isLoading = checks.some((c) => c.status === "loading");
-  const allDone = completedChecks.length === checks.length && !isLoading;
+  const dbDone = dbStatus === "ok" || dbStatus === "warning" || dbStatus === "error";
+  const okCount =
+    checks.filter((c) => c.status === "ok").length +
+    (dbStatus === "ok" || dbStatus === "warning" ? 1 : 0);
+  const errorCount =
+    checks.filter((c) => c.status === "error").length +
+    (dbStatus === "error" ? 1 : 0);
+  const isLoading =
+    checks.some((c) => c.status === "loading") || dbStatus === "loading";
+  const allDone =
+    completedChecks.length === checks.length && dbDone && !isLoading;
 
   let bannerText: string;
   let bannerClass: string;
@@ -348,7 +416,7 @@ export default function HealthPage() {
           <p className="font-semibold">{bannerText}</p>
           {allDone && (
             <p className="mt-1 text-sm">
-              {okCount}/{checks.length} services opérationnels
+              {okCount}/{totalServices} services opérationnels
             </p>
           )}
         </div>
@@ -362,7 +430,7 @@ export default function HealthPage() {
         </span>
         <span className="flex items-center gap-1.5">
           <span className="inline-block h-2.5 w-2.5 rounded-full bg-amber-400" />
-          Vérification en cours
+          Vérification / Avertissement
         </span>
         <span className="flex items-center gap-1.5">
           <span className="inline-block h-2.5 w-2.5 rounded-full bg-red-500" />
@@ -426,6 +494,95 @@ export default function HealthPage() {
           {trpcChecks.map((check) => (
             <CheckRow key={check.url} check={check} />
           ))}
+        </div>
+      </section>
+
+      {/* Database section */}
+      <section>
+        <h2 className="mb-3 text-lg font-semibold">Base de données</h2>
+        <div className="flex flex-col gap-2">
+          <div className="bg-card rounded-lg border p-3">
+            <div className="flex items-center gap-3">
+              <span
+                className={`inline-block h-3 w-3 shrink-0 rounded-full ${dbStatusColor(dbStatus)}`}
+              />
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-medium">PostgreSQL (Vercel Postgres)</p>
+                <p className="text-muted-foreground text-xs">/api/health/db</p>
+              </div>
+              <div className="flex shrink-0 items-center gap-3 text-sm">
+                {dbData?.responseTimeMs != null && (
+                  <span className="text-muted-foreground tabular-nums">
+                    {dbData.responseTimeMs} ms
+                  </span>
+                )}
+                {dbStatus === "ok" && (
+                  <span className="rounded bg-green-100 px-1.5 py-0.5 text-xs font-medium text-green-700 dark:bg-green-900/30 dark:text-green-400">
+                    Connecté
+                  </span>
+                )}
+                {dbStatus === "warning" && (
+                  <span className="rounded bg-amber-100 px-1.5 py-0.5 text-xs font-medium text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
+                    Sync obsolète
+                  </span>
+                )}
+                {dbStatus === "error" && (
+                  <span className="rounded bg-red-100 px-1.5 py-0.5 text-xs font-medium text-red-700 dark:bg-red-900/30 dark:text-red-400">
+                    Déconnecté
+                  </span>
+                )}
+              </div>
+            </div>
+            {/* Sync details */}
+            {dbData?.lastSync && (
+              <div className="mt-2 ml-6 space-y-1 text-xs text-muted-foreground">
+                <p>
+                  Dernière synchronisation :{" "}
+                  {new Date(dbData.lastSync.startedAt).toLocaleString("fr-FR", {
+                    day: "2-digit",
+                    month: "2-digit",
+                    year: "numeric",
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })}
+                  {" — "}
+                  <span
+                    className={
+                      dbData.lastSync.status === "success"
+                        ? "text-green-600 dark:text-green-400"
+                        : dbData.lastSync.status === "partial"
+                          ? "text-amber-600 dark:text-amber-400"
+                          : "text-red-600 dark:text-red-400"
+                    }
+                  >
+                    {dbData.lastSync.status}
+                  </span>
+                </p>
+                <p>
+                  Stations : {dbData.lastSync.stationsCount} · Eaux usées :{" "}
+                  {dbData.lastSync.wastewaterCount} · Clinique :{" "}
+                  {dbData.lastSync.clinicalCount}
+                </p>
+                {dbStatus === "warning" && (
+                  <p className="text-amber-600 dark:text-amber-400 italic">
+                    La dernière synchronisation date de plus de 48 heures.
+                  </p>
+                )}
+              </div>
+            )}
+            {dbStatus === "ok" && !dbData?.lastSync && (
+              <div className="mt-2 ml-6 text-xs text-muted-foreground">
+                <p>Connecté — aucune synchronisation enregistrée.</p>
+              </div>
+            )}
+            {dbStatus === "error" && (
+              <div className="mt-2 ml-6">
+                <p className="text-sm text-red-600 dark:text-red-400">
+                  Impossible de se connecter à la base de données.
+                </p>
+              </div>
+            )}
+          </div>
         </div>
       </section>
     </div>

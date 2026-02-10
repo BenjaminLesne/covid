@@ -178,3 +178,32 @@ Started: Mon 10 Feb 2026
   - `asc()` import from `drizzle-orm` is used for ORDER BY — clinical data is sorted by week ascending
 ---
 
+## 2026-02-10 - US-051
+- Created `/api/health/db` route handler at `src/app/api/health/db/route.ts`
+- Route checks DB connectivity via `SELECT 1`, queries latest sync_metadata row, returns JSON with `connected`, `lastSync`, `responseTimeMs`
+- Returns 503 status when DB is unreachable
+- Added "Base de données" section to `src/app/health/page.tsx` with PostgreSQL connection status display
+- Shows last sync info (time, status, row counts) when DB is connected and sync data exists
+- Amber warning indicator when last sync is older than 48 hours
+- Updated total service count in summary banner to include the DB check (now `/totalServices`)
+- Browser verified: section renders correctly, shows "Déconnecté" when no POSTGRES_URL is configured
+- Files changed: `src/app/api/health/db/route.ts` (new), `src/app/health/page.tsx`
+- **Learnings for future iterations:**
+  - Import `desc` from `drizzle-orm` for ORDER BY DESC: `orderBy(desc(table.column))`
+  - The health page uses a URL-based `updateCheck` keying system for API checks — the DB check uses separate state (`dbStatus`/`dbData`) since it's a different pattern
+  - Dev server on port 3000 may conflict with other services — use `--port 3001` for testing
+  - Next.js 15 may add locale-based redirects even without explicit i18n config — check the actual dev server URL
+---
+
+## 2026-02-10 - US-052
+- Added `db:seed` script to package.json: `curl -s -H "Authorization: Bearer $CRON_SECRET" http://localhost:3000/api/sync | jq .`
+- Enhanced seed process documentation in `src/app/api/sync/route.ts` header comment — 4-step guide: set env vars, start dev server, push schema, run seed
+- No new server code needed — the sync route already handles full ingestion
+- Files changed: `package.json`, `src/app/api/sync/route.ts`
+- **Learnings for future iterations:**
+  - The `db:seed` script reuses the sync API route — no separate seed logic needed
+  - `db:push` creates tables directly from schema (faster than running migrations for initial setup)
+  - The curl command uses `$CRON_SECRET` without quotes in the npm script — npm/shell handles env var expansion
+  - `jq .` at the end pretty-prints the JSON response (optional, fails gracefully if jq is not installed)
+---
+
