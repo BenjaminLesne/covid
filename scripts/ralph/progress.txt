@@ -23,6 +23,12 @@ Started: Mon 10 Feb 2026
 - Clinical indicators use sentinel value `'national'` for department column (not null) — always filter with `department = 'national'` for national-level data
 - Drizzle upserts: use `` sql`excluded.column_name` `` (import `sql` from `drizzle-orm`) in `onConflictDoUpdate.set` to reference new values
 - Sync services go in `src/server/services/sync/` — accept `db: VercelPgDatabase` parameter, reuse existing fetch functions
+- Sync orchestrator route at `src/app/api/sync/route.ts` — protected by CRON_SECRET, orchestrates wastewater + clinical sync
+- Use `eq` from `drizzle-orm` for WHERE clauses: `db.update(table).set({...}).where(eq(table.id, value))`
+- `db.insert().values().returning()` returns an array — destructure `[row]` to get first result
+- Drizzle dynamic WHERE: build array of conditions, spread into `and(...conditions)`, pass `undefined` for no filter
+- Import `and`, `asc`, `eq`, `gte`, `inArray`, `lte` from `drizzle-orm` (not `drizzle-orm/pg-core`) for query operators
+- DB columns are snake_case (`station_id`, `smoothed_value`, `sandre_id`, `er_visit_rate`) — map to camelCase (`stationId`, `smoothedValue`, `sandreId`, `erVisitRate`) in tRPC responses
 ---
 
 ## 2026-02-10 - US-040
@@ -112,5 +118,47 @@ Started: Mon 10 Feb 2026
   - The clinical dataset is small (~600 rows) so batching isn't strictly necessary but keeps the pattern consistent with wastewater-sync
   - `fetchClinicalIndicators()` with no arguments fetches national-level data for all 3 diseases — it already handles partial failures via Promise.allSettled
   - The `chunk` utility is duplicated in both sync files — could be extracted to a shared util if more sync services are added
+---
+
+## 2026-02-10 - US-047
+- Created `src/app/api/sync/route.ts` — protected GET route that orchestrates the full sync pipeline
+- Auth check: validates `Authorization: Bearer <CRON_SECRET>` header, returns 401 if invalid
+- Creates a `sync_metadata` row with status 'running' at start, updates with final counts/status on completion
+- Calls `syncWastewaterData(db)` and `syncClinicalData(db)` sequentially with independent try/catch blocks
+- Status logic: 'success' (no errors), 'partial' (some data synced but errors), 'failed' (no data synced)
+- Outer try/catch ensures sync_metadata is always updated even on catastrophic failure
+- Sets `maxDuration = 60` for Vercel serverless timeout
+- Returns JSON with `{ status, stationsCount, wastewaterCount, clinicalCount, errors, durationMs }`
+- Files changed: `src/app/api/sync/route.ts`
+- **Learnings for future iterations:**
+  - Use `eq` from `drizzle-orm` for WHERE clause in updates: `db.update(table).set({...}).where(eq(table.id, id))`
+  - `db.insert().values().returning({ id: table.id })` returns an array — destructure `[row]` to get the single result
+  - Next.js route handlers export named functions matching HTTP methods (GET, POST, etc.)
+  - `maxDuration` is a named export that Vercel reads for serverless function timeout config
+---
+
+## 2026-02-10 - US-048
+- Created `vercel.json` at project root with cron config: `/api/sync` at `0 6 * * *` (daily 06:00 UTC)
+- Enhanced CRON_SECRET documentation in `src/app/api/sync/route.ts` header comment — explains env vars must be set in Vercel project settings
+- Files changed: `vercel.json` (new), `src/app/api/sync/route.ts`
+- **Learnings for future iterations:**
+  - `vercel.json` did not exist previously — no need to merge with existing config
+  - Vercel automatically sends `Authorization: Bearer <CRON_SECRET>` to cron endpoints — no custom header setup needed
+  - Schedule `0 6 * * *` = daily at 6:00 AM UTC (7:00/8:00 AM Paris depending on DST)
+---
+
+## 2026-02-10 - US-049
+- Migrated wastewater tRPC procedures to read from Drizzle database instead of live government APIs
+- `getIndicators`: builds dynamic WHERE clauses using `inArray` (stationIds) and `gte`/`lte` (dateRange), maps snake_case DB columns to camelCase response fields
+- `getStations`: queries `stationsTable`, maps `sandre_id` → `sandreId`
+- `getNationalTrend`: queries `wastewaterIndicatorsTable` WHERE `station_id = 'National_54'`, ordered by week ASC, maps `smoothed_value` → `smoothedValue`
+- Removed imports of `fetchIndicators` and `fetchStations` from sumeau service
+- Added imports of `db`, schema tables, and Drizzle operators (`and`, `asc`, `eq`, `gte`, `inArray`, `lte`)
+- Files changed: `src/server/trpc/routers/wastewater.ts`
+- **Learnings for future iterations:**
+  - Drizzle dynamic WHERE: build an array of conditions and spread into `and(...conditions)`, pass `undefined` if no conditions
+  - Import `and`, `asc`, `eq`, `gte`, `inArray`, `lte` from `drizzle-orm` (not `drizzle-orm/pg-core`)
+  - DB column names use snake_case (`station_id`, `smoothed_value`, `sandre_id`) — must map to camelCase for frontend compatibility
+  - The `select().from(table)` pattern returns all columns as-is — use `.map()` to reshape
 ---
 

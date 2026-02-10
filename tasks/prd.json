@@ -126,7 +126,7 @@
         "Typecheck passes"
       ],
       "priority": 8,
-      "passes": false,
+      "passes": true,
       "notes": "Use `process.env.CRON_SECRET` for the secret. Vercel Cron Jobs automatically send `Authorization: Bearer <CRON_SECRET>` when calling the endpoint. The `maxDuration` export tells Vercel to allow up to 60 seconds for this function (default is 10s on Hobby plan, but can be set up to 60s). Wrap the entire sync in a try/catch — never let the route crash without updating sync_metadata."
     },
     {
@@ -140,7 +140,7 @@
         "Typecheck passes"
       ],
       "priority": 9,
-      "passes": false,
+      "passes": true,
       "notes": "Vercel automatically adds the `Authorization: Bearer <CRON_SECRET>` header when calling cron endpoints — the CRON_SECRET env var must be set in Vercel project settings (Settings > Environment Variables). The schedule `0 6 * * *` means daily at 6:00 AM UTC (7:00 or 8:00 AM Paris time depending on DST). The vercel.json file may already contain other config — check first and merge rather than overwrite."
     },
     {
@@ -157,7 +157,7 @@
         "Typecheck passes"
       ],
       "priority": 10,
-      "passes": false,
+      "passes": true,
       "notes": "CRITICAL: The response shapes must be IDENTICAL to what the frontend currently expects. The frontend uses `indicator.stationId`, `indicator.smoothedValue`, `station.sandreId`, etc. Map snake_case DB columns to camelCase response fields. Use Drizzle's `select()` with `.where()` and `.orderBy()`. For the stationIds filter, use `inArray(wastewaterIndicatorsTable.stationId, input.stationIds)` from drizzle-orm. For dateRange, use `gte` and `lte` operators."
     },
     {

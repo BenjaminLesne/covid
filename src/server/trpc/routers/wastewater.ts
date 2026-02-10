@@ -1,6 +1,11 @@
 import { z } from "zod";
 import { router, publicProcedure } from "../init";
-import { fetchIndicators, fetchStations } from "@/server/services/sumeau";
+import { db } from "@/server/db";
+import {
+  stationsTable,
+  wastewaterIndicatorsTable,
+} from "@/server/db/schema";
+import { and, asc, eq, gte, inArray, lte } from "drizzle-orm";
 import type { NationalAggregate } from "@/types/wastewater";
 
 /**
@@ -28,47 +33,68 @@ export const wastewaterRouter = router({
         .optional()
     )
     .query(async ({ input }) => {
-      let indicators = await fetchIndicators();
+      const conditions = [];
 
-      // Filter by station IDs if provided
       if (input?.stationIds && input.stationIds.length > 0) {
-        const ids = new Set(input.stationIds);
-        indicators = indicators.filter((ind) => ids.has(ind.stationId));
-      }
-
-      // Filter by date range if provided
-      if (input?.dateRange) {
-        const { from, to } = input.dateRange;
-        indicators = indicators.filter(
-          (ind) => ind.week >= from && ind.week <= to
+        conditions.push(
+          inArray(wastewaterIndicatorsTable.station_id, input.stationIds)
         );
       }
 
-      return indicators;
+      if (input?.dateRange) {
+        conditions.push(
+          gte(wastewaterIndicatorsTable.week, input.dateRange.from)
+        );
+        conditions.push(
+          lte(wastewaterIndicatorsTable.week, input.dateRange.to)
+        );
+      }
+
+      const rows = await db
+        .select()
+        .from(wastewaterIndicatorsTable)
+        .where(conditions.length > 0 ? and(...conditions) : undefined);
+
+      return rows.map((row) => ({
+        week: row.week,
+        stationId: row.station_id,
+        value: row.value,
+        smoothedValue: row.smoothed_value,
+      }));
     }),
 
   /**
    * Get all station metadata.
    */
   getStations: publicProcedure.query(async () => {
-    return fetchStations();
+    const rows = await db.select().from(stationsTable);
+
+    return rows.map((row) => ({
+      name: row.name,
+      commune: row.commune,
+      sandreId: row.sandre_id,
+      population: row.population,
+      lat: row.lat,
+      lng: row.lng,
+    }));
   }),
 
   /**
    * Get national aggregate time series.
-   * Extracts the National_54 column from indicators and returns as NationalAggregate[].
+   * Queries the National_54 station from wastewater_indicators and returns as NationalAggregate[].
    */
   getNationalTrend: publicProcedure.query(async () => {
-    const indicators = await fetchIndicators();
+    const rows = await db
+      .select()
+      .from(wastewaterIndicatorsTable)
+      .where(eq(wastewaterIndicatorsTable.station_id, NATIONAL_COLUMN))
+      .orderBy(asc(wastewaterIndicatorsTable.week));
 
-    const national: NationalAggregate[] = indicators
-      .filter((ind) => ind.stationId === NATIONAL_COLUMN)
-      .map((ind) => ({
-        week: ind.week,
-        value: ind.value,
-        smoothedValue: ind.smoothedValue,
-      }))
-      .sort((a, b) => a.week.localeCompare(b.week));
+    const national: NationalAggregate[] = rows.map((row) => ({
+      week: row.week,
+      value: row.value,
+      smoothedValue: row.smoothed_value,
+    }));
 
     return national;
   }),
