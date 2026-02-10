@@ -21,6 +21,8 @@ Started: Mon 10 Feb 2026
 - Drizzle uses `drizzle({ client: sql })` pattern (not `drizzle(sql)`) per latest drizzle-orm v0.45
 - DB scripts: `db:generate`, `db:migrate`, `db:push`, `db:studio`
 - Clinical indicators use sentinel value `'national'` for department column (not null) — always filter with `department = 'national'` for national-level data
+- Drizzle upserts: use `` sql`excluded.column_name` `` (import `sql` from `drizzle-orm`) in `onConflictDoUpdate.set` to reference new values
+- Sync services go in `src/server/services/sync/` — accept `db: VercelPgDatabase` parameter, reuse existing fetch functions
 ---
 
 ## 2026-02-10 - US-040
@@ -83,5 +85,32 @@ Started: Mon 10 Feb 2026
   - sync_metadata table has no indexes — it's only queried by `ORDER BY started_at DESC LIMIT 1`, which is fine for small tables
   - `status` column stores string values: 'running', 'success', 'partial', 'failed' — no enum type used, just varchar
   - `errors` column is `text` (not jsonb) — stores JSON-serialized array of error strings for simplicity
+---
+
+## 2026-02-10 - US-045
+- Created `src/server/services/sync/wastewater-sync.ts` with `syncWastewaterData(db)` function
+- Fetches data via existing `fetchIndicators()` and `fetchStations()` from sumeau service
+- Upserts stations using `ON CONFLICT (sandre_id) DO UPDATE`
+- Upserts indicators using `ON CONFLICT (station_id, week) DO UPDATE` with batches of 500 rows
+- Returns `{ stationsCount, indicatorsCount }` — errors propagate to caller
+- Files changed: `src/server/services/sync/wastewater-sync.ts`
+- **Learnings for future iterations:**
+  - Drizzle `onConflictDoUpdate` `set` must use `` sql`excluded.column_name` `` to reference the new (incoming) values — using `table.column` references the existing row, not the excluded one
+  - Import `sql` from `drizzle-orm` (not `drizzle-orm/pg-core`) for the `excluded` syntax
+  - `VercelPgDatabase` from `drizzle-orm/vercel-postgres` is the correct type for the db parameter
+  - `onConflictDoUpdate` `target` accepts a single column or an array of columns for composite unique constraints
+---
+
+## 2026-02-10 - US-046
+- Created `src/server/services/sync/clinical-sync.ts` with `syncClinicalData(db)` function
+- Fetches data via existing `fetchClinicalIndicators()` from clinical service (no department param → national data only)
+- Upserts indicators using `ON CONFLICT (disease_id, week, department) DO UPDATE` with batches of 500 rows
+- Uses sentinel value `'national'` for department column (matches US-043 schema design)
+- Returns `{ indicatorsCount }` — partial data (some diseases failed) still gets upserted since fetchClinicalIndicators uses Promise.allSettled
+- Files changed: `src/server/services/sync/clinical-sync.ts`
+- **Learnings for future iterations:**
+  - The clinical dataset is small (~600 rows) so batching isn't strictly necessary but keeps the pattern consistent with wastewater-sync
+  - `fetchClinicalIndicators()` with no arguments fetches national-level data for all 3 diseases — it already handles partial failures via Promise.allSettled
+  - The `chunk` utility is duplicated in both sync files — could be extracted to a shared util if more sync services are added
 ---
 

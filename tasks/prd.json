@@ -93,7 +93,7 @@
         "Typecheck passes"
       ],
       "priority": 6,
-      "passes": false,
+      "passes": true,
       "notes": "Reuse the existing `fetchIndicators()` and `fetchStations()` functions from `src/server/services/sumeau.ts` — they already handle CSV/JSON fallback and parsing. Do NOT rewrite the fetching/parsing logic. Use Drizzle's `db.insert().values().onConflictDoUpdate()` for upserts. The indicators dataset can be large (~54 stations x ~200 weeks = ~10,800 rows), so batch the inserts. Import the db instance and schema tables."
     },
     {
@@ -109,7 +109,7 @@
         "Typecheck passes"
       ],
       "priority": 7,
-      "passes": false,
+      "passes": true,
       "notes": "Reuse `fetchClinicalIndicators()` from `src/server/services/clinical.ts` — it already uses Promise.allSettled internally. The current service only fetches national-level data by default (no department parameter). For the initial version, only sync national data (department = sentinel 'national' value). Department-level data can be added later if needed. The clinical dataset is smaller (~3 diseases x ~200 weeks = ~600 rows)."
     },
     {
