@@ -1,5 +1,5 @@
 # Ralph Progress Log
-Started: Sat  8 Feb 2026
+Started: Mon 10 Feb 2026
 
 ## Codebase Patterns
 - Project uses Next.js 15 App Router with TypeScript strict mode (downgraded from 16 due to bundled React canary version mismatch)
@@ -29,107 +29,24 @@ Started: Sat  8 Feb 2026
 - Department-level Odissé datasets use suffix `-departement` instead of `-france`, same rate fields, add WHERE `dep='XX'` to filter
 - Vitest configured in `vitest.config.ts` with `@/` path alias; test script is `npm run test`
 - `stripDiacritics` and `accentInsensitiveFilter` utilities in `src/lib/utils.ts` for accent-insensitive search
+- Health page at `src/app/health/page.tsx` — client component with direct fetch calls for API health checks
+- External API health checks: try HEAD first (mode: 'cors'), fallback to GET with abort after headers for CORS-restricted endpoints
+- Odissé download endpoints (fallback URLs) block CORS from browser — this is expected, they show as "Failed to fetch"
 ---
 
-## 2026-02-08 - US-022
-- Implemented `stripDiacritics(str)` and `accentInsensitiveFilter(value, search)` in `src/lib/utils.ts`
-- `stripDiacritics` uses `String.normalize('NFD')` + regex to strip combining diacritical marks
-- `accentInsensitiveFilter` returns 1/0 for cmdk Command filter prop compatibility
-- Files changed: `src/lib/utils.ts`
+## 2026-02-10 09:10 - US-031
+- Created `/health` route with full health check dashboard
+- Page has heading "EauxVid — Health Check", subtitle, Rafraîchir button, last-checked timestamp
+- Uses existing app layout (header/footer), NOT linked from any navigation
+- All 8 health checks implemented: 4 SUM'Eau, 3 Odissé clinical, 1 tRPC
+- Summary banner with color-coded status (green/amber/red)
+- Each check card shows: name, URL (truncated), status dot, response time, error message
+- Files changed: `src/app/health/page.tsx` (new)
 - **Learnings for future iterations:**
-  - The shadcn/ui Command filter prop expects `(value: string, search: string) => number` — return 1 for match, 0 for no match
-  - NFD normalization separates base characters from combining marks, making it easy to strip accents with a single regex
----
-
-## 2026-02-08 - US-023
-- Applied `accentInsensitiveFilter` to station select combobox via `filter` prop on `<Command>`
-- Added "Stations eaux usées" label above the combobox with `text-sm font-medium text-muted-foreground` styling
-- Files changed: `src/components/filters/station-select.tsx`
-- **Learnings for future iterations:**
-  - SUM'Eau station names and commune names are all uppercase ASCII — no accented characters in the dataset
-  - The accent-insensitive filter still works correctly as a case-insensitive substring search for unaccented data
-  - cmdk `filter` prop on `<Command>` replaces the default fuzzy matching with custom logic — pass `(value, search) => number`
-  - The `value` prop on `<CommandItem>` is what gets passed to the filter function — set it to searchable text (e.g., `{station.name} {station.commune}`)
----
-
-## 2026-02-08 - US-024
-- Added `departmentDatasetId` field to `ClinicalDatasetMeta` in `src/types/clinical.ts`
-- Populated `departmentDatasetId` for each disease in `CLINICAL_DATASETS` (flu, bronchiolitis, covid_clinical)
-- Added `FRENCH_DEPARTMENTS` constant with all 101 departments (96 metropolitan + 5 overseas)
-- Files changed: `src/types/clinical.ts`, `src/lib/constants.ts`
-- **Learnings for future iterations:**
-  - France has 101 departments: 01-19, 2A, 2B, 21-95 (metropolitan) + 971-976 (overseas, excluding 975 Saint-Pierre-et-Miquelon)
-  - Department codes are strings, not numbers (important for '2A', '2B', '971' etc.)
-  - Department-level Odissé dataset IDs follow the pattern: replace `-france` suffix with `-departement`
----
-
-## 2026-02-08 - US-025
-- Modified `fetchSingleDisease` to accept optional `department?: string` parameter
-- When department is provided: uses `meta.departmentDatasetId` and adds `AND dep='${department}'` to WHERE clause
-- Updated `fetchClinicalIndicatorsByDisease` and `fetchClinicalIndicators` signatures to pass through department
-- Files changed: `src/server/services/clinical.ts`
-- **Learnings for future iterations:**
-  - The Odissé WHERE clause for department queries: `sursaud_cl_age_gene='Tous âges' AND dep='44'`
-  - URL.searchParams.set handles encoding, so the WHERE clause with quotes and spaces is properly escaped
-  - The `dep` field in Odissé uses string codes matching `FRENCH_DEPARTMENTS` codes
----
-
-## 2026-02-08 - US-026
-- Added optional `department: z.string().optional()` to `getIndicators` input schema
-- Passes `input.department` through to both `fetchClinicalIndicatorsByDisease` and `fetchClinicalIndicators`
-- Files changed: `src/server/trpc/routers/clinical.ts`
-- **Learnings for future iterations:**
-  - tRPC input schema is `.optional()` at the top level, so accessing `input?.department` safely handles when no input is provided
----
-
-## 2026-02-08 - US-027
-- Created `src/hooks/use-department-preferences.ts` with `useDepartmentPreferences` hook
-- Returns `{ department, setDepartment, departmentLabel }` — `null` means "France entière"
-- Uses `useLocalStorage` with key `eauxvid:clinical-department`, default `null`
-- `departmentLabel` resolves department code to name via `FRENCH_DEPARTMENTS` lookup
-- Files changed: `src/hooks/use-department-preferences.ts` (new)
-- **Learnings for future iterations:**
-  - Follow the same pattern as `use-station-preferences.ts` and `use-clinical-preferences.ts` for new preference hooks
-  - All localStorage keys use `eauxvid:` prefix
----
-
-## 2026-02-08 - US-028
-- Created `src/components/filters/department-select.tsx` with Popover + Command combobox pattern
-- Uses Hospital icon from lucide-react to visually distinguish from station select (MapPin)
-- "France entière" is the first entry and sets department to null
-- Uses `accentInsensitiveFilter` for accent-insensitive department search
-- Check icon shows next to selected item
-- Files changed: `src/components/filters/department-select.tsx` (new)
-- **Learnings for future iterations:**
-  - cmdk CommandItem `value` is what gets passed to the filter function — include searchable fields like code and name
-  - The combobox closes on select by calling `setOpen(false)` in `onSelect`
----
-
-## 2026-02-08 - US-029
-- Integrated `DepartmentSelect` into dashboard page alongside `StationSelect` in the filters section
-- Passed `department` and `departmentLabel` props from `useDepartmentPreferences` to `WastewaterChart`
-- Chart passes `department` to the clinical tRPC query for department-scoped data fetching
-- Clinical legend labels and tooltip labels include department name suffix when a department is selected (e.g., "Grippe (Loire-Atlantique)")
-- When "France entière" is selected, labels show disease name only (unchanged behavior)
-- Files changed: `src/app/page.tsx`, `src/components/chart/wastewater-chart.tsx`
-- **Learnings for future iterations:**
-  - The `clinicalLabelSuffix` pattern (computed from department state) is a clean way to conditionally append scope info to labels
-  - tRPC React Query automatically includes all input params in the query key, so passing `department` to the input ensures automatic refetch on department change
-  - Browser verification was blocked by dev server hanging — may need to restart the dev server between iterations
----
-
-## 2026-02-08 - US-030
-- Added `dep` URL parameter support to `useUrlSync` hook
-- Added `parseDepartmentParam` helper that validates non-empty string values
-- Extended `buildSearchString` to include `dep` param when department is not null
-- Added `department` and `setDepartment` to `UseUrlSyncOptions` interface
-- On mount, if `dep` param is present in URL, it overrides the localStorage value via `setDepartment`
-- Updated `page.tsx` to pass `department` and `setDepartment` through to `useUrlSync`
-- URL sync effect now includes `department` in its dependency array
-- Files changed: `src/hooks/use-url-sync.ts`, `src/app/page.tsx`
-- **Learnings for future iterations:**
-  - The `dep` param follows the same pattern as other URL params — simple string, no comma-separated list
-  - `parseDepartmentParam` is minimal since department codes are simple non-empty strings (unlike dates or comma-lists)
-  - Adding a new URL param requires: parse helper, `hasAny` check, mount-time parse + setter call, `buildSearchString` inclusion, sync effect dependency
+  - Odissé download URLs (fallback) block CORS from browser — HEAD and GET both fail with "Failed to fetch"
+  - data.gouv.fr API endpoints support CORS and HEAD requests fine
+  - Odissé v2.1 API (records endpoint) supports CORS — clinical checks work from browser
+  - `AbortSignal.any()` can combine timeout + manual abort signals for GET-with-early-abort pattern
+  - When aborting after headers received, the AbortError should be treated as success (reachability confirmed)
 ---
 

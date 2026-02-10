@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { DATA_URLS, ODISSE_API_BASE, CLINICAL_DATASETS, CLINICAL_DISEASE_IDS } from "@/lib/constants";
 import type { ClinicalDiseaseId } from "@/types/clinical";
 
@@ -16,6 +16,10 @@ interface HealthCheck {
   status: CheckStatus;
   responseTime: number | null;
   error: string | null;
+  httpStatus: number | null;
+  httpStatusText: string | null;
+  errorDetail: string | null;
+  errorType: "timeout" | "cors" | "network" | "http" | "unknown" | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -39,6 +43,56 @@ function truncateUrl(url: string, max = 60) {
   return url.length > max ? url.slice(0, max) + "…" : url;
 }
 
+/** Try to read the first ~500 chars of a response body for error detail. */
+async function readErrorBody(res: Response): Promise<string | null> {
+  try {
+    const text = await res.text();
+    if (!text) return null;
+    // Try to extract a meaningful message from JSON responses
+    try {
+      const json = JSON.parse(text);
+      // tRPC error shape
+      if (json?.[0]?.error?.message) return json[0].error.message;
+      if (json?.error?.message) return json.error.message;
+      // Generic API error shapes
+      if (json?.message) return json.message;
+      if (json?.detail) return String(json.detail);
+      if (json?.error && typeof json.error === "string") return json.error;
+    } catch {
+      // Not JSON — return raw text truncated
+    }
+    return text.length > 500 ? text.slice(0, 500) + "…" : text;
+  } catch {
+    return null;
+  }
+}
+
+/** Classify a fetch error into a more specific type. */
+function classifyError(e: unknown): {
+  errorType: HealthCheck["errorType"];
+  error: string;
+} {
+  if (e instanceof DOMException && e.name === "TimeoutError") {
+    return { errorType: "timeout", error: "Délai d'attente dépassé (10s)" };
+  }
+  if (e instanceof DOMException && e.name === "AbortError") {
+    return { errorType: "network", error: "Requête annulée" };
+  }
+  if (e instanceof TypeError && e.message === "Failed to fetch") {
+    return {
+      errorType: "cors",
+      error: "Bloqué (CORS) ou serveur injoignable",
+    };
+  }
+  if (e instanceof TypeError) {
+    return { errorType: "network", error: e.message };
+  }
+  if (e instanceof Error) {
+    return { errorType: "unknown", error: e.message };
+  }
+  return { errorType: "unknown", error: "Erreur inconnue" };
+}
+
 // ---------------------------------------------------------------------------
 // Initial state builders
 // ---------------------------------------------------------------------------
@@ -60,17 +114,28 @@ const CLINICAL_CHECKS: { name: string; url: string }[] = CLINICAL_DISEASE_IDS.ma
   }
 );
 
-const TRPC_CHECK = {
-  name: "tRPC — wastewater.getStations",
-  url: "/api/trpc/wastewater.getStations",
-};
+const TRPC_CHECKS: { name: string; url: string }[] = [
+  { name: "tRPC — wastewater.getStations", url: "/api/trpc/wastewater.getStations" },
+  { name: "tRPC — wastewater.getIndicators", url: "/api/trpc/wastewater.getIndicators" },
+  { name: "tRPC — wastewater.getNationalTrend", url: "/api/trpc/wastewater.getNationalTrend" },
+  { name: "tRPC — clinical.getIndicators", url: "/api/trpc/clinical.getIndicators" },
+];
 
 function buildInitialChecks(): HealthCheck[] {
   return [
     ...SUMEAU_CHECKS,
     ...CLINICAL_CHECKS,
-    { ...TRPC_CHECK },
-  ].map((c) => ({ ...c, status: "idle" as const, responseTime: null, error: null }));
+    ...TRPC_CHECKS,
+  ].map((c) => ({
+    ...c,
+    status: "idle" as const,
+    responseTime: null,
+    error: null,
+    httpStatus: null,
+    httpStatusText: null,
+    errorDetail: null,
+    errorType: null,
+  }));
 }
 
 // ---------------------------------------------------------------------------
@@ -93,24 +158,56 @@ export default function HealthPage() {
 
   const runCheck = useCallback(
     async (url: string, isTrpc: boolean) => {
-      updateCheck(url, { status: "loading", responseTime: null, error: null });
+      updateCheck(url, {
+        status: "loading",
+        responseTime: null,
+        error: null,
+        httpStatus: null,
+        httpStatusText: null,
+        errorDetail: null,
+        errorType: null,
+      });
       const start = performance.now();
+
+      const markOk = (elapsed: number, httpStatus: number, httpStatusText: string) =>
+        updateCheck(url, {
+          status: "ok",
+          responseTime: elapsed,
+          httpStatus,
+          httpStatusText,
+        });
+
+      const markHttpError = async (elapsed: number, res: Response) => {
+        const detail = await readErrorBody(res);
+        updateCheck(url, {
+          status: "error",
+          responseTime: elapsed,
+          error: `HTTP ${res.status} ${res.statusText}`,
+          httpStatus: res.status,
+          httpStatusText: res.statusText,
+          errorDetail: detail,
+          errorType: "http",
+        });
+      };
+
+      const markFetchError = (elapsed: number, e: unknown) => {
+        const { errorType, error } = classifyError(e);
+        updateCheck(url, {
+          status: "error",
+          responseTime: elapsed,
+          error,
+          errorType,
+        });
+      };
 
       try {
         if (isTrpc) {
-          // tRPC internal endpoint — simple GET
-          const res = await fetch(url, {
-            signal: AbortSignal.timeout(10000),
-          });
+          const res = await fetch(url, { signal: AbortSignal.timeout(10000) });
           const elapsed = Math.round(performance.now() - start);
           if (res.ok) {
-            updateCheck(url, { status: "ok", responseTime: elapsed });
+            markOk(elapsed, res.status, res.statusText);
           } else {
-            updateCheck(url, {
-              status: "error",
-              responseTime: elapsed,
-              error: `HTTP ${res.status}`,
-            });
+            await markHttpError(elapsed, res);
           }
         } else {
           // External API — try HEAD first, fallback to GET
@@ -122,16 +219,12 @@ export default function HealthPage() {
             });
             const elapsed = Math.round(performance.now() - start);
             if (res.ok) {
-              updateCheck(url, { status: "ok", responseTime: elapsed });
+              markOk(elapsed, res.status, res.statusText);
             } else {
-              updateCheck(url, {
-                status: "error",
-                responseTime: elapsed,
-                error: `HTTP ${res.status}`,
-              });
+              await markHttpError(elapsed, res);
             }
           } catch {
-            // HEAD failed (likely CORS), try GET and abort after headers
+            // HEAD failed (likely CORS) — retry with GET, abort after headers
             const controller = new AbortController();
             try {
               const res = await fetch(url, {
@@ -142,58 +235,30 @@ export default function HealthPage() {
                 ]),
               });
               const elapsed = Math.round(performance.now() - start);
-              // We got headers — abort the body download
               controller.abort();
               if (res.ok) {
-                updateCheck(url, { status: "ok", responseTime: elapsed });
+                markOk(elapsed, res.status, res.statusText);
               } else {
-                updateCheck(url, {
-                  status: "error",
-                  responseTime: elapsed,
-                  error: `HTTP ${res.status}`,
-                });
+                await markHttpError(elapsed, res);
               }
             } catch (e) {
               controller.abort();
               const elapsed = Math.round(performance.now() - start);
-              if (e instanceof DOMException && e.name === "TimeoutError") {
-                updateCheck(url, {
-                  status: "error",
-                  responseTime: elapsed,
-                  error: "Timeout (10s)",
-                });
-              } else if (
+              // Our own abort after receiving headers = success
+              if (
                 e instanceof DOMException &&
                 e.name === "AbortError"
               ) {
-                // Our own abort after receiving headers — that's a success
                 updateCheck(url, { status: "ok", responseTime: elapsed });
               } else {
-                updateCheck(url, {
-                  status: "error",
-                  responseTime: elapsed,
-                  error:
-                    e instanceof Error ? e.message : "Erreur réseau",
-                });
+                markFetchError(elapsed, e);
               }
             }
           }
         }
       } catch (e) {
         const elapsed = Math.round(performance.now() - start);
-        if (e instanceof DOMException && e.name === "TimeoutError") {
-          updateCheck(url, {
-            status: "error",
-            responseTime: elapsed,
-            error: "Timeout (10s)",
-          });
-        } else {
-          updateCheck(url, {
-            status: "error",
-            responseTime: elapsed,
-            error: e instanceof Error ? e.message : "Erreur réseau",
-          });
-        }
+        markFetchError(elapsed, e);
       }
     },
     [updateCheck]
@@ -207,7 +272,7 @@ export default function HealthPage() {
     const all = [
       ...SUMEAU_CHECKS.map((c) => ({ url: c.url, isTrpc: false })),
       ...CLINICAL_CHECKS.map((c) => ({ url: c.url, isTrpc: false })),
-      { url: TRPC_CHECK.url, isTrpc: true },
+      ...TRPC_CHECKS.map((c) => ({ url: c.url, isTrpc: true })),
     ];
 
     await Promise.allSettled(all.map((c) => runCheck(c.url, c.isTrpc)));
@@ -215,6 +280,15 @@ export default function HealthPage() {
     setLastChecked(new Date());
     setRunning(false);
   }, [runCheck]);
+
+  // Run checks automatically on mount
+  const hasRun = useRef(false);
+  useEffect(() => {
+    if (!hasRun.current) {
+      hasRun.current = true;
+      runAllChecks();
+    }
+  }, [runAllChecks]);
 
   // Derived state
   const completedChecks = checks.filter(
@@ -279,6 +353,26 @@ export default function HealthPage() {
         </div>
       )}
 
+      {/* Legend */}
+      <div className="flex flex-wrap items-center gap-x-5 gap-y-1 text-xs text-muted-foreground">
+        <span className="flex items-center gap-1.5">
+          <span className="inline-block h-2.5 w-2.5 rounded-full bg-green-500" />
+          Opérationnel
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span className="inline-block h-2.5 w-2.5 rounded-full bg-amber-400" />
+          Vérification en cours
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span className="inline-block h-2.5 w-2.5 rounded-full bg-red-500" />
+          Erreur
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span className="inline-block h-2.5 w-2.5 rounded-full bg-gray-300" />
+          Non vérifié
+        </span>
+      </div>
+
       {/* Controls */}
       <div className="flex items-center gap-4">
         <button
@@ -341,28 +435,86 @@ export default function HealthPage() {
 // CheckRow sub-component
 // ---------------------------------------------------------------------------
 
+function errorTypeLabel(type: HealthCheck["errorType"]): string | null {
+  switch (type) {
+    case "timeout":
+      return "Timeout";
+    case "cors":
+      return "CORS / Réseau";
+    case "network":
+      return "Réseau";
+    case "http":
+      return "Erreur HTTP";
+    case "unknown":
+      return "Erreur";
+    default:
+      return null;
+  }
+}
+
 function CheckRow({ check }: { check: HealthCheck }) {
+  const hasError = check.status === "error";
+
   return (
-    <div className="bg-card flex items-center gap-3 rounded-lg border p-3">
-      <span
-        className={`inline-block h-3 w-3 shrink-0 rounded-full ${statusColor(check.status)}`}
-      />
-      <div className="min-w-0 flex-1">
-        <p className="text-sm font-medium">{check.name}</p>
-        <p className="text-muted-foreground truncate text-xs">
-          {truncateUrl(check.url)}
-        </p>
+    <div
+      className={`bg-card rounded-lg border p-3 ${hasError ? "border-red-200 dark:border-red-900/40" : ""}`}
+    >
+      <div className="flex items-center gap-3">
+        <span
+          className={`inline-block h-3 w-3 shrink-0 rounded-full ${statusColor(check.status)}`}
+        />
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-medium">{check.name}</p>
+          <p className="text-muted-foreground truncate text-xs">
+            {truncateUrl(check.url)}
+          </p>
+        </div>
+        <div className="flex shrink-0 items-center gap-3 text-sm">
+          {check.responseTime !== null && (
+            <span className="text-muted-foreground tabular-nums">
+              {check.responseTime} ms
+            </span>
+          )}
+          {check.status === "ok" && check.httpStatus && (
+            <span className="rounded bg-green-100 px-1.5 py-0.5 text-xs font-medium text-green-700 dark:bg-green-900/30 dark:text-green-400">
+              {check.httpStatus}
+            </span>
+          )}
+          {hasError && check.errorType && (
+            <span className="rounded bg-red-100 px-1.5 py-0.5 text-xs font-medium text-red-700 dark:bg-red-900/30 dark:text-red-400">
+              {errorTypeLabel(check.errorType)}
+            </span>
+          )}
+        </div>
       </div>
-      <div className="flex shrink-0 items-center gap-3 text-sm">
-        {check.responseTime !== null && (
-          <span className="text-muted-foreground tabular-nums">
-            {check.responseTime} ms
-          </span>
-        )}
-        {check.error && (
-          <span className="text-red-600 text-xs">{check.error}</span>
-        )}
-      </div>
+
+      {/* Expanded error details */}
+      {hasError && (
+        <div className="mt-2 ml-6 space-y-1">
+          {check.error && (
+            <p className="text-sm text-red-600 dark:text-red-400">
+              {check.error}
+            </p>
+          )}
+          {check.errorDetail && (
+            <pre className="max-h-24 overflow-auto rounded bg-red-50 p-2 text-xs whitespace-pre-wrap text-red-800 dark:bg-red-950/30 dark:text-red-300">
+              {check.errorDetail}
+            </pre>
+          )}
+          {check.errorType === "cors" && (
+            <p className="text-muted-foreground text-xs italic">
+              Le navigateur bloque cette requête (politique CORS). L&apos;API
+              peut être fonctionnelle côté serveur.
+            </p>
+          )}
+          {check.errorType === "timeout" && (
+            <p className="text-muted-foreground text-xs italic">
+              Le serveur n&apos;a pas répondu dans le délai imparti de 10
+              secondes.
+            </p>
+          )}
+        </div>
+      )}
     </div>
   );
 }

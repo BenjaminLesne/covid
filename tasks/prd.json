@@ -1,155 +1,95 @@
 {
   "project": "EauxVid",
-  "branchName": "ralph/clinical-geo-filter",
-  "description": "Add department-level geographic selector for clinical/hospitalization data, and accent-insensitive search for all comboboxes",
+  "branchName": "ralph/health-page",
+  "description": "Health check page at /health to monitor governmental API availability and tRPC endpoint status",
   "userStories": [
     {
-      "id": "US-022",
-      "title": "Add accent-insensitive search utility",
-      "description": "As a French user, I want the search to match accented characters regardless of whether I type accents, so that searching 'Herault' finds 'Hérault'.",
+      "id": "US-031",
+      "title": "Create health check page route and layout",
+      "description": "As a developer, I want a /health route that displays a health check dashboard, not linked from any navigation, accessible only via direct URL.",
       "acceptanceCriteria": [
-        "Create a `stripDiacritics(str: string): string` utility in `src/lib/utils.ts` that uses `String.prototype.normalize('NFD').replace(/[\\u0300-\\u036f]/g, '')` to strip accents",
-        "Create a `accentInsensitiveFilter(value: string, search: string): number` function in `src/lib/utils.ts` that returns 1 if the stripped-lowercase search is a substring of stripped-lowercase value, 0 otherwise",
-        "Both functions are exported from `src/lib/utils.ts`",
-        "Typecheck passes"
+        "Create `src/app/health/page.tsx` as a client component ('use client')",
+        "Page has a heading 'EauxVid — Health Check' and a subtitle explaining it monitors external data sources",
+        "Page uses the existing app layout (header/footer) but is NOT linked from header, footer, or any navigation element",
+        "Page includes a 'Rafraîchir' (refresh) button that re-runs all health checks when clicked",
+        "Page shows a 'Dernière vérification' (last checked) timestamp that updates on each check run",
+        "Page is styled consistently with the rest of the app using Tailwind classes",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
       ],
       "priority": 1,
       "passes": true,
-      "notes": "These utilities will be consumed by the station-select and the new department-select comboboxes."
+      "notes": "This is a client component because it needs to make direct fetch calls from the browser to test API reachability from the client side. Import constants (DATA_URLS, ODISSE_API_BASE, CLINICAL_DATASETS) from '@/lib/constants' for the API URLs."
     },
     {
-      "id": "US-023",
-      "title": "Apply accent-insensitive filter to station select combobox",
-      "description": "As a user, I want the wastewater station search to match accented characters loosely, so that typing 'Beziers' finds 'BÉZIERS' and typing 'Herault' finds stations in Hérault.",
+      "id": "US-032",
+      "title": "Add SUM'Eau API health checks (direct client-side fetch)",
+      "description": "As a developer, I want the health page to directly call the SUM'Eau governmental APIs from the client side and display their status with color coding.",
       "acceptanceCriteria": [
-        "Import `accentInsensitiveFilter` from `@/lib/utils` in `src/components/filters/station-select.tsx`",
-        "Pass the `filter` prop to the `<Command>` component: `filter={accentInsensitiveFilter}`",
-        "Searching 'beziers' or 'Beziers' matches stations whose name or commune contains 'Béziers' (or similar accented variants)",
-        "Searching 'herault' matches communes containing 'Hérault'",
-        "Existing search behavior (case-insensitive substring) is preserved for non-accented queries",
-        "Add a label above the station select: a `<label>` or heading text reading 'Stations eaux usées' styled as `text-sm font-medium text-muted-foreground` so it is visually distinct from the clinical geographic selector added later",
+        "Health page calls ALL 4 SUM'Eau endpoints directly from the browser (no tRPC, no server-side proxy): (1) data.gouv.fr indicators CSV, (2) Odissé indicators JSON, (3) data.gouv.fr stations CSV, (4) Odissé stations JSON — use the URLs from DATA_URLS in '@/lib/constants'",
+        "Each endpoint is displayed as a card/row with: endpoint name, URL (truncated if long), status indicator, and response time in ms",
+        "Status color coding: green circle/badge for HTTP 2xx response, red circle/badge for error/timeout, amber/yellow circle/badge while the request is in-flight (loading)",
+        "Each check uses a 10-second timeout via AbortSignal.timeout(10000)",
+        "On error, the error message is displayed (e.g., 'Timeout', 'Network Error', HTTP status code)",
+        "The fetch calls use `mode: 'cors'` and `method: 'HEAD'` where possible to minimize data transfer — if HEAD fails due to CORS, fall back to a GET with an AbortController that aborts after receiving the first bytes of response",
         "Typecheck passes",
         "Verify in browser using dev-browser skill"
       ],
       "priority": 2,
       "passes": true,
-      "notes": "The shadcn/ui Command component accepts a `filter` prop: `(value: string, search: string) => number`. Return 1 for match, 0 for no match."
+      "notes": "Some governmental APIs may block HEAD requests or have CORS restrictions. The implementation should handle this gracefully — try HEAD first, if it fails with a CORS or method error, retry with GET. For GET requests on large files (CSV), abort as soon as the response headers are received (we only care about reachability, not the full body). Use `fetch(url, { signal, mode: 'cors' })` and check `response.ok`. data.gouv.fr URLs: DATA_URLS.indicators.primary, DATA_URLS.indicators.fallback, DATA_URLS.stations.primary, DATA_URLS.stations.fallback."
     },
     {
-      "id": "US-024",
-      "title": "Add department dataset IDs to clinical constants",
-      "description": "As a developer, I need department-level Odissé dataset IDs configured alongside the existing national ones, so that the clinical service can dynamically choose which dataset to query.",
+      "id": "US-033",
+      "title": "Add Odissé Clinical API health checks (direct client-side fetch)",
+      "description": "As a developer, I want the health page to directly call the Odissé Clinical API endpoints from the client side and display their status.",
       "acceptanceCriteria": [
-        "Add a `departmentDatasetId` field to `ClinicalDatasetMeta` in `src/types/clinical.ts` — type `string`",
-        "In `src/lib/constants.ts`, populate `departmentDatasetId` for each disease in `CLINICAL_DATASETS`: flu → `grippe-passages-aux-urgences-et-actes-sos-medecins-departement`, bronchiolitis → `bronchiolite-passages-aux-urgences-et-actes-sos-medecins-departement`, covid_clinical → `covid-19-passages-aux-urgences-et-actes-sos-medecins-departement`",
-        "Add a `FRENCH_DEPARTMENTS` constant in `src/lib/constants.ts` — a readonly array of `{ code: string; name: string }` objects for all 101 metropolitan + 5 overseas departments (from '01 Ain' through '976 Mayotte'). Use the official French department codes as strings (e.g., '2A' for Corse-du-Sud, '2B' for Haute-Corse, '971' through '976' for overseas)",
-        "Export `FRENCH_DEPARTMENTS` from constants",
-        "Typecheck passes"
+        "Health page calls the Odissé API v2.1 for each of the 3 clinical datasets (flu, bronchiolitis, covid_clinical) directly from the browser",
+        "For each disease, make a lightweight request: `${ODISSE_API_BASE}/${datasetId}/records?limit=1` to check if the API responds — use CLINICAL_DATASETS from '@/lib/constants' to get the datasetId for each disease",
+        "Each clinical endpoint displayed as a card/row with: disease label (from CLINICAL_DATASETS[id].label), full URL, status indicator, and response time in ms",
+        "Same color coding as US-032: green for success, red for error, amber for loading",
+        "Each check uses a 10-second timeout",
+        "On error, display the error message",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
       ],
       "priority": 3,
       "passes": true,
-      "notes": "The department list is static and small (~106 entries). Hardcoding is simpler and faster than an API call. The department-level datasets use the same rate field names and age filters as national ones — only the dataset ID differs, plus the `dep` field in the WHERE clause."
+      "notes": "The Odissé API v2.1 endpoint pattern: `${ODISSE_API_BASE}/${meta.datasetId}/records?limit=1`. Use CLINICAL_DISEASE_IDS to iterate and CLINICAL_DATASETS to get metadata. These are GET requests that return JSON — the `?limit=1` keeps the response tiny."
     },
     {
-      "id": "US-025",
-      "title": "Update clinical service to support department-level queries",
-      "description": "As a developer, I need the clinical data fetching service to optionally query department-level datasets with a department code filter, so that the tRPC router can serve department-scoped data.",
+      "id": "US-034",
+      "title": "Add tRPC endpoint health check",
+      "description": "As a developer, I want the health page to check whether the tRPC API endpoint is reachable and responding, with the same color-coded status display.",
       "acceptanceCriteria": [
-        "Modify `fetchSingleDisease` in `src/server/services/clinical.ts` to accept an optional `department?: string` parameter",
-        "When `department` is provided: use `meta.departmentDatasetId` instead of `meta.datasetId`, and append `AND dep='${department}'` to the existing WHERE clause (properly escaped in the URL)",
-        "When `department` is not provided: behavior is unchanged (national dataset, no dep filter)",
-        "Update `fetchClinicalIndicatorsByDisease` signature to accept optional `department?: string` and pass it through to `fetchSingleDisease`",
-        "Update `fetchClinicalIndicators` signature to accept optional `department?: string` and pass it through",
-        "Typecheck passes"
+        "Health page makes a direct fetch call to `/api/trpc/wastewater.getStations` (a simple GET query with no input) to verify the tRPC endpoint is alive",
+        "Displayed as a separate section titled 'API interne (tRPC)' to distinguish from external governmental APIs",
+        "Shows: endpoint name ('tRPC — wastewater.getStations'), status indicator, and response time in ms",
+        "Same color coding: green for 2xx, red for error, amber for loading",
+        "On error, display the error message or HTTP status",
+        "Uses a 10-second timeout",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
       ],
       "priority": 4,
       "passes": true,
-      "notes": "The Odissé API v2.1 WHERE clause for department queries should be: `sursaud_cl_age_gene='Tous âges' AND dep='44'` (or the relevant age filter for bronchiolitis). The `dep` field is a string like '44', '2A', '971', etc."
+      "notes": "Call tRPC directly via fetch, NOT via the tRPC client. The URL pattern for a tRPC query with no input is: `/api/trpc/wastewater.getStations`. This tests the full server pipeline (Next.js route handler + tRPC + data service)."
     },
     {
-      "id": "US-026",
-      "title": "Update clinical tRPC router to accept department parameter",
-      "description": "As a developer, I need the clinical tRPC procedure to accept an optional department code, so that the frontend can request department-scoped clinical data.",
+      "id": "US-035",
+      "title": "Add overall health summary banner",
+      "description": "As a developer, I want a summary banner at the top of the health page that shows the overall system health at a glance.",
       "acceptanceCriteria": [
-        "Add optional `department: z.string().optional()` to the `getIndicators` input schema in `src/server/trpc/routers/clinical.ts`",
-        "Pass `input.department` to `fetchClinicalIndicatorsByDisease` or `fetchClinicalIndicators`",
-        "When `department` is undefined, behavior is unchanged (national data returned)",
-        "When `department` is e.g. '44', department-level data is returned",
-        "Typecheck passes"
+        "A banner at the top of the health page shows overall status: 'Tous les services sont opérationnels' (green) if ALL checks pass, 'Certains services sont dégradés' (amber) if some fail, 'Services indisponibles' (red) if all fail, 'Vérification en cours...' (amber) while any checks are still loading",
+        "The banner has a colored background matching the overall status (green/amber/red tones, consistent with the app's color palette)",
+        "Below the banner, a count shows 'X/Y services opérationnels' (e.g., '7/8 services opérationnels')",
+        "The banner updates in real-time as individual checks complete",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
       ],
       "priority": 5,
       "passes": true,
-      "notes": ""
-    },
-    {
-      "id": "US-027",
-      "title": "Create department preferences hook",
-      "description": "As a developer, I need a hook to manage the selected department for clinical data, persisted in localStorage.",
-      "acceptanceCriteria": [
-        "Create `src/hooks/use-department-preferences.ts` with a `useDepartmentPreferences` hook",
-        "Hook returns `{ department: string | null, setDepartment: (code: string | null) => void, departmentLabel: string }` where `null` means 'France entière' (national)",
-        "Uses `useLocalStorage` with key `eauxvid:clinical-department`, default `null`",
-        "`departmentLabel` returns 'France entière' when department is null, or the department name from `FRENCH_DEPARTMENTS` when a code is selected (e.g., '44' → 'Loire-Atlantique')",
-        "Typecheck passes"
-      ],
-      "priority": 6,
-      "passes": true,
-      "notes": ""
-    },
-    {
-      "id": "US-028",
-      "title": "Create department select combobox component",
-      "description": "As a user, I want a dropdown to select a geographic area for clinical/hospitalization data, defaulting to national, so that I can drill down to my department.",
-      "acceptanceCriteria": [
-        "Create `src/components/filters/department-select.tsx` using the shadcn Popover + Command combobox pattern (same as station-select)",
-        "Label above the selector reads 'Zone géographique — Urgences' styled as `text-sm font-medium text-muted-foreground`",
-        "Default display text in the button: 'France entière'",
-        "When a department is selected, the button shows e.g. '44 — Loire-Atlantique'",
-        "The combobox lists all departments from `FRENCH_DEPARTMENTS`, searchable by code and name",
-        "A first entry 'France entière' is always shown at the top and represents the national level (sets department to null)",
-        "Uses `accentInsensitiveFilter` from `@/lib/utils` for accent-insensitive search",
-        "Uses `useDepartmentPreferences` hook for state management",
-        "Typecheck passes",
-        "Verify in browser using dev-browser skill"
-      ],
-      "priority": 7,
-      "passes": true,
-      "notes": "The combobox should show a check icon next to the selected item. Selecting 'France entière' clears the department selection. Use the Hospital icon from lucide-react to visually distinguish from the wastewater station select which uses MapPin."
-    },
-    {
-      "id": "US-029",
-      "title": "Integrate department selector into dashboard and pass to chart",
-      "description": "As a user, I want the department selection to filter the clinical overlay data on the chart, with the legend reflecting the selected geographic scope.",
-      "acceptanceCriteria": [
-        "Add `DepartmentSelect` to `src/app/page.tsx` in the filters section, alongside (but visually separate from) the station select",
-        "The layout should clearly group: wastewater station select on one side, department select on the other — they should not look like they control the same data",
-        "Pass `department` from `useDepartmentPreferences` to the `trpc.clinical.getIndicators` query in `src/components/chart/wastewater-chart.tsx`",
-        "When a department is selected, clinical legend labels include the department name in parentheses — e.g., 'Grippe (Loire-Atlantique)' instead of just 'Grippe'",
-        "When 'France entière' is selected, legend labels show the disease name only (current behavior, e.g., 'Grippe')",
-        "The tooltip also reflects the updated label",
-        "Typecheck passes",
-        "Verify in browser using dev-browser skill"
-      ],
-      "priority": 8,
-      "passes": true,
-      "notes": "The `WastewaterChart` component needs access to the selected department — either via props or by calling `useDepartmentPreferences` internally. The legend label modification is in the `legendEntries` useMemo and `fullChartConfig` useMemo. The department code must be included in the tRPC query key so React Query refetches when it changes."
-    },
-    {
-      "id": "US-030",
-      "title": "Sync department selection to URL params",
-      "description": "As a user, I want my department selection to be reflected in the URL so that I can share a link that opens the dashboard filtered to a specific department.",
-      "acceptanceCriteria": [
-        "Add a `dep` URL parameter to `src/hooks/use-url-sync.ts`",
-        "When a department is selected, URL includes `dep=44` (the department code); when national is selected, `dep` param is absent or empty",
-        "On mount, if `dep` is present in URL params, it overrides the localStorage value",
-        "The `useUrlSync` options interface accepts `department: string | null` and `setDepartment: (code: string | null) => void`",
-        "`buildSearchString` includes `dep` param when department is not null",
-        "`parseDepartmentParam` validates the value is a non-empty string",
-        "Typecheck passes"
-      ],
-      "priority": 9,
-      "passes": true,
-      "notes": "Follow the same pattern as the existing URL params (stations, clinical, from, to, hidden). The department param is a simple string, not a comma-separated list."
+      "notes": "Total check count: 4 SUM'Eau + 3 Odissé clinical + 1 tRPC = 8 services. The banner should be visually prominent — use a full-width colored bar with appropriate text contrast."
     }
   ]
 }
