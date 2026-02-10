@@ -46,7 +46,7 @@
         "Typecheck passes"
       ],
       "priority": 3,
-      "passes": false,
+      "passes": true,
       "notes": "The `station_id` stores the SANDRE ID or 'National_54' for the national aggregate. Week format is always 'YYYY-WNN' (8 chars max). Do NOT add a foreign key to stations — station_id 'National_54' is not a real station. Use `uniqueIndex` from drizzle-orm/pg-core for the composite constraint."
     },
     {

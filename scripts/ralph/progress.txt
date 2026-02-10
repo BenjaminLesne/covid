@@ -46,3 +46,16 @@ Started: Mon 10 Feb 2026
   - The generated migration snapshot metadata goes to `drizzle/meta/`
 ---
 
+## 2026-02-10 - US-042
+- Defined `wastewaterIndicatorsTable` in `src/server/db/schema.ts` with columns: id (serial PK), week (varchar(8)), station_id (varchar), value (doublePrecision, nullable), smoothed_value (doublePrecision, nullable)
+- Added unique composite index on `(station_id, week)` via `uniqueIndex`
+- Added index on `week` for date range filtering
+- Used the third argument of `pgTable` (callback returning array of indexes) for index definitions
+- Ran `db:generate` which created migration `drizzle/0001_stormy_praxagora.sql`
+- Files changed: `src/server/db/schema.ts`, `drizzle/0001_stormy_praxagora.sql`, `drizzle/meta/`
+- **Learnings for future iterations:**
+  - Drizzle v0.45 `pgTable` uses a callback `(table) => [...]` as the third argument for indexes/constraints
+  - Import `serial`, `uniqueIndex`, `index` from `drizzle-orm/pg-core` for serial PKs and indexes
+  - No foreign key to stations table since `station_id = 'National_54'` is not a real station
+---
+
