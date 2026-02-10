@@ -162,3 +162,19 @@ Started: Mon 10 Feb 2026
   - The `select().from(table)` pattern returns all columns as-is — use `.map()` to reshape
 ---
 
+## 2026-02-10 - US-050
+- Migrated clinical tRPC procedures to read from Drizzle database instead of Odissé API
+- `getIndicators`: builds dynamic WHERE clauses using `inArray` (diseaseIds), `eq` (department), `gte`/`lte` (dateRange), ordered by week ASC
+- When no department is provided, defaults to `department = 'national'` (sentinel value from US-043)
+- When a department IS provided, filters by that specific department code
+- Maps snake_case DB columns to camelCase: `disease_id` → `diseaseId`, `er_visit_rate` → `erVisitRate`
+- Casts `disease_id` to `ClinicalDiseaseId` type for type safety
+- Removed imports of `fetchClinicalIndicators` and `fetchClinicalIndicatorsByDisease` from clinical service
+- Added imports of `db`, `clinicalIndicatorsTable`, and Drizzle operators
+- Files changed: `src/server/trpc/routers/clinical.ts`
+- **Learnings for future iterations:**
+  - Clinical router always filters by department — either the provided value or 'national' sentinel — never returns unfiltered department data
+  - The migration pattern is identical to wastewater (US-049): replace service imports with db/schema imports, build conditions array, use `and(...conditions)`, map results
+  - `asc()` import from `drizzle-orm` is used for ORDER BY — clinical data is sorted by week ascending
+---
+

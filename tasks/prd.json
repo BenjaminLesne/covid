@@ -173,7 +173,7 @@
         "Typecheck passes"
       ],
       "priority": 11,
-      "passes": false,
+      "passes": true,
       "notes": "CRITICAL: Same response shape as before. The frontend uses `indicator.diseaseId`, `indicator.erVisitRate`. When no department is specified, filter for national data only (the sentinel value used in US-043). When a department IS specified, filter for that department code. Use `eq`, `inArray`, `gte`, `lte`, `and` from drizzle-orm for building WHERE clauses."
     },
     {

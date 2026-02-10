@@ -1,9 +1,8 @@
 import { z } from "zod";
 import { router, publicProcedure } from "../init";
-import {
-  fetchClinicalIndicators,
-  fetchClinicalIndicatorsByDisease,
-} from "@/server/services/clinical";
+import { db } from "@/server/db";
+import { clinicalIndicatorsTable } from "@/server/db/schema";
+import { and, asc, eq, gte, inArray, lte } from "drizzle-orm";
 import type { ClinicalDiseaseId } from "@/types/clinical";
 import { CLINICAL_DISEASE_IDS } from "@/lib/constants";
 
@@ -32,22 +31,46 @@ export const clinicalRouter = router({
         .optional()
     )
     .query(async ({ input }) => {
-      const department = input?.department;
-      let indicators = input?.diseaseIds && input.diseaseIds.length > 0
-        ? await fetchClinicalIndicatorsByDisease(
-            input.diseaseIds as ClinicalDiseaseId[],
-            department
-          )
-        : await fetchClinicalIndicators(department);
+      const conditions = [];
 
-      // Filter by date range if provided (lexicographic ISO week comparison)
-      if (input?.dateRange) {
-        const { from, to } = input.dateRange;
-        indicators = indicators.filter(
-          (ind) => ind.week >= from && ind.week <= to
+      // Filter by disease IDs if provided
+      if (input?.diseaseIds && input.diseaseIds.length > 0) {
+        conditions.push(
+          inArray(clinicalIndicatorsTable.disease_id, input.diseaseIds)
         );
       }
 
-      return indicators;
+      // Filter by department — use sentinel 'national' for national-level data
+      if (input?.department) {
+        conditions.push(
+          eq(clinicalIndicatorsTable.department, input.department)
+        );
+      } else {
+        conditions.push(
+          eq(clinicalIndicatorsTable.department, "national")
+        );
+      }
+
+      // Filter by date range (lexicographic ISO week comparison)
+      if (input?.dateRange) {
+        conditions.push(
+          gte(clinicalIndicatorsTable.week, input.dateRange.from)
+        );
+        conditions.push(
+          lte(clinicalIndicatorsTable.week, input.dateRange.to)
+        );
+      }
+
+      const rows = await db
+        .select()
+        .from(clinicalIndicatorsTable)
+        .where(conditions.length > 0 ? and(...conditions) : undefined)
+        .orderBy(asc(clinicalIndicatorsTable.week));
+
+      return rows.map((row) => ({
+        week: row.week,
+        diseaseId: row.disease_id as ClinicalDiseaseId,
+        erVisitRate: row.er_visit_rate,
+      }));
     }),
 });
