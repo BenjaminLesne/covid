@@ -5,6 +5,7 @@ import {
   serial,
   doublePrecision,
   timestamp,
+  text,
   uniqueIndex,
   index,
 } from "drizzle-orm/pg-core";
@@ -34,5 +35,25 @@ export const wastewaterIndicatorsTable = pgTable(
       table.week,
     ),
     index("wastewater_week_idx").on(table.week),
+  ],
+);
+
+export const clinicalIndicatorsTable = pgTable(
+  "clinical_indicators",
+  {
+    id: serial("id").primaryKey(),
+    week: varchar("week", { length: 8 }).notNull(),
+    disease_id: varchar("disease_id").notNull(),
+    department: varchar("department").notNull().default("national"),
+    er_visit_rate: doublePrecision("er_visit_rate"),
+  },
+  (table) => [
+    uniqueIndex("clinical_disease_week_dept_idx").on(
+      table.disease_id,
+      table.week,
+      table.department,
+    ),
+    index("clinical_week_idx").on(table.week),
+    index("clinical_disease_id_idx").on(table.disease_id),
   ],
 );

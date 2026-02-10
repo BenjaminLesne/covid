@@ -15,6 +15,13 @@
       "when": 1770717257544,
       "tag": "0001_stormy_praxagora",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1770717340169,
+      "tag": "0002_chunky_lady_vermin",
+      "breakpoints": true
     }
   ]
 }
