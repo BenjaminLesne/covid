@@ -8,6 +8,12 @@
  * Environment variables required (set in Vercel project settings > Environment Variables):
  *   - POSTGRES_URL: Vercel Postgres connection string (set automatically when linking a Vercel Postgres DB)
  *   - CRON_SECRET: shared secret for authenticating cron requests — must be set manually in Vercel project settings
+ *
+ * Initial database seed process:
+ *   1. Set POSTGRES_URL and CRON_SECRET in .env.local
+ *   2. Run `npm run dev` to start the dev server
+ *   3. In another terminal, run `npm run db:push` to create tables from the schema
+ *   4. Run `npm run db:seed` to trigger a full sync and populate all tables
  */
 
 import { NextResponse } from "next/server";

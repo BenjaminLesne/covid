@@ -12,7 +12,8 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:push": "drizzle-kit push",
-    "db:studio": "drizzle-kit studio"
+    "db:studio": "drizzle-kit studio",
+    "db:seed": "curl -s -H \"Authorization: Bearer $CRON_SECRET\" http://localhost:3000/api/sync | jq ."
   },
   "dependencies": {
     "@tanstack/react-query": "^5.90.20",
