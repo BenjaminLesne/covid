@@ -1,5 +1,6 @@
 import { Droplets } from "lucide-react";
 import { ThemeToggle } from "@/components/layout/theme-toggle";
+import { RefreshButton } from "@/components/layout/refresh-button";
 
 export function Header() {
   return (
@@ -14,7 +15,10 @@ export function Header() {
             </p>
           </div>
         </div>
-        <ThemeToggle />
+        <div className="flex items-center gap-1">
+          <RefreshButton />
+          <ThemeToggle />
+        </div>
       </div>
     </header>
   );
