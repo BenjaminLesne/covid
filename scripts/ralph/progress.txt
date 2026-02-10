@@ -20,6 +20,7 @@ Started: Mon 10 Feb 2026
 - Drizzle ORM with `@vercel/postgres` adapter — DB client in `src/server/db/index.ts`, schema in `src/server/db/schema.ts`, config in `drizzle.config.ts`
 - Drizzle uses `drizzle({ client: sql })` pattern (not `drizzle(sql)`) per latest drizzle-orm v0.45
 - DB scripts: `db:generate`, `db:migrate`, `db:push`, `db:studio`
+- Clinical indicators use sentinel value `'national'` for department column (not null) — always filter with `department = 'national'` for national-level data
 ---
 
 ## 2026-02-10 - US-040
@@ -57,5 +58,30 @@ Started: Mon 10 Feb 2026
   - Drizzle v0.45 `pgTable` uses a callback `(table) => [...]` as the third argument for indexes/constraints
   - Import `serial`, `uniqueIndex`, `index` from `drizzle-orm/pg-core` for serial PKs and indexes
   - No foreign key to stations table since `station_id = 'National_54'` is not a real station
+---
+
+## 2026-02-10 - US-043
+- Defined `clinicalIndicatorsTable` in `src/server/db/schema.ts` with columns: id (serial PK), week (varchar(8)), disease_id (varchar), department (varchar, default 'national'), er_visit_rate (doublePrecision, nullable)
+- Added unique composite index on `(disease_id, week, department)` to prevent duplicates
+- Added index on `week` for date range filtering
+- Added index on `disease_id` for disease-specific queries
+- Used sentinel value `'national'` for department instead of null to avoid Postgres null-handling in unique indexes
+- Also imported `text` from drizzle-orm/pg-core (needed for upcoming sync_metadata table)
+- Ran `db:generate` which created migration `drizzle/0002_chunky_lady_vermin.sql`
+- Files changed: `src/server/db/schema.ts`, `drizzle/0002_chunky_lady_vermin.sql`, `drizzle/meta/`
+- **Learnings for future iterations:**
+  - Use sentinel value `'national'` (not null) for department column to simplify unique constraints — this is the pattern for the entire project
+  - The `text` import is needed for the `errors` column in sync_metadata (US-044)
+  - Consistent index naming pattern: `{table}_{columns}_idx` (e.g., `clinical_disease_week_dept_idx`)
+---
+
+## 2026-02-10 - US-044
+- Defined `syncMetadataTable` in `src/server/db/schema.ts` with columns: id (serial PK), started_at (timestamp, not null, defaultNow), completed_at (timestamp, nullable), status (varchar, not null), stations_count (integer, default 0), wastewater_count (integer, default 0), clinical_count (integer, default 0), errors (text, nullable)
+- Ran `db:generate` which created migration `drizzle/0003_silent_monster_badoon.sql`
+- Files changed: `src/server/db/schema.ts`, `drizzle/0003_silent_monster_badoon.sql`, `drizzle/meta/`
+- **Learnings for future iterations:**
+  - sync_metadata table has no indexes — it's only queried by `ORDER BY started_at DESC LIMIT 1`, which is fine for small tables
+  - `status` column stores string values: 'running', 'success', 'partial', 'failed' — no enum type used, just varchar
+  - `errors` column is `text` (not jsonb) — stores JSON-serialized array of error strings for simplicity
 ---
 

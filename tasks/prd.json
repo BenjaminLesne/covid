@@ -63,7 +63,7 @@
         "Typecheck passes"
       ],
       "priority": 4,
-      "passes": false,
+      "passes": true,
       "notes": "The `department` column allows storing both national and department-level data. For the unique constraint with nullable department, the simplest approach is to use a sentinel value like 'national' instead of null — this avoids Postgres null-handling complexity in unique indexes. The current clinical service fetches national data by default and department data when a code is provided."
     },
     {
@@ -77,7 +77,7 @@
         "Typecheck passes"
       ],
       "priority": 5,
-      "passes": false,
+      "passes": true,
       "notes": "The `errors` column stores a JSON-serialized array of error strings. Using text instead of jsonb keeps it simple — we only need to display the errors, not query them. The `status` values: 'running' = currently in progress, 'success' = all data synced, 'partial' = some datasets failed, 'failed' = complete failure."
     },
     {

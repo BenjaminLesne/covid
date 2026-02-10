@@ -57,3 +57,14 @@ export const clinicalIndicatorsTable = pgTable(
     index("clinical_disease_id_idx").on(table.disease_id),
   ],
 );
+
+export const syncMetadataTable = pgTable("sync_metadata", {
+  id: serial("id").primaryKey(),
+  started_at: timestamp("started_at").notNull().defaultNow(),
+  completed_at: timestamp("completed_at"),
+  status: varchar("status").notNull(),
+  stations_count: integer("stations_count").default(0),
+  wastewater_count: integer("wastewater_count").default(0),
+  clinical_count: integer("clinical_count").default(0),
+  errors: text("errors"),
+});
