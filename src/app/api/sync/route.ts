@@ -1,12 +1,13 @@
 /**
  * Sync API route — orchestrates the full data sync pipeline.
  *
- * Called daily by Vercel Cron Jobs with Authorization: Bearer <CRON_SECRET>.
+ * Called daily at 06:00 UTC by Vercel Cron Jobs (configured in vercel.json).
+ * Vercel automatically sends `Authorization: Bearer <CRON_SECRET>` to cron endpoints.
  * Can also be triggered manually for seeding: npm run db:seed
  *
- * Environment variables required:
- *   - POSTGRES_URL: Vercel Postgres connection string (set automatically by Vercel)
- *   - CRON_SECRET: shared secret for authenticating cron requests (set in Vercel project settings)
+ * Environment variables required (set in Vercel project settings > Environment Variables):
+ *   - POSTGRES_URL: Vercel Postgres connection string (set automatically when linking a Vercel Postgres DB)
+ *   - CRON_SECRET: shared secret for authenticating cron requests — must be set manually in Vercel project settings
  */
 
 import { NextResponse } from "next/server";
