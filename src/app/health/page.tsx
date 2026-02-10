@@ -286,9 +286,10 @@ export default function HealthPage() {
   useEffect(() => {
     if (!hasRun.current) {
       hasRun.current = true;
-      runAllChecks();
+      void Promise.resolve().then(() => runAllChecks());
     }
-  }, [runAllChecks]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Derived state
   const completedChecks = checks.filter(
