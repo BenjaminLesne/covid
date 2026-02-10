@@ -13,40 +13,36 @@ Started: Mon 10 Feb 2026
 - Data fetching service in `src/server/services/sumeau.ts` — use `fetchIndicators()` and `fetchStations()` for server-side data access
 - Clinical types in `src/types/clinical.ts` — import `ClinicalDiseaseId`, `ClinicalIndicator`, `ClinicalDatasetMeta` from `@/types/clinical`
 - Clinical constants in `src/lib/constants.ts` — `ODISSE_API_BASE`, `CLINICAL_DISEASE_IDS`, `CLINICAL_DATASETS` record with Odissé API config per disease
-- Odissé API v2.1 returns flat record fields (not nested in `fields` object like v1); filter `sursaud_cl_age_gene='Tous âges'` for all-age data
 - Clinical data service in `src/server/services/clinical.ts` — use `fetchClinicalIndicators()` for all diseases, `fetchClinicalIndicatorsByDisease(ids)` for specific ones
-- Odissé API v2.1 records endpoint: `${ODISSE_API_BASE}/${datasetId}/records` with pagination (limit=100, offset-based)
-- Clinical tRPC router in `src/server/trpc/routers/clinical.ts` — `getIndicators` procedure with optional diseaseIds + dateRange filters
-- `CLINICAL_DISEASE_IDS` readonly array needs `as unknown as [string, ...string[]]` cast for `z.enum()` which requires a non-empty tuple type
-- Hooks in `src/hooks/` — `use-local-storage.ts` (generic typed localStorage), `use-station-preferences.ts` (station selection state with max 5 limit)
-- Station select combobox in `src/components/filters/station-select.tsx` — uses shadcn/ui Popover + Command (cmdk) pattern
-- `useSyncExternalStore` can detect client vs server without useEffect — avoids React lint warning about setState in effects
-- shadcn/ui combobox pattern uses Popover + Command (from cmdk library) — not a built-in component
-- Clinical preferences hook in `src/hooks/use-clinical-preferences.ts` — `enabledDiseases`, `toggleDisease(id)`, `isEnabled(id)` with localStorage key `eauxvid:clinical-overlays`
-- Recharts dual Y-axis: every `Line` `yAxisId` must have a matching `YAxis` rendered, even if the line has `hide=true` — use `hide` prop on the axis itself instead of conditional rendering
-- URL state sync in `src/hooks/use-url-sync.ts` — params: from, to, stations, clinical, hidden
-- localStorage keys prefixed with `eauxvid:` (e.g. `eauxvid:selected-stations`, `eauxvid:date-range`, `eauxvid:clinical-overlays`)
-- Department-level Odissé datasets use suffix `-departement` instead of `-france`, same rate fields, add WHERE `dep='XX'` to filter
-- Vitest configured in `vitest.config.ts` with `@/` path alias; test script is `npm run test`
-- `stripDiacritics` and `accentInsensitiveFilter` utilities in `src/lib/utils.ts` for accent-insensitive search
+- Hooks in `src/hooks/` — `use-local-storage.ts`, `use-station-preferences.ts`, `use-clinical-preferences.ts`, `use-url-sync.ts`
 - Health page at `src/app/health/page.tsx` — client component with direct fetch calls for API health checks
-- External API health checks: try HEAD first (mode: 'cors'), fallback to GET with abort after headers for CORS-restricted endpoints
-- Odissé download endpoints (fallback URLs) block CORS from browser — this is expected, they show as "Failed to fetch"
+- Vitest configured in `vitest.config.ts` with `@/` path alias; test script is `npm run test`
+- Drizzle ORM with `@vercel/postgres` adapter — DB client in `src/server/db/index.ts`, schema in `src/server/db/schema.ts`, config in `drizzle.config.ts`
+- Drizzle uses `drizzle({ client: sql })` pattern (not `drizzle(sql)`) per latest drizzle-orm v0.45
+- DB scripts: `db:generate`, `db:migrate`, `db:push`, `db:studio`
 ---
 
-## 2026-02-10 09:10 - US-031
-- Created `/health` route with full health check dashboard
-- Page has heading "EauxVid — Health Check", subtitle, Rafraîchir button, last-checked timestamp
-- Uses existing app layout (header/footer), NOT linked from any navigation
-- All 8 health checks implemented: 4 SUM'Eau, 3 Odissé clinical, 1 tRPC
-- Summary banner with color-coded status (green/amber/red)
-- Each check card shows: name, URL (truncated), status dot, response time, error message
-- Files changed: `src/app/health/page.tsx` (new)
+## 2026-02-10 - US-040
+- Installed `drizzle-orm`, `@vercel/postgres`, `drizzle-kit` (dev)
+- Created `src/server/db/index.ts` with Drizzle client using `@vercel/postgres` adapter
+- Created `drizzle.config.ts` with postgresql dialect, schema path, and POSTGRES_URL credential
+- Added `db:generate`, `db:migrate`, `db:push`, `db:studio` scripts to package.json
+- Created placeholder `src/server/db/schema.ts`
+- Files changed: `package.json`, `package-lock.json`, `drizzle.config.ts`, `src/server/db/index.ts`, `src/server/db/schema.ts`
 - **Learnings for future iterations:**
-  - Odissé download URLs (fallback) block CORS from browser — HEAD and GET both fail with "Failed to fetch"
-  - data.gouv.fr API endpoints support CORS and HEAD requests fine
-  - Odissé v2.1 API (records endpoint) supports CORS — clinical checks work from browser
-  - `AbortSignal.any()` can combine timeout + manual abort signals for GET-with-early-abort pattern
-  - When aborting after headers received, the AbortError should be treated as success (reachability confirmed)
+  - `@vercel/postgres` is deprecated (Vercel migrated to Neon) but still works — PRD specifies it so we use it
+  - Latest drizzle-orm v0.45 uses `drizzle({ client: sql })` syntax, not `drizzle(sql)`
+  - `drizzle.config.ts` uses `url` (not `connectionString`) in `dbCredentials` for latest drizzle-kit
+---
+
+## 2026-02-10 - US-041
+- Defined `stationsTable` in `src/server/db/schema.ts` with columns: sandre_id (PK), name, commune, population, lat, lng, updated_at
+- Used `pgTable`, `varchar`, `integer`, `doublePrecision`, `timestamp` from `drizzle-orm/pg-core`
+- Ran `db:generate` which created migration `drizzle/0000_acoustic_supreme_intelligence.sql`
+- Files changed: `src/server/db/schema.ts`, `drizzle/0000_acoustic_supreme_intelligence.sql`, `drizzle/meta/`
+- **Learnings for future iterations:**
+  - `drizzle-kit generate` does NOT require a live DB connection — it reads the schema and produces SQL
+  - Migration files go to `./drizzle/` as configured in `drizzle.config.ts`
+  - The generated migration snapshot metadata goes to `drizzle/meta/`
 ---
 

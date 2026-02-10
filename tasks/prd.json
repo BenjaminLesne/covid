@@ -1,95 +1,212 @@
 {
   "project": "EauxVid",
-  "branchName": "ralph/health-page",
-  "description": "Health check page at /health to monitor governmental API availability and tRPC endpoint status",
+  "branchName": "ralph/db-migration",
+  "description": "Migrate from direct government API calls to a local Vercel Postgres (Neon) database with Drizzle ORM. Data is synced daily via Vercel Cron Jobs. Once seeded, all reads come from the DB exclusively.",
   "userStories": [
     {
-      "id": "US-031",
-      "title": "Create health check page route and layout",
-      "description": "As a developer, I want a /health route that displays a health check dashboard, not linked from any navigation, accessible only via direct URL.",
+      "id": "US-040",
+      "title": "Install Drizzle ORM and Vercel Postgres dependencies",
+      "description": "As a developer, I need the Drizzle ORM and Vercel Postgres packages installed and configured so that subsequent stories can define schemas and query the database.",
       "acceptanceCriteria": [
-        "Create `src/app/health/page.tsx` as a client component ('use client')",
-        "Page has a heading 'EauxVid — Health Check' and a subtitle explaining it monitors external data sources",
-        "Page uses the existing app layout (header/footer) but is NOT linked from header, footer, or any navigation element",
-        "Page includes a 'Rafraîchir' (refresh) button that re-runs all health checks when clicked",
-        "Page shows a 'Dernière vérification' (last checked) timestamp that updates on each check run",
-        "Page is styled consistently with the rest of the app using Tailwind classes",
-        "Typecheck passes",
-        "Verify in browser using dev-browser skill"
+        "Install packages: `drizzle-orm`, `@vercel/postgres`, `drizzle-kit` (dev dep)",
+        "Create `src/server/db/index.ts` that exports a Drizzle client instance using `@vercel/postgres` adapter — use `import { sql } from '@vercel/postgres'` and `import { drizzle } from 'drizzle-orm/vercel-postgres'`, then `export const db = drizzle(sql)`",
+        "Create `drizzle.config.ts` at project root with `dialect: 'postgresql'`, `schema: './src/server/db/schema.ts'`, `out: './drizzle'` and `dbCredentials: { connectionString: process.env.POSTGRES_URL! }`",
+        "Add scripts to package.json: `\"db:generate\": \"drizzle-kit generate\"`, `\"db:migrate\": \"drizzle-kit migrate\"`, `\"db:push\": \"drizzle-kit push\"`, `\"db:studio\": \"drizzle-kit studio\"`",
+        "Create a placeholder `src/server/db/schema.ts` that exports an empty object (will be populated in next stories)",
+        "Typecheck passes"
       ],
       "priority": 1,
       "passes": true,
-      "notes": "This is a client component because it needs to make direct fetch calls from the browser to test API reachability from the client side. Import constants (DATA_URLS, ODISSE_API_BASE, CLINICAL_DATASETS) from '@/lib/constants' for the API URLs."
+      "notes": "Use `drizzle-orm/vercel-postgres` adapter specifically. The POSTGRES_URL env var is automatically provided by Vercel when you link a Vercel Postgres database. For local dev, it will need to be set in `.env.local` (do NOT create .env files — just document the required env var). Check the latest Drizzle docs for the exact import paths — the Vercel Postgres adapter may use `drizzle(sql)` or `drizzle({ connection: sql })` depending on the version."
     },
     {
-      "id": "US-032",
-      "title": "Add SUM'Eau API health checks (direct client-side fetch)",
-      "description": "As a developer, I want the health page to directly call the SUM'Eau governmental APIs from the client side and display their status with color coding.",
+      "id": "US-041",
+      "title": "Define database schema for stations table",
+      "description": "As a developer, I need a `stations` table in the database to store wastewater monitoring station metadata.",
       "acceptanceCriteria": [
-        "Health page calls ALL 4 SUM'Eau endpoints directly from the browser (no tRPC, no server-side proxy): (1) data.gouv.fr indicators CSV, (2) Odissé indicators JSON, (3) data.gouv.fr stations CSV, (4) Odissé stations JSON — use the URLs from DATA_URLS in '@/lib/constants'",
-        "Each endpoint is displayed as a card/row with: endpoint name, URL (truncated if long), status indicator, and response time in ms",
-        "Status color coding: green circle/badge for HTTP 2xx response, red circle/badge for error/timeout, amber/yellow circle/badge while the request is in-flight (loading)",
-        "Each check uses a 10-second timeout via AbortSignal.timeout(10000)",
-        "On error, the error message is displayed (e.g., 'Timeout', 'Network Error', HTTP status code)",
-        "The fetch calls use `mode: 'cors'` and `method: 'HEAD'` where possible to minimize data transfer — if HEAD fails due to CORS, fall back to a GET with an AbortController that aborts after receiving the first bytes of response",
-        "Typecheck passes",
-        "Verify in browser using dev-browser skill"
+        "Add a `stations` table to `src/server/db/schema.ts` using Drizzle's `pgTable` with columns: `sandre_id` (varchar, primary key), `name` (varchar, not null), `commune` (varchar, not null), `population` (integer, not null, default 0), `lat` (doublePrecision, not null), `lng` (doublePrecision, not null), `updated_at` (timestamp, defaultNow)",
+        "Export the table as `stationsTable`",
+        "Run `npm run db:generate` to generate the migration SQL file in `./drizzle/` folder — the migration should create the stations table",
+        "Typecheck passes"
       ],
       "priority": 2,
       "passes": true,
-      "notes": "Some governmental APIs may block HEAD requests or have CORS restrictions. The implementation should handle this gracefully — try HEAD first, if it fails with a CORS or method error, retry with GET. For GET requests on large files (CSV), abort as soon as the response headers are received (we only care about reachability, not the full body). Use `fetch(url, { signal, mode: 'cors' })` and check `response.ok`. data.gouv.fr URLs: DATA_URLS.indicators.primary, DATA_URLS.indicators.fallback, DATA_URLS.stations.primary, DATA_URLS.stations.fallback."
+      "notes": "Use `sandre_id` as PK since it's the unique identifier from the government data. The `updated_at` column helps track when station data was last refreshed. Import from `drizzle-orm/pg-core`: `pgTable`, `varchar`, `integer`, `doublePrecision`, `timestamp`."
     },
     {
-      "id": "US-033",
-      "title": "Add Odissé Clinical API health checks (direct client-side fetch)",
-      "description": "As a developer, I want the health page to directly call the Odissé Clinical API endpoints from the client side and display their status.",
+      "id": "US-042",
+      "title": "Define database schema for wastewater_indicators table",
+      "description": "As a developer, I need a `wastewater_indicators` table to store weekly viral indicator readings per station.",
       "acceptanceCriteria": [
-        "Health page calls the Odissé API v2.1 for each of the 3 clinical datasets (flu, bronchiolitis, covid_clinical) directly from the browser",
-        "For each disease, make a lightweight request: `${ODISSE_API_BASE}/${datasetId}/records?limit=1` to check if the API responds — use CLINICAL_DATASETS from '@/lib/constants' to get the datasetId for each disease",
-        "Each clinical endpoint displayed as a card/row with: disease label (from CLINICAL_DATASETS[id].label), full URL, status indicator, and response time in ms",
-        "Same color coding as US-032: green for success, red for error, amber for loading",
-        "Each check uses a 10-second timeout",
-        "On error, display the error message",
-        "Typecheck passes",
-        "Verify in browser using dev-browser skill"
+        "Add a `wastewater_indicators` table to `src/server/db/schema.ts` with columns: `id` (serial, primary key), `week` (varchar(8), not null — e.g. '2024-W03'), `station_id` (varchar, not null), `value` (doublePrecision, nullable), `smoothed_value` (doublePrecision, nullable)",
+        "Add a unique composite index on `(station_id, week)` to prevent duplicate entries and enable efficient upserts — use `.unique()` or a unique index",
+        "Add an index on `week` for date range filtering",
+        "Export the table as `wastewaterIndicatorsTable`",
+        "Run `npm run db:generate` to generate the migration SQL",
+        "Typecheck passes"
       ],
       "priority": 3,
-      "passes": true,
-      "notes": "The Odissé API v2.1 endpoint pattern: `${ODISSE_API_BASE}/${meta.datasetId}/records?limit=1`. Use CLINICAL_DISEASE_IDS to iterate and CLINICAL_DATASETS to get metadata. These are GET requests that return JSON — the `?limit=1` keeps the response tiny."
+      "passes": false,
+      "notes": "The `station_id` stores the SANDRE ID or 'National_54' for the national aggregate. Week format is always 'YYYY-WNN' (8 chars max). Do NOT add a foreign key to stations — station_id 'National_54' is not a real station. Use `uniqueIndex` from drizzle-orm/pg-core for the composite constraint."
     },
     {
-      "id": "US-034",
-      "title": "Add tRPC endpoint health check",
-      "description": "As a developer, I want the health page to check whether the tRPC API endpoint is reachable and responding, with the same color-coded status display.",
+      "id": "US-043",
+      "title": "Define database schema for clinical_indicators table",
+      "description": "As a developer, I need a `clinical_indicators` table to store weekly ER visit rates for each disease.",
       "acceptanceCriteria": [
-        "Health page makes a direct fetch call to `/api/trpc/wastewater.getStations` (a simple GET query with no input) to verify the tRPC endpoint is alive",
-        "Displayed as a separate section titled 'API interne (tRPC)' to distinguish from external governmental APIs",
-        "Shows: endpoint name ('tRPC — wastewater.getStations'), status indicator, and response time in ms",
-        "Same color coding: green for 2xx, red for error, amber for loading",
-        "On error, display the error message or HTTP status",
-        "Uses a 10-second timeout",
-        "Typecheck passes",
-        "Verify in browser using dev-browser skill"
+        "Add a `clinical_indicators` table to `src/server/db/schema.ts` with columns: `id` (serial, primary key), `week` (varchar(8), not null), `disease_id` (varchar, not null — 'flu' | 'bronchiolitis' | 'covid_clinical'), `department` (varchar, nullable — null means national-level data), `er_visit_rate` (doublePrecision, nullable)",
+        "Add a unique composite index on `(disease_id, week, department)` to prevent duplicates — for national data where department is null, this should still be unique (use NULLS NOT DISTINCT or a partial unique index, or store 'national' as a sentinel value for department)",
+        "Add an index on `week` for date range filtering",
+        "Add an index on `disease_id` for disease-specific queries",
+        "Export the table as `clinicalIndicatorsTable`",
+        "Run `npm run db:generate` to generate the migration SQL",
+        "Typecheck passes"
       ],
       "priority": 4,
-      "passes": true,
-      "notes": "Call tRPC directly via fetch, NOT via the tRPC client. The URL pattern for a tRPC query with no input is: `/api/trpc/wastewater.getStations`. This tests the full server pipeline (Next.js route handler + tRPC + data service)."
+      "passes": false,
+      "notes": "The `department` column allows storing both national and department-level data. For the unique constraint with nullable department, the simplest approach is to use a sentinel value like 'national' instead of null — this avoids Postgres null-handling complexity in unique indexes. The current clinical service fetches national data by default and department data when a code is provided."
     },
     {
-      "id": "US-035",
-      "title": "Add overall health summary banner",
-      "description": "As a developer, I want a summary banner at the top of the health page that shows the overall system health at a glance.",
+      "id": "US-044",
+      "title": "Define database schema for sync_metadata table",
+      "description": "As a developer, I need a `sync_metadata` table to track sync job history, timing, and errors.",
       "acceptanceCriteria": [
-        "A banner at the top of the health page shows overall status: 'Tous les services sont opérationnels' (green) if ALL checks pass, 'Certains services sont dégradés' (amber) if some fail, 'Services indisponibles' (red) if all fail, 'Vérification en cours...' (amber) while any checks are still loading",
-        "The banner has a colored background matching the overall status (green/amber/red tones, consistent with the app's color palette)",
-        "Below the banner, a count shows 'X/Y services opérationnels' (e.g., '7/8 services opérationnels')",
-        "The banner updates in real-time as individual checks complete",
+        "Add a `sync_metadata` table to `src/server/db/schema.ts` with columns: `id` (serial, primary key), `started_at` (timestamp, not null, defaultNow), `completed_at` (timestamp, nullable), `status` (varchar, not null — 'running' | 'success' | 'partial' | 'failed'), `stations_count` (integer, default 0), `wastewater_count` (integer, default 0), `clinical_count` (integer, default 0), `errors` (text, nullable — JSON string of error messages)",
+        "Export the table as `syncMetadataTable`",
+        "Run `npm run db:generate` to generate the migration SQL",
+        "Typecheck passes"
+      ],
+      "priority": 5,
+      "passes": false,
+      "notes": "The `errors` column stores a JSON-serialized array of error strings. Using text instead of jsonb keeps it simple — we only need to display the errors, not query them. The `status` values: 'running' = currently in progress, 'success' = all data synced, 'partial' = some datasets failed, 'failed' = complete failure."
+    },
+    {
+      "id": "US-045",
+      "title": "Create wastewater data ingestion service",
+      "description": "As a developer, I need a service that fetches wastewater data from government APIs and upserts it into the database, reusing the existing parsing logic.",
+      "acceptanceCriteria": [
+        "Create `src/server/services/sync/wastewater-sync.ts`",
+        "Export an async function `syncWastewaterData(db)` that: (1) calls `fetchIndicators()` and `fetchStations()` from `@/server/services/sumeau` to get parsed data, (2) upserts all stations into the `stations` table using `ON CONFLICT (sandre_id) DO UPDATE`, (3) upserts all indicators into the `wastewater_indicators` table using `ON CONFLICT (station_id, week) DO UPDATE`",
+        "Function returns `{ stationsCount: number, indicatorsCount: number }` with the number of rows upserted",
+        "If `fetchIndicators()` or `fetchStations()` throws, the error propagates (caller handles it)",
+        "Batch inserts to avoid exceeding Postgres parameter limits — use chunks of 500 rows max for the indicators upsert",
+        "Typecheck passes"
+      ],
+      "priority": 6,
+      "passes": false,
+      "notes": "Reuse the existing `fetchIndicators()` and `fetchStations()` functions from `src/server/services/sumeau.ts` — they already handle CSV/JSON fallback and parsing. Do NOT rewrite the fetching/parsing logic. Use Drizzle's `db.insert().values().onConflictDoUpdate()` for upserts. The indicators dataset can be large (~54 stations x ~200 weeks = ~10,800 rows), so batch the inserts. Import the db instance and schema tables."
+    },
+    {
+      "id": "US-046",
+      "title": "Create clinical data ingestion service",
+      "description": "As a developer, I need a service that fetches clinical surveillance data from the Odissé API and upserts it into the database.",
+      "acceptanceCriteria": [
+        "Create `src/server/services/sync/clinical-sync.ts`",
+        "Export an async function `syncClinicalData(db)` that: (1) calls `fetchClinicalIndicators()` from `@/server/services/clinical` to get all 3 diseases in parallel, (2) upserts all indicators into the `clinical_indicators` table using `ON CONFLICT (disease_id, week, department) DO UPDATE` — use the sentinel value chosen in US-043 for national data",
+        "Function returns `{ indicatorsCount: number }` with the number of rows upserted",
+        "If `fetchClinicalIndicators()` returns partial data (some diseases failed), still upsert what was returned — log warnings for failures",
+        "Batch inserts in chunks of 500 rows max",
+        "Typecheck passes"
+      ],
+      "priority": 7,
+      "passes": false,
+      "notes": "Reuse `fetchClinicalIndicators()` from `src/server/services/clinical.ts` — it already uses Promise.allSettled internally. The current service only fetches national-level data by default (no department parameter). For the initial version, only sync national data (department = sentinel 'national' value). Department-level data can be added later if needed. The clinical dataset is smaller (~3 diseases x ~200 weeks = ~600 rows)."
+    },
+    {
+      "id": "US-047",
+      "title": "Create sync orchestrator and API route",
+      "description": "As a developer, I need a protected API route that orchestrates the full data sync pipeline and records the result in sync_metadata.",
+      "acceptanceCriteria": [
+        "Create `src/app/api/sync/route.ts` as a Next.js Route Handler with a GET handler",
+        "The route checks the `Authorization` header for `Bearer ${CRON_SECRET}` — if missing or wrong, return 401 JSON `{ error: 'Unauthorized' }`",
+        "On valid auth: (1) insert a new row into `sync_metadata` with status 'running', (2) call `syncWastewaterData(db)`, (3) call `syncClinicalData(db)`, (4) update the sync_metadata row with final counts and status 'success' or 'partial' if some step had errors",
+        "If the entire sync fails, update sync_metadata with status 'failed' and the error message",
+        "Return JSON response with sync results: `{ status, stationsCount, wastewaterCount, clinicalCount, errors, durationMs }`",
+        "Set `export const maxDuration = 60` for the route (Vercel serverless function timeout)",
+        "Typecheck passes"
+      ],
+      "priority": 8,
+      "passes": false,
+      "notes": "Use `process.env.CRON_SECRET` for the secret. Vercel Cron Jobs automatically send `Authorization: Bearer <CRON_SECRET>` when calling the endpoint. The `maxDuration` export tells Vercel to allow up to 60 seconds for this function (default is 10s on Hobby plan, but can be set up to 60s). Wrap the entire sync in a try/catch — never let the route crash without updating sync_metadata."
+    },
+    {
+      "id": "US-048",
+      "title": "Configure Vercel Cron Job for daily sync",
+      "description": "As a developer, I need the sync to run automatically every day via Vercel Cron Jobs.",
+      "acceptanceCriteria": [
+        "Create `vercel.json` at project root with a cron configuration that calls `/api/sync` daily at 06:00 UTC",
+        "The cron config should be: `{ \"crons\": [{ \"path\": \"/api/sync\", \"schedule\": \"0 6 * * *\" }] }`",
+        "Add `CRON_SECRET` to the environment variables documentation — add a comment in the sync route file explaining that this env var must be set in Vercel project settings",
+        "Typecheck passes"
+      ],
+      "priority": 9,
+      "passes": false,
+      "notes": "Vercel automatically adds the `Authorization: Bearer <CRON_SECRET>` header when calling cron endpoints — the CRON_SECRET env var must be set in Vercel project settings (Settings > Environment Variables). The schedule `0 6 * * *` means daily at 6:00 AM UTC (7:00 or 8:00 AM Paris time depending on DST). The vercel.json file may already contain other config — check first and merge rather than overwrite."
+    },
+    {
+      "id": "US-049",
+      "title": "Migrate wastewater tRPC procedures to read from database",
+      "description": "As a developer, I need to update the wastewater tRPC router to query the Drizzle database instead of fetching from live government APIs, while maintaining the exact same response shapes.",
+      "acceptanceCriteria": [
+        "Update `src/server/trpc/routers/wastewater.ts` — remove imports of `fetchIndicators` and `fetchStations` from sumeau service",
+        "Import `db` from `@/server/db` and schema tables from `@/server/db/schema`",
+        "`getIndicators` procedure: query `wastewater_indicators` table with Drizzle, apply optional `stationIds` filter (WHERE station_id IN (...)), apply optional `dateRange` filter (WHERE week >= from AND week <= to), return `WastewaterIndicator[]` with same shape: `{ week, stationId, value, smoothedValue }`",
+        "`getStations` procedure: query `stations` table, return `Station[]` with same shape: `{ name, commune, sandreId, population, lat, lng }`",
+        "`getNationalTrend` procedure: query `wastewater_indicators` WHERE station_id = 'National_54', order by week ASC, return `NationalAggregate[]` with same shape: `{ week, value, smoothedValue }`",
+        "Column name mapping: DB `station_id` -> response `stationId`, DB `sandre_id` -> response `sandreId`, DB `smoothed_value` -> response `smoothedValue`, DB `er_visit_rate` -> response `erVisitRate`",
+        "Typecheck passes"
+      ],
+      "priority": 10,
+      "passes": false,
+      "notes": "CRITICAL: The response shapes must be IDENTICAL to what the frontend currently expects. The frontend uses `indicator.stationId`, `indicator.smoothedValue`, `station.sandreId`, etc. Map snake_case DB columns to camelCase response fields. Use Drizzle's `select()` with `.where()` and `.orderBy()`. For the stationIds filter, use `inArray(wastewaterIndicatorsTable.stationId, input.stationIds)` from drizzle-orm. For dateRange, use `gte` and `lte` operators."
+    },
+    {
+      "id": "US-050",
+      "title": "Migrate clinical tRPC procedures to read from database",
+      "description": "As a developer, I need to update the clinical tRPC router to query the database instead of calling the Odissé API.",
+      "acceptanceCriteria": [
+        "Update `src/server/trpc/routers/clinical.ts` — remove imports of `fetchClinicalIndicators` and `fetchClinicalIndicatorsByDisease` from clinical service",
+        "Import `db` from `@/server/db` and schema tables from `@/server/db/schema`",
+        "`getIndicators` procedure: query `clinical_indicators` table with Drizzle, apply optional `diseaseIds` filter, apply optional `department` filter (use sentinel value for national, or filter by department code), apply optional `dateRange` filter, sort by week ASC, return `ClinicalIndicator[]` with same shape: `{ week, diseaseId, erVisitRate }`",
+        "When `department` is not provided, return national-level data (where department column = sentinel value for national)",
+        "Column name mapping: DB `disease_id` -> response `diseaseId`, DB `er_visit_rate` -> response `erVisitRate`",
+        "Typecheck passes"
+      ],
+      "priority": 11,
+      "passes": false,
+      "notes": "CRITICAL: Same response shape as before. The frontend uses `indicator.diseaseId`, `indicator.erVisitRate`. When no department is specified, filter for national data only (the sentinel value used in US-043). When a department IS specified, filter for that department code. Use `eq`, `inArray`, `gte`, `lte`, `and` from drizzle-orm for building WHERE clauses."
+    },
+    {
+      "id": "US-051",
+      "title": "Add database health check to the health page",
+      "description": "As a developer, I want the /health page to show database connectivity status and last sync information alongside existing API checks.",
+      "acceptanceCriteria": [
+        "Add a new section 'Base de données' to the health page at `src/app/health/page.tsx`",
+        "The section makes a fetch call to a new endpoint `/api/health/db` that checks: (1) database connectivity (a simple `SELECT 1` query), (2) last sync metadata (most recent row from sync_metadata table)",
+        "Create `src/app/api/health/db/route.ts` — returns JSON with `{ connected: boolean, lastSync: { status, startedAt, completedAt, stationsCount, wastewaterCount, clinicalCount } | null, responseTimeMs: number }`",
+        "Health page displays: database connection status (green/red dot), last sync time ('Dernière synchronisation: [date]'), last sync status and row counts",
+        "If last sync is older than 48 hours, show an amber warning indicator",
+        "Update the total service count in the summary banner to include the DB check",
         "Typecheck passes",
         "Verify in browser using dev-browser skill"
       ],
-      "priority": 5,
-      "passes": true,
-      "notes": "Total check count: 4 SUM'Eau + 3 Odissé clinical + 1 tRPC = 8 services. The banner should be visually prominent — use a full-width colored bar with appropriate text contrast."
+      "priority": 12,
+      "passes": false,
+      "notes": "The health page is a client component at `src/app/health/page.tsx`. The new `/api/health/db` route is a lightweight server-side endpoint. The DB health check should use `db.execute(sql`SELECT 1`)` to test connectivity. For the last sync, query `sync_metadata` ORDER BY started_at DESC LIMIT 1. The 48-hour staleness threshold is a reasonable default since sync runs daily."
+    },
+    {
+      "id": "US-052",
+      "title": "Create seed script for initial database population",
+      "description": "As a developer, I need a way to seed the database with initial data before going live, by triggering the sync endpoint.",
+      "acceptanceCriteria": [
+        "Add a `db:seed` script to package.json that calls the sync endpoint with the CRON_SECRET: `\"db:seed\": \"curl -s -H 'Authorization: Bearer '\\\"$CRON_SECRET\\\"'' http://localhost:3000/api/sync | jq .\"` ",
+        "Add a comment in the script or a section in the sync route file documenting the seed process: (1) set POSTGRES_URL and CRON_SECRET in .env.local, (2) run `npm run dev`, (3) in another terminal run `npm run db:push` then `npm run db:seed`",
+        "The sync route already handles full ingestion — no new server code needed",
+        "Typecheck passes"
+      ],
+      "priority": 13,
+      "passes": false,
+      "notes": "The seed process reuses the sync API route — no separate seed logic needed. `db:push` creates the tables from the schema (faster than running migrations for initial setup). The curl command assumes the dev server is running on port 3000. The `jq .` at the end pretty-prints the JSON response. If jq is not installed, the output will still work, just not be formatted."
     }
   ]
 }
