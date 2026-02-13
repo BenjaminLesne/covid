@@ -23,8 +23,8 @@ function clearSiteData() {
     });
   }
 
-  // Hard reload bypassing browser cache
-  window.location.reload();
+  // Strip search params and reload
+  window.location.replace(window.location.origin + window.location.pathname);
 }
 
 export function RefreshButton() {
