@@ -14,6 +14,7 @@ import { useClinicalPreferences } from "@/hooks/use-clinical-preferences";
 import { useDepartmentPreferences } from "@/hooks/use-department-preferences";
 import { useUrlSync } from "@/hooks/use-url-sync";
 import { RougeoleChart } from "@/components/rougeole-chart";
+import Link from "next/link";
 
 export default function Home() {
   const { selectedIds, toggleStation, canAddMore, setStations } =
@@ -57,7 +58,13 @@ export default function Home() {
           Les niveaux de circulation virale sont issus de l&apos;analyse des
           eaux usées et ne reflètent pas directement le nombre de cas
           cliniques. Ces indicateurs complètent les données épidémiologiques
-          mais ne s&apos;y substituent pas.
+          mais ne s&apos;y substituent pas.{" "}
+          <Link
+            href="/info"
+            className="text-primary underline hover:no-underline"
+          >
+            En savoir plus sur les données&nbsp;→
+          </Link>
         </p>
       </div>
 

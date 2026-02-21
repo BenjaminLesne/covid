@@ -137,7 +137,7 @@
         "Verify in browser using dev-browser skill"
       ],
       "priority": 8,
-      "passes": false,
+      "passes": true,
       "notes": "The header is at `src/components/layout/header.tsx` — currently has logo/title + RefreshButton + ThemeToggle. Add the link between the title area and the controls. For the home page link, add it near the disclaimer text (around line 52-61 in page.tsx). Use `import Link from 'next/link'`."
     }
   ]

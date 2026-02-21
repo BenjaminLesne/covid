@@ -109,3 +109,15 @@ Started: Fri 21 Feb 2026
   - Use `&apos;` for apostrophes in JSX to avoid HTML entity issues
 ---
 
+## 2026-02-21 - US-067
+- Added "À propos des données" link in header (`src/components/layout/header.tsx`) between title and controls
+- Added "En savoir plus sur les données →" inline link in home page disclaimer text (`src/app/page.tsx`)
+- Both links use Next.js `Link` component for client-side navigation to `/info`
+- Header link hidden on mobile (`hidden sm:block`) to avoid crowding
+- Browser verified: both links render and navigate correctly
+- Files changed: `src/components/layout/header.tsx`, `src/app/page.tsx`, `tasks/prd.json`
+- **Learnings for future iterations:**
+  - Header uses flex with gap — adjust `gap-1` to `gap-3` when adding text links alongside icon buttons
+  - Inline links in paragraphs work well for contextual navigation (inside disclaimer text)
+---
+

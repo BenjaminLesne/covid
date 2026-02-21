@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { Droplets } from "lucide-react";
 import { ThemeToggle } from "@/components/layout/theme-toggle";
 import { RefreshButton } from "@/components/layout/refresh-button";
@@ -15,7 +16,13 @@ export function Header() {
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-3">
+          <Link
+            href="/info"
+            className="hidden text-sm text-muted-foreground hover:text-foreground sm:block"
+          >
+            À propos des données
+          </Link>
           <RefreshButton />
           <ThemeToggle />
         </div>
