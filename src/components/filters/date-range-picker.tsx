@@ -56,7 +56,7 @@ export function DateRangePicker() {
   );
 
   return (
-    <div className="flex items-center gap-2">
+    <div className="flex flex-wrap items-center gap-2">
       {PRESETS.map((preset) => (
         <Button
           key={preset.months}

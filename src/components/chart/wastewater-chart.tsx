@@ -242,6 +242,7 @@ export function WastewaterChart({ hiddenKeys, onToggle, department, departmentLa
       key: stationId,
       label: displayNames.get(stationId) ?? stationId,
       color: LINE_COLORS[index % LINE_COLORS.length],
+      group: "Eaux usées",
     }));
     // Add clinical entries with dashed style
     for (const diseaseId of enabledDiseases) {
@@ -251,6 +252,7 @@ export function WastewaterChart({ hiddenKeys, onToggle, department, departmentLa
         label: `${meta.label}${clinicalLabelSuffix}`,
         color: meta.color,
         dashed: true,
+        group: "Urgences",
       });
     }
     return entries;
