@@ -110,7 +110,7 @@ export function WastewaterChart({ hiddenKeys, onToggle, department, departmentLa
   const { enabledDiseases } = useClinicalPreferences();
 
   // Map "national" to "National_54" for querying, and get station names for others
-  const { data: stations, isLoading: stationsLoading, isError: stationsError, refetch: refetchStations } =
+  const { data: stations, isPending: stationsLoading, isError: stationsError, refetch: refetchStations } =
     trpc.wastewater.getStations.useQuery();
 
   const sandreToColumn = useMemo(
@@ -134,7 +134,7 @@ export function WastewaterChart({ hiddenKeys, onToggle, department, departmentLa
     };
   }, [dateRange]);
 
-  const { data: indicators, isLoading: indicatorsLoading, isError: indicatorsError, refetch: refetchIndicators } =
+  const { data: indicators, isPending: indicatorsLoading, isError: indicatorsError, refetch: refetchIndicators } =
     trpc.wastewater.getIndicators.useQuery(
       {
         stationIds: indicatorStationIds,

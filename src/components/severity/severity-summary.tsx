@@ -43,10 +43,10 @@ function formatWeekDate(week: string): string {
 }
 
 export function SeveritySummary() {
-  const { data: nationalTrend, isLoading, isError, refetch } =
+  const { data: nationalTrend, isPending, isError, refetch } =
     trpc.wastewater.getNationalTrend.useQuery();
 
-  if (isLoading) {
+  if (isPending) {
     return (
       <Card>
         <CardHeader>

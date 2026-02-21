@@ -26,7 +26,7 @@ import type { Station } from "@/types/wastewater";
 
 export function StationSelect() {
   const [open, setOpen] = useState(false);
-  const { data: stations, isLoading } =
+  const { data: stations, isPending } =
     trpc.wastewater.getStations.useQuery();
   const {
     selectedIds,
@@ -52,7 +52,7 @@ export function StationSelect() {
     (id) => id !== NATIONAL_STATION_ID
   );
 
-  if (isLoading) {
+  if (isPending) {
     return (
       <div className="flex flex-col gap-2">
         <Skeleton className="h-10 w-full" />

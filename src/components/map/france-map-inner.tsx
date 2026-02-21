@@ -128,10 +128,10 @@ export function FranceMapInner({
   canAddMore,
   onToggle,
 }: FranceMapInnerProps) {
-  const { data: stations, isLoading: stationsLoading, isError: stationsError, refetch: refetchStations } =
+  const { data: stations, isPending: stationsLoading, isError: stationsError, refetch: refetchStations } =
     trpc.wastewater.getStations.useQuery();
 
-  const { data: indicators, isLoading: indicatorsLoading } =
+  const { data: indicators, isPending: indicatorsLoading } =
     trpc.wastewater.getIndicators.useQuery(undefined, {
       enabled: !!stations,
     });
