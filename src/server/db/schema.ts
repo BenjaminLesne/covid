@@ -58,6 +58,20 @@ export const clinicalIndicatorsTable = pgTable(
   ],
 );
 
+export const rougeoleIndicatorsTable = pgTable(
+  "rougeole_indicators",
+  {
+    id: serial("id").primaryKey(),
+    year: varchar("year").notNull(),
+    department: varchar("department").notNull().default("national"),
+    notification_rate: doublePrecision("notification_rate"),
+    cases: integer("cases"),
+  },
+  (table) => [
+    uniqueIndex("rougeole_year_dept_idx").on(table.year, table.department),
+  ],
+);
+
 export const syncMetadataTable = pgTable("sync_metadata", {
   id: serial("id").primaryKey(),
   started_at: timestamp("started_at").notNull().defaultNow(),
