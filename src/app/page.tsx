@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useCallback } from "react";
-import { SeveritySummary } from "@/components/severity/severity-summary";
 import { StationSelect } from "@/components/filters/station-select";
 import { DateRangePicker } from "@/components/filters/date-range-picker";
 import { WastewaterChart } from "@/components/chart/wastewater-chart";
@@ -14,7 +13,6 @@ import { useClinicalPreferences } from "@/hooks/use-clinical-preferences";
 import { useDepartmentPreferences } from "@/hooks/use-department-preferences";
 import { useUrlSync } from "@/hooks/use-url-sync";
 import { RougeoleChart } from "@/components/rougeole-chart";
-import Link from "next/link";
 
 export default function Home() {
   const { selectedIds, toggleStation, canAddMore, setStations } =
@@ -51,23 +49,6 @@ export default function Home() {
 
   return (
     <div className="flex flex-col gap-6">
-      {/* Severity summary + disclaimer */}
-      <div className="flex flex-col gap-3">
-        <SeveritySummary />
-        <p className="text-muted-foreground text-xs leading-relaxed">
-          Les niveaux de circulation virale sont issus de l&apos;analyse des
-          eaux usées et ne reflètent pas directement le nombre de cas
-          cliniques. Ces indicateurs complètent les données épidémiologiques
-          mais ne s&apos;y substituent pas.{" "}
-          <Link
-            href="/info"
-            className="text-primary underline hover:no-underline"
-          >
-            En savoir plus sur les données&nbsp;→
-          </Link>
-        </p>
-      </div>
-
       {/* Filters: station select + department select + date range */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
         <div className="flex-1">

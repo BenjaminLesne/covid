@@ -1,7 +1,14 @@
 import Link from "next/link";
-import { Droplets } from "lucide-react";
+import { Droplets, Menu, Info } from "lucide-react";
 import { ThemeToggle } from "@/components/layout/theme-toggle";
 import { RefreshButton } from "@/components/layout/refresh-button";
+import { Button } from "@/components/ui/button";
+import {
+  Sheet,
+  SheetContent,
+  SheetTrigger,
+  SheetTitle,
+} from "@/components/ui/sheet";
 
 export function Header() {
   return (
@@ -25,6 +32,28 @@ export function Header() {
           </Link>
           <RefreshButton />
           <ThemeToggle />
+
+          {/* Mobile menu */}
+          <Sheet>
+            <SheetTrigger asChild>
+              <Button variant="ghost" size="icon" className="sm:hidden">
+                <Menu className="h-5 w-5" />
+                <span className="sr-only">Menu</span>
+              </Button>
+            </SheetTrigger>
+            <SheetContent side="right" className="w-64">
+              <SheetTitle className="sr-only">Navigation</SheetTitle>
+              <nav className="flex flex-col gap-4 pt-8">
+                <Link
+                  href="/info"
+                  className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground"
+                >
+                  <Info className="h-4 w-4" />
+                  À propos des données
+                </Link>
+              </nav>
+            </SheetContent>
+          </Sheet>
         </div>
       </div>
     </header>
