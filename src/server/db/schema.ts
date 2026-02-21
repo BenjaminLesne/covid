@@ -80,5 +80,6 @@ export const syncMetadataTable = pgTable("sync_metadata", {
   stations_count: integer("stations_count").default(0),
   wastewater_count: integer("wastewater_count").default(0),
   clinical_count: integer("clinical_count").default(0),
+  rougeole_count: integer("rougeole_count").default(0),
   errors: text("errors"),
 });

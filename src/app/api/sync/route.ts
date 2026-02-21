@@ -22,6 +22,7 @@ import { db } from "@/server/db";
 import { syncMetadataTable } from "@/server/db/schema";
 import { syncWastewaterData } from "@/server/services/sync/wastewater-sync";
 import { syncClinicalData } from "@/server/services/sync/clinical-sync";
+import { syncRougeoleData } from "@/server/services/sync/rougeole-sync";
 
 export const maxDuration = 60;
 
@@ -45,6 +46,7 @@ export async function GET(request: Request): Promise<NextResponse> {
   let stationsCount = 0;
   let wastewaterCount = 0;
   let clinicalCount = 0;
+  let rougeoleCount = 0;
 
   try {
     // Sync wastewater data
@@ -68,11 +70,21 @@ export async function GET(request: Request): Promise<NextResponse> {
       );
     }
 
+    // Sync rougeole data
+    try {
+      const rougeoleResult = await syncRougeoleData(db);
+      rougeoleCount = rougeoleResult.indicatorsCount;
+    } catch (err) {
+      errors.push(
+        `Rougeole sync failed: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    }
+
     // Determine final status
     const status =
       errors.length === 0
         ? "success"
-        : stationsCount > 0 || wastewaterCount > 0 || clinicalCount > 0
+        : stationsCount > 0 || wastewaterCount > 0 || clinicalCount > 0 || rougeoleCount > 0
           ? "partial"
           : "failed";
 
@@ -85,6 +97,7 @@ export async function GET(request: Request): Promise<NextResponse> {
         stations_count: stationsCount,
         wastewater_count: wastewaterCount,
         clinical_count: clinicalCount,
+        rougeole_count: rougeoleCount,
         errors: errors.length > 0 ? JSON.stringify(errors) : null,
       })
       .where(eq(syncMetadataTable.id, syncRow.id));
@@ -96,6 +109,7 @@ export async function GET(request: Request): Promise<NextResponse> {
       stationsCount,
       wastewaterCount,
       clinicalCount,
+      rougeoleCount,
       errors: errors.length > 0 ? errors : null,
       durationMs,
     });
@@ -119,6 +133,7 @@ export async function GET(request: Request): Promise<NextResponse> {
       stationsCount,
       wastewaterCount,
       clinicalCount,
+      rougeoleCount,
       errors: [...errors, errorMsg],
       durationMs,
     });

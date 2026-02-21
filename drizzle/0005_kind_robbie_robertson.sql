@@ -1,0 +1,1 @@
+ALTER TABLE "sync_metadata" ADD COLUMN "rougeole_count" integer DEFAULT 0;
