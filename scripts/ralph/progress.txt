@@ -1,209 +1,97 @@
 # Ralph Progress Log
-Started: Mon 10 Feb 2026
+Started: Fri 21 Feb 2026
 
 ## Codebase Patterns
-- Project uses Next.js 15 App Router with TypeScript strict mode (downgraded from 16 due to bundled React canary version mismatch)
+- Project uses Next.js 15 App Router with TypeScript strict mode
 - tRPC v11 with superjson transformer — server init in `src/server/trpc/init.ts`, root router in `src/server/trpc/router.ts`
 - API route handler at `src/app/api/trpc/[trpc]/route.ts` using fetch adapter
 - shadcn/ui with Tailwind CSS v4 — use `npx shadcn@latest add <component>` to add components
 - Client-side tRPC provider in `src/components/providers.tsx` wrapping React Query
 - Path alias `@/*` maps to `./src/*`
-- Shared types in `src/types/wastewater.ts` — import `SeverityLevel`, `TrendDirection`, etc. from `@/types/wastewater`
-- Constants (colors, thresholds, URLs) in `src/lib/constants.ts` — import from `@/lib/constants`
-- Data fetching service in `src/server/services/sumeau.ts` — use `fetchIndicators()` and `fetchStations()` for server-side data access
-- Clinical types in `src/types/clinical.ts` — import `ClinicalDiseaseId`, `ClinicalIndicator`, `ClinicalDatasetMeta` from `@/types/clinical`
-- Clinical constants in `src/lib/constants.ts` — `ODISSE_API_BASE`, `CLINICAL_DISEASE_IDS`, `CLINICAL_DATASETS` record with Odissé API config per disease
-- Clinical data service in `src/server/services/clinical.ts` — use `fetchClinicalIndicators()` for all diseases, `fetchClinicalIndicatorsByDisease(ids)` for specific ones
-- Hooks in `src/hooks/` — `use-local-storage.ts`, `use-station-preferences.ts`, `use-clinical-preferences.ts`, `use-url-sync.ts`
-- Health page at `src/app/health/page.tsx` — client component with direct fetch calls for API health checks
-- Vitest configured in `vitest.config.ts` with `@/` path alias; test script is `npm run test`
-- Drizzle ORM with `@vercel/postgres` adapter — DB client in `src/server/db/index.ts`, schema in `src/server/db/schema.ts`, config in `drizzle.config.ts`
+- Shared types in `src/types/wastewater.ts` and `src/types/clinical.ts`
+- Constants (colors, thresholds, URLs) in `src/lib/constants.ts`
+- Drizzle ORM v0.45 with `@vercel/postgres` adapter — DB client in `src/server/db/index.ts`, schema in `src/server/db/schema.ts`
 - Drizzle uses `drizzle({ client: sql })` pattern (not `drizzle(sql)`) per latest drizzle-orm v0.45
-- DB scripts: `db:generate`, `db:migrate`, `db:push`, `db:studio`
-- Clinical indicators use sentinel value `'national'` for department column (not null) — always filter with `department = 'national'` for national-level data
-- Drizzle upserts: use `` sql`excluded.column_name` `` (import `sql` from `drizzle-orm`) in `onConflictDoUpdate.set` to reference new values
-- Sync services go in `src/server/services/sync/` — accept `db: VercelPgDatabase` parameter, reuse existing fetch functions
-- Sync orchestrator route at `src/app/api/sync/route.ts` — protected by CRON_SECRET, orchestrates wastewater + clinical sync
-- Use `eq` from `drizzle-orm` for WHERE clauses: `db.update(table).set({...}).where(eq(table.id, value))`
-- `db.insert().values().returning()` returns an array — destructure `[row]` to get first result
+- DB scripts: `db:generate`, `db:migrate`, `db:push`, `db:studio`, `db:seed`
+- Clinical indicators use sentinel value `'national'` for department column (not null)
+- Sync services in `src/server/services/sync/` — accept `db: VercelPgDatabase` parameter, reuse existing fetch functions
+- Sync orchestrator route at `src/app/api/sync/route.ts` — protected by CRON_SECRET
+- Drizzle upserts: use `` sql`excluded.column_name` `` (import `sql` from `drizzle-orm`) in `onConflictDoUpdate.set`
 - Drizzle dynamic WHERE: build array of conditions, spread into `and(...conditions)`, pass `undefined` for no filter
-- Import `and`, `asc`, `eq`, `gte`, `inArray`, `lte` from `drizzle-orm` (not `drizzle-orm/pg-core`) for query operators
-- DB columns are snake_case (`station_id`, `smoothed_value`, `sandre_id`, `er_visit_rate`) — map to camelCase (`stationId`, `smoothedValue`, `sandreId`, `erVisitRate`) in tRPC responses
+- Import `and`, `asc`, `eq`, `gte`, `inArray`, `lte` from `drizzle-orm` (not `drizzle-orm/pg-core`)
+- DB columns are snake_case — map to camelCase in tRPC responses
+- Use `pgTable` third argument callback `(table) => [...]` for indexes/constraints
+- `db.insert().values().returning()` returns array — destructure `[row]` for single result
+- Recharts already installed — used for wastewater chart in `src/components/wastewater-chart.tsx`
+- Home page is 'use client' at `src/app/page.tsx` — uses hooks for state (useDepartmentPreferences, useStationPreferences, etc.)
+- Odissé API base: `https://odisse.santepubliquefrance.fr/api/explore/v2.1/`
+- Rougeole API uses exports/json endpoint (not records) — returns flat array, no pagination needed
+- Rougeole types in `src/types/rougeole.ts`, fetch service in `src/server/services/rougeole.ts`
 ---
 
-## 2026-02-10 - US-040
-- Installed `drizzle-orm`, `@vercel/postgres`, `drizzle-kit` (dev)
-- Created `src/server/db/index.ts` with Drizzle client using `@vercel/postgres` adapter
-- Created `drizzle.config.ts` with postgresql dialect, schema path, and POSTGRES_URL credential
-- Added `db:generate`, `db:migrate`, `db:push`, `db:studio` scripts to package.json
-- Created placeholder `src/server/db/schema.ts`
-- Files changed: `package.json`, `package-lock.json`, `drizzle.config.ts`, `src/server/db/index.ts`, `src/server/db/schema.ts`
+## 2026-02-21 - US-060
+- Created `src/types/rougeole.ts` with `RougeoleIndicator` interface
+- Created `src/server/services/rougeole.ts` with `fetchRougeoleIndicators()` function
+- Fetches from Odissé exports/json endpoint pre-filtered for "Tous âges"
+- Files changed: `src/types/rougeole.ts`, `src/server/services/rougeole.ts`
 - **Learnings for future iterations:**
-  - `@vercel/postgres` is deprecated (Vercel migrated to Neon) but still works — PRD specifies it so we use it
-  - Latest drizzle-orm v0.45 uses `drizzle({ client: sql })` syntax, not `drizzle(sql)`
-  - `drizzle.config.ts` uses `url` (not `connectionString`) in `dbCredentials` for latest drizzle-kit
+  - The rougeole dataset uses exports/json endpoint which returns a flat JSON array (unlike clinical data which uses records endpoint with pagination)
+  - Field names: `annee`, `dep`, `libgeo`, `tx`, `rou`, `population`
+  - `annee` can be string or number in the API response — always convert to string
 ---
 
-## 2026-02-10 - US-041
-- Defined `stationsTable` in `src/server/db/schema.ts` with columns: sandre_id (PK), name, commune, population, lat, lng, updated_at
-- Used `pgTable`, `varchar`, `integer`, `doublePrecision`, `timestamp` from `drizzle-orm/pg-core`
-- Ran `db:generate` which created migration `drizzle/0000_acoustic_supreme_intelligence.sql`
-- Files changed: `src/server/db/schema.ts`, `drizzle/0000_acoustic_supreme_intelligence.sql`, `drizzle/meta/`
+## 2026-02-21 - US-061
+- Added `rougeoleIndicatorsTable` to `src/server/db/schema.ts`
+- Columns: id (serial PK), year (varchar), department (varchar, default 'national'), notification_rate (doublePrecision), cases (integer)
+- Unique composite index on (year, department)
+- Generated migration: `drizzle/0004_chemical_ronan.sql`
+- Files changed: `src/server/db/schema.ts`, `drizzle/0004_chemical_ronan.sql`, `drizzle/meta/`
 - **Learnings for future iterations:**
-  - `drizzle-kit generate` does NOT require a live DB connection — it reads the schema and produces SQL
-  - Migration files go to `./drizzle/` as configured in `drizzle.config.ts`
-  - The generated migration snapshot metadata goes to `drizzle/meta/`
+  - Follow existing pattern: use `pgTable` third arg callback for indexes
+  - `uniqueIndex` imported from `drizzle-orm/pg-core`
 ---
 
-## 2026-02-10 - US-042
-- Defined `wastewaterIndicatorsTable` in `src/server/db/schema.ts` with columns: id (serial PK), week (varchar(8)), station_id (varchar), value (doublePrecision, nullable), smoothed_value (doublePrecision, nullable)
-- Added unique composite index on `(station_id, week)` via `uniqueIndex`
-- Added index on `week` for date range filtering
-- Used the third argument of `pgTable` (callback returning array of indexes) for index definitions
-- Ran `db:generate` which created migration `drizzle/0001_stormy_praxagora.sql`
-- Files changed: `src/server/db/schema.ts`, `drizzle/0001_stormy_praxagora.sql`, `drizzle/meta/`
+## 2026-02-21 - US-062
+- Created `src/server/services/sync/rougeole-sync.ts` with `syncRougeoleData(db)` function
+- Added `rougeole_count` column to `syncMetadataTable` in schema.ts
+- Generated migration `drizzle/0005_kind_robbie_robertson.sql`
+- Integrated into `/api/sync` route alongside wastewater and clinical
+- Computes national aggregates: sum cases, weighted avg rate = (totalCases/totalPop)*100000
+- Files changed: `src/server/services/sync/rougeole-sync.ts`, `src/server/db/schema.ts`, `src/app/api/sync/route.ts`, drizzle migrations
 - **Learnings for future iterations:**
-  - Drizzle v0.45 `pgTable` uses a callback `(table) => [...]` as the third argument for indexes/constraints
-  - Import `serial`, `uniqueIndex`, `index` from `drizzle-orm/pg-core` for serial PKs and indexes
-  - No foreign key to stations table since `station_id = 'National_54'` is not a real station
+  - Follow chunk/batch pattern from clinical-sync.ts
+  - National aggregate must be computed manually from department data (not in API)
 ---
 
-## 2026-02-10 - US-043
-- Defined `clinicalIndicatorsTable` in `src/server/db/schema.ts` with columns: id (serial PK), week (varchar(8)), disease_id (varchar), department (varchar, default 'national'), er_visit_rate (doublePrecision, nullable)
-- Added unique composite index on `(disease_id, week, department)` to prevent duplicates
-- Added index on `week` for date range filtering
-- Added index on `disease_id` for disease-specific queries
-- Used sentinel value `'national'` for department instead of null to avoid Postgres null-handling in unique indexes
-- Also imported `text` from drizzle-orm/pg-core (needed for upcoming sync_metadata table)
-- Ran `db:generate` which created migration `drizzle/0002_chunky_lady_vermin.sql`
-- Files changed: `src/server/db/schema.ts`, `drizzle/0002_chunky_lady_vermin.sql`, `drizzle/meta/`
-- **Learnings for future iterations:**
-  - Use sentinel value `'national'` (not null) for department column to simplify unique constraints — this is the pattern for the entire project
-  - The `text` import is needed for the `errors` column in sync_metadata (US-044)
-  - Consistent index naming pattern: `{table}_{columns}_idx` (e.g., `clinical_disease_week_dept_idx`)
+## 2026-02-21 - US-063
+- Created `src/server/trpc/routers/rougeole.ts` with `getIndicators` query
+- Registered `rougeoleRouter` in root router at `src/server/trpc/router.ts`
+- Query accepts optional `department` input, defaults to 'national'
+- Maps snake_case DB columns to camelCase response
+- Files changed: `src/server/trpc/routers/rougeole.ts`, `src/server/trpc/router.ts`
 ---
 
-## 2026-02-10 - US-044
-- Defined `syncMetadataTable` in `src/server/db/schema.ts` with columns: id (serial PK), started_at (timestamp, not null, defaultNow), completed_at (timestamp, nullable), status (varchar, not null), stations_count (integer, default 0), wastewater_count (integer, default 0), clinical_count (integer, default 0), errors (text, nullable)
-- Ran `db:generate` which created migration `drizzle/0003_silent_monster_badoon.sql`
-- Files changed: `src/server/db/schema.ts`, `drizzle/0003_silent_monster_badoon.sql`, `drizzle/meta/`
+## 2026-02-21 - US-064
+- Created `src/components/rougeole-chart.tsx` with Recharts LineChart
+- Single line for notification rate, red/coral color (hsl(0, 70%, 50%))
+- X-axis: years, Y-axis: rate /100 000 hab., dots on data points, tooltip with 2 decimal formatting
+- Loading skeleton, error state, wrapped in Card component
+- Added to home page below chart+map grid section
+- Files changed: `src/components/rougeole-chart.tsx`, `src/app/page.tsx`
 - **Learnings for future iterations:**
-  - sync_metadata table has no indexes — it's only queried by `ORDER BY started_at DESC LIMIT 1`, which is fine for small tables
-  - `status` column stores string values: 'running', 'success', 'partial', 'failed' — no enum type used, just varchar
-  - `errors` column is `text` (not jsonb) — stores JSON-serialized array of error strings for simplicity
+  - RougeoleChart accepts `department` prop from home page — this also covers US-065 department filtering
+  - Uses `useMemo` for departmentLabel lookup from FRENCH_DEPARTMENTS constants
 ---
 
-## 2026-02-10 - US-045
-- Created `src/server/services/sync/wastewater-sync.ts` with `syncWastewaterData(db)` function
-- Fetches data via existing `fetchIndicators()` and `fetchStations()` from sumeau service
-- Upserts stations using `ON CONFLICT (sandre_id) DO UPDATE`
-- Upserts indicators using `ON CONFLICT (station_id, week) DO UPDATE` with batches of 500 rows
-- Returns `{ stationsCount, indicatorsCount }` — errors propagate to caller
-- Files changed: `src/server/services/sync/wastewater-sync.ts`
+## 2026-02-21 - US-065
+- Already fully implemented as part of US-064 — no additional code changes needed
+- Verified: department prop wired from `useDepartmentPreferences()` → RougeoleChart → tRPC query
+- tRPC router defaults to 'national' when no department specified
+- Chart subtitle shows "France entière" or "code — name" for selected department
+- Browser verification: UI renders correctly (DB error expected — infra not set up yet)
+- Files changed: `tasks/prd.json` (marked US-064 and US-065 as passing)
 - **Learnings for future iterations:**
-  - Drizzle `onConflictDoUpdate` `set` must use `` sql`excluded.column_name` `` to reference the new (incoming) values — using `table.column` references the existing row, not the excluded one
-  - Import `sql` from `drizzle-orm` (not `drizzle-orm/pg-core`) for the `excluded` syntax
-  - `VercelPgDatabase` from `drizzle-orm/vercel-postgres` is the correct type for the db parameter
-  - `onConflictDoUpdate` `target` accepts a single column or an array of columns for composite unique constraints
----
-
-## 2026-02-10 - US-046
-- Created `src/server/services/sync/clinical-sync.ts` with `syncClinicalData(db)` function
-- Fetches data via existing `fetchClinicalIndicators()` from clinical service (no department param → national data only)
-- Upserts indicators using `ON CONFLICT (disease_id, week, department) DO UPDATE` with batches of 500 rows
-- Uses sentinel value `'national'` for department column (matches US-043 schema design)
-- Returns `{ indicatorsCount }` — partial data (some diseases failed) still gets upserted since fetchClinicalIndicators uses Promise.allSettled
-- Files changed: `src/server/services/sync/clinical-sync.ts`
-- **Learnings for future iterations:**
-  - The clinical dataset is small (~600 rows) so batching isn't strictly necessary but keeps the pattern consistent with wastewater-sync
-  - `fetchClinicalIndicators()` with no arguments fetches national-level data for all 3 diseases — it already handles partial failures via Promise.allSettled
-  - The `chunk` utility is duplicated in both sync files — could be extracted to a shared util if more sync services are added
----
-
-## 2026-02-10 - US-047
-- Created `src/app/api/sync/route.ts` — protected GET route that orchestrates the full sync pipeline
-- Auth check: validates `Authorization: Bearer <CRON_SECRET>` header, returns 401 if invalid
-- Creates a `sync_metadata` row with status 'running' at start, updates with final counts/status on completion
-- Calls `syncWastewaterData(db)` and `syncClinicalData(db)` sequentially with independent try/catch blocks
-- Status logic: 'success' (no errors), 'partial' (some data synced but errors), 'failed' (no data synced)
-- Outer try/catch ensures sync_metadata is always updated even on catastrophic failure
-- Sets `maxDuration = 60` for Vercel serverless timeout
-- Returns JSON with `{ status, stationsCount, wastewaterCount, clinicalCount, errors, durationMs }`
-- Files changed: `src/app/api/sync/route.ts`
-- **Learnings for future iterations:**
-  - Use `eq` from `drizzle-orm` for WHERE clause in updates: `db.update(table).set({...}).where(eq(table.id, id))`
-  - `db.insert().values().returning({ id: table.id })` returns an array — destructure `[row]` to get the single result
-  - Next.js route handlers export named functions matching HTTP methods (GET, POST, etc.)
-  - `maxDuration` is a named export that Vercel reads for serverless function timeout config
----
-
-## 2026-02-10 - US-048
-- Created `vercel.json` at project root with cron config: `/api/sync` at `0 6 * * *` (daily 06:00 UTC)
-- Enhanced CRON_SECRET documentation in `src/app/api/sync/route.ts` header comment — explains env vars must be set in Vercel project settings
-- Files changed: `vercel.json` (new), `src/app/api/sync/route.ts`
-- **Learnings for future iterations:**
-  - `vercel.json` did not exist previously — no need to merge with existing config
-  - Vercel automatically sends `Authorization: Bearer <CRON_SECRET>` to cron endpoints — no custom header setup needed
-  - Schedule `0 6 * * *` = daily at 6:00 AM UTC (7:00/8:00 AM Paris depending on DST)
----
-
-## 2026-02-10 - US-049
-- Migrated wastewater tRPC procedures to read from Drizzle database instead of live government APIs
-- `getIndicators`: builds dynamic WHERE clauses using `inArray` (stationIds) and `gte`/`lte` (dateRange), maps snake_case DB columns to camelCase response fields
-- `getStations`: queries `stationsTable`, maps `sandre_id` → `sandreId`
-- `getNationalTrend`: queries `wastewaterIndicatorsTable` WHERE `station_id = 'National_54'`, ordered by week ASC, maps `smoothed_value` → `smoothedValue`
-- Removed imports of `fetchIndicators` and `fetchStations` from sumeau service
-- Added imports of `db`, schema tables, and Drizzle operators (`and`, `asc`, `eq`, `gte`, `inArray`, `lte`)
-- Files changed: `src/server/trpc/routers/wastewater.ts`
-- **Learnings for future iterations:**
-  - Drizzle dynamic WHERE: build an array of conditions and spread into `and(...conditions)`, pass `undefined` if no conditions
-  - Import `and`, `asc`, `eq`, `gte`, `inArray`, `lte` from `drizzle-orm` (not `drizzle-orm/pg-core`)
-  - DB column names use snake_case (`station_id`, `smoothed_value`, `sandre_id`) — must map to camelCase for frontend compatibility
-  - The `select().from(table)` pattern returns all columns as-is — use `.map()` to reshape
----
-
-## 2026-02-10 - US-050
-- Migrated clinical tRPC procedures to read from Drizzle database instead of Odissé API
-- `getIndicators`: builds dynamic WHERE clauses using `inArray` (diseaseIds), `eq` (department), `gte`/`lte` (dateRange), ordered by week ASC
-- When no department is provided, defaults to `department = 'national'` (sentinel value from US-043)
-- When a department IS provided, filters by that specific department code
-- Maps snake_case DB columns to camelCase: `disease_id` → `diseaseId`, `er_visit_rate` → `erVisitRate`
-- Casts `disease_id` to `ClinicalDiseaseId` type for type safety
-- Removed imports of `fetchClinicalIndicators` and `fetchClinicalIndicatorsByDisease` from clinical service
-- Added imports of `db`, `clinicalIndicatorsTable`, and Drizzle operators
-- Files changed: `src/server/trpc/routers/clinical.ts`
-- **Learnings for future iterations:**
-  - Clinical router always filters by department — either the provided value or 'national' sentinel — never returns unfiltered department data
-  - The migration pattern is identical to wastewater (US-049): replace service imports with db/schema imports, build conditions array, use `and(...conditions)`, map results
-  - `asc()` import from `drizzle-orm` is used for ORDER BY — clinical data is sorted by week ascending
----
-
-## 2026-02-10 - US-051
-- Created `/api/health/db` route handler at `src/app/api/health/db/route.ts`
-- Route checks DB connectivity via `SELECT 1`, queries latest sync_metadata row, returns JSON with `connected`, `lastSync`, `responseTimeMs`
-- Returns 503 status when DB is unreachable
-- Added "Base de données" section to `src/app/health/page.tsx` with PostgreSQL connection status display
-- Shows last sync info (time, status, row counts) when DB is connected and sync data exists
-- Amber warning indicator when last sync is older than 48 hours
-- Updated total service count in summary banner to include the DB check (now `/totalServices`)
-- Browser verified: section renders correctly, shows "Déconnecté" when no POSTGRES_URL is configured
-- Files changed: `src/app/api/health/db/route.ts` (new), `src/app/health/page.tsx`
-- **Learnings for future iterations:**
-  - Import `desc` from `drizzle-orm` for ORDER BY DESC: `orderBy(desc(table.column))`
-  - The health page uses a URL-based `updateCheck` keying system for API checks — the DB check uses separate state (`dbStatus`/`dbData`) since it's a different pattern
-  - Dev server on port 3000 may conflict with other services — use `--port 3001` for testing
-  - Next.js 15 may add locale-based redirects even without explicit i18n config — check the actual dev server URL
----
-
-## 2026-02-10 - US-052
-- Added `db:seed` script to package.json: `curl -s -H "Authorization: Bearer $CRON_SECRET" http://localhost:3000/api/sync | jq .`
-- Enhanced seed process documentation in `src/app/api/sync/route.ts` header comment — 4-step guide: set env vars, start dev server, push schema, run seed
-- No new server code needed — the sync route already handles full ingestion
-- Files changed: `package.json`, `src/app/api/sync/route.ts`
-- **Learnings for future iterations:**
-  - The `db:seed` script reuses the sync API route — no separate seed logic needed
-  - `db:push` creates tables directly from schema (faster than running migrations for initial setup)
-  - The curl command uses `$CRON_SECRET` without quotes in the npm script — npm/shell handles env var expansion
-  - `jq .` at the end pretty-prints the JSON response (optional, fails gracefully if jq is not installed)
+  - When building a chart component, wire department filtering from the start to avoid a separate story
+  - The `Cannot read properties of undefined (reading 'call')` error in Next.js dev is a webpack HMR issue — fixed by hard reload
 ---
 

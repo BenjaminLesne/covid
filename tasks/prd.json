@@ -1,212 +1,144 @@
 {
   "project": "EauxVid",
-  "branchName": "ralph/db-migration",
-  "description": "Migrate from direct government API calls to a local Vercel Postgres (Neon) database with Drizzle ORM. Data is synced daily via Vercel Cron Jobs. Once seeded, all reads come from the DB exclusively.",
+  "branchName": "ralph/rougeole",
+  "description": "Add rougeole (measles) surveillance data from mandatory notifications (Odissé API) with yearly line chart on the home page, department filtering, and a dedicated data info page explaining all data sources.",
   "userStories": [
     {
-      "id": "US-040",
-      "title": "Install Drizzle ORM and Vercel Postgres dependencies",
-      "description": "As a developer, I need the Drizzle ORM and Vercel Postgres packages installed and configured so that subsequent stories can define schemas and query the database.",
+      "id": "US-060",
+      "title": "Fetch rougeole data from Odissé API",
+      "description": "As a developer, I need a service to fetch rougeole mandatory notification data from the Odissé API so it can be stored and displayed.",
       "acceptanceCriteria": [
-        "Install packages: `drizzle-orm`, `@vercel/postgres`, `drizzle-kit` (dev dep)",
-        "Create `src/server/db/index.ts` that exports a Drizzle client instance using `@vercel/postgres` adapter — use `import { sql } from '@vercel/postgres'` and `import { drizzle } from 'drizzle-orm/vercel-postgres'`, then `export const db = drizzle(sql)`",
-        "Create `drizzle.config.ts` at project root with `dialect: 'postgresql'`, `schema: './src/server/db/schema.ts'`, `out: './drizzle'` and `dbCredentials: { connectionString: process.env.POSTGRES_URL! }`",
-        "Add scripts to package.json: `\"db:generate\": \"drizzle-kit generate\"`, `\"db:migrate\": \"drizzle-kit migrate\"`, `\"db:push\": \"drizzle-kit push\"`, `\"db:studio\": \"drizzle-kit studio\"`",
-        "Create a placeholder `src/server/db/schema.ts` that exports an empty object (will be populated in next stories)",
+        "Create `src/server/services/rougeole.ts` that fetches from `https://odisse.santepubliquefrance.fr/api/explore/v2.1/catalog/datasets/rougeole-donnees-declaration-obligatoire/exports/json?where=mdo_cl_age_rougeole%3D%22Tous%20%C3%A2ges%22`",
+        "Return typed array with fields: `annee` (year string), `dep` (department code), `libgeo` (department name), `tx` (notification rate per 100k), `rou` (case count), `population` (integer)",
+        "Handle fetch errors gracefully (throw typed error or return empty array)",
         "Typecheck passes"
       ],
       "priority": 1,
       "passes": true,
-      "notes": "Use `drizzle-orm/vercel-postgres` adapter specifically. The POSTGRES_URL env var is automatically provided by Vercel when you link a Vercel Postgres database. For local dev, it will need to be set in `.env.local` (do NOT create .env files — just document the required env var). Check the latest Drizzle docs for the exact import paths — the Vercel Postgres adapter may use `drizzle(sql)` or `drizzle({ connection: sql })` depending on the version."
+      "notes": "The Odissé API is the same OpenDataSoft platform used for clinical data. The dataset has ~17,190 records total; filtering to 'Tous âges' server-side reduces to ~1,900 records. Reuse similar fetch patterns from `src/server/services/clinical.ts`. The URL-encoded where clause filters for `mdo_cl_age_rougeole=\"Tous âges\"`. Include `population` in the return type — it's needed later for computing weighted national averages."
     },
     {
-      "id": "US-041",
-      "title": "Define database schema for stations table",
-      "description": "As a developer, I need a `stations` table in the database to store wastewater monitoring station metadata.",
+      "id": "US-061",
+      "title": "Add rougeole table to database schema",
+      "description": "As a developer, I need a database table to store rougeole data so it persists and can be queried efficiently.",
       "acceptanceCriteria": [
-        "Add a `stations` table to `src/server/db/schema.ts` using Drizzle's `pgTable` with columns: `sandre_id` (varchar, primary key), `name` (varchar, not null), `commune` (varchar, not null), `population` (integer, not null, default 0), `lat` (doublePrecision, not null), `lng` (doublePrecision, not null), `updated_at` (timestamp, defaultNow)",
-        "Export the table as `stationsTable`",
-        "Run `npm run db:generate` to generate the migration SQL file in `./drizzle/` folder — the migration should create the stations table",
+        "Add `rougeoleIndicatorsTable` to `src/server/db/schema.ts` with columns: `id` (serial PK), `year` (varchar, not null), `department` (varchar, not null, default 'national'), `notification_rate` (doublePrecision, nullable), `cases` (integer, nullable)",
+        "Add unique composite index on `(year, department)` using `uniqueIndex`",
+        "Run `npm run db:generate` to generate the migration SQL file",
         "Typecheck passes"
       ],
       "priority": 2,
       "passes": true,
-      "notes": "Use `sandre_id` as PK since it's the unique identifier from the government data. The `updated_at` column helps track when station data was last refreshed. Import from `drizzle-orm/pg-core`: `pgTable`, `varchar`, `integer`, `doublePrecision`, `timestamp`."
+      "notes": "Follow the exact same patterns as existing tables in schema.ts. Use sentinel value 'national' for department (same pattern as clinicalIndicatorsTable). Use `serial` for PK, `varchar` for year/department, `doublePrecision` for notification_rate, `integer` for cases. Import from `drizzle-orm/pg-core`. Use the third argument of `pgTable` (callback returning array of indexes) for the unique index."
     },
     {
-      "id": "US-042",
-      "title": "Define database schema for wastewater_indicators table",
-      "description": "As a developer, I need a `wastewater_indicators` table to store weekly viral indicator readings per station.",
+      "id": "US-062",
+      "title": "Add rougeole sync service and integrate into sync route",
+      "description": "As a developer, I need a sync service to upsert rougeole data into the database and integrate it into the existing daily sync pipeline.",
       "acceptanceCriteria": [
-        "Add a `wastewater_indicators` table to `src/server/db/schema.ts` with columns: `id` (serial, primary key), `week` (varchar(8), not null — e.g. '2024-W03'), `station_id` (varchar, not null), `value` (doublePrecision, nullable), `smoothed_value` (doublePrecision, nullable)",
-        "Add a unique composite index on `(station_id, week)` to prevent duplicate entries and enable efficient upserts — use `.unique()` or a unique index",
-        "Add an index on `week` for date range filtering",
-        "Export the table as `wastewaterIndicatorsTable`",
-        "Run `npm run db:generate` to generate the migration SQL",
+        "Create `src/server/services/sync/rougeole-sync.ts` with `syncRougeoleData(db)` function following the pattern from `wastewater-sync.ts` and `clinical-sync.ts`",
+        "Fetch data via `fetchRougeoleIndicators()` from `@/server/services/rougeole`",
+        "Upsert department-level rows with `onConflictDoUpdate` on `(year, department)` unique key, batch size 500",
+        "Compute national totals per year: sum `rou` cases across all departments, compute weighted average `tx` = (total cases / total population) * 100000",
+        "Insert national rows with `department = 'national'` sentinel value",
+        "Return `{ indicatorsCount: number }` with total rows upserted",
+        "Integrate into existing `/api/sync` route: call `syncRougeoleData(db)` alongside wastewater and clinical, track count and errors in sync metadata",
+        "Add `rougeole_count` column (integer, default 0) to `syncMetadataTable` in schema.ts and generate migration",
         "Typecheck passes"
       ],
       "priority": 3,
       "passes": true,
-      "notes": "The `station_id` stores the SANDRE ID or 'National_54' for the national aggregate. Week format is always 'YYYY-WNN' (8 chars max). Do NOT add a foreign key to stations — station_id 'National_54' is not a real station. Use `uniqueIndex` from drizzle-orm/pg-core for the composite constraint."
+      "notes": "Follow the chunk/batch pattern from existing sync services. Use `sql`excluded.column_name`` for onConflictDoUpdate set values. The national aggregate needs manual computation: group by year, sum cases, sum populations, then rate = (totalCases/totalPopulation)*100000. Update the sync route's result JSON to include rougeoleCount. The sync metadata update should track rougeole_count separately."
     },
     {
-      "id": "US-043",
-      "title": "Define database schema for clinical_indicators table",
-      "description": "As a developer, I need a `clinical_indicators` table to store weekly ER visit rates for each disease.",
+      "id": "US-063",
+      "title": "Add tRPC router for rougeole data",
+      "description": "As a developer, I need a tRPC router to query rougeole data from the database so the frontend can display it.",
       "acceptanceCriteria": [
-        "Add a `clinical_indicators` table to `src/server/db/schema.ts` with columns: `id` (serial, primary key), `week` (varchar(8), not null), `disease_id` (varchar, not null — 'flu' | 'bronchiolitis' | 'covid_clinical'), `department` (varchar, nullable — null means national-level data), `er_visit_rate` (doublePrecision, nullable)",
-        "Add a unique composite index on `(disease_id, week, department)` to prevent duplicates — for national data where department is null, this should still be unique (use NULLS NOT DISTINCT or a partial unique index, or store 'national' as a sentinel value for department)",
-        "Add an index on `week` for date range filtering",
-        "Add an index on `disease_id` for disease-specific queries",
-        "Export the table as `clinicalIndicatorsTable`",
-        "Run `npm run db:generate` to generate the migration SQL",
+        "Create `src/server/trpc/routers/rougeole.ts` with a `getIndicators` query procedure",
+        "Query accepts optional `department` input param (z.string().optional(), defaults to 'national')",
+        "Query the `rougeoleIndicatorsTable` with WHERE `department = input.department ?? 'national'`",
+        "Return array of `{ year: string, notificationRate: number | null, cases: number | null }` sorted by year ascending",
+        "Map snake_case DB columns: `notification_rate` → `notificationRate`",
+        "Register the `rougeoleRouter` in root router at `src/server/trpc/router.ts`",
         "Typecheck passes"
       ],
       "priority": 4,
       "passes": true,
-      "notes": "The `department` column allows storing both national and department-level data. For the unique constraint with nullable department, the simplest approach is to use a sentinel value like 'national' instead of null — this avoids Postgres null-handling complexity in unique indexes. The current clinical service fetches national data by default and department data when a code is provided."
+      "notes": "Follow the exact same pattern as wastewater.ts and clinical.ts routers. Use `publicProcedure` from init.ts. Use `eq`, `asc` from `drizzle-orm`. Import `db` from `@/server/db` and `rougeoleIndicatorsTable` from `@/server/db/schema`. Use `z.object({ department: z.string().optional() })` for input validation."
     },
     {
-      "id": "US-044",
-      "title": "Define database schema for sync_metadata table",
-      "description": "As a developer, I need a `sync_metadata` table to track sync job history, timing, and errors.",
+      "id": "US-064",
+      "title": "Rougeole line chart on home page",
+      "description": "As a user, I want to see the yearly evolution of rougeole notification rates so I can understand measles trends in France.",
       "acceptanceCriteria": [
-        "Add a `sync_metadata` table to `src/server/db/schema.ts` with columns: `id` (serial, primary key), `started_at` (timestamp, not null, defaultNow), `completed_at` (timestamp, nullable), `status` (varchar, not null — 'running' | 'success' | 'partial' | 'failed'), `stations_count` (integer, default 0), `wastewater_count` (integer, default 0), `clinical_count` (integer, default 0), `errors` (text, nullable — JSON string of error messages)",
-        "Export the table as `syncMetadataTable`",
-        "Run `npm run db:generate` to generate the migration SQL",
-        "Typecheck passes"
-      ],
-      "priority": 5,
-      "passes": true,
-      "notes": "The `errors` column stores a JSON-serialized array of error strings. Using text instead of jsonb keeps it simple — we only need to display the errors, not query them. The `status` values: 'running' = currently in progress, 'success' = all data synced, 'partial' = some datasets failed, 'failed' = complete failure."
-    },
-    {
-      "id": "US-045",
-      "title": "Create wastewater data ingestion service",
-      "description": "As a developer, I need a service that fetches wastewater data from government APIs and upserts it into the database, reusing the existing parsing logic.",
-      "acceptanceCriteria": [
-        "Create `src/server/services/sync/wastewater-sync.ts`",
-        "Export an async function `syncWastewaterData(db)` that: (1) calls `fetchIndicators()` and `fetchStations()` from `@/server/services/sumeau` to get parsed data, (2) upserts all stations into the `stations` table using `ON CONFLICT (sandre_id) DO UPDATE`, (3) upserts all indicators into the `wastewater_indicators` table using `ON CONFLICT (station_id, week) DO UPDATE`",
-        "Function returns `{ stationsCount: number, indicatorsCount: number }` with the number of rows upserted",
-        "If `fetchIndicators()` or `fetchStations()` throws, the error propagates (caller handles it)",
-        "Batch inserts to avoid exceeding Postgres parameter limits — use chunks of 500 rows max for the indicators upsert",
-        "Typecheck passes"
-      ],
-      "priority": 6,
-      "passes": true,
-      "notes": "Reuse the existing `fetchIndicators()` and `fetchStations()` functions from `src/server/services/sumeau.ts` — they already handle CSV/JSON fallback and parsing. Do NOT rewrite the fetching/parsing logic. Use Drizzle's `db.insert().values().onConflictDoUpdate()` for upserts. The indicators dataset can be large (~54 stations x ~200 weeks = ~10,800 rows), so batch the inserts. Import the db instance and schema tables."
-    },
-    {
-      "id": "US-046",
-      "title": "Create clinical data ingestion service",
-      "description": "As a developer, I need a service that fetches clinical surveillance data from the Odissé API and upserts it into the database.",
-      "acceptanceCriteria": [
-        "Create `src/server/services/sync/clinical-sync.ts`",
-        "Export an async function `syncClinicalData(db)` that: (1) calls `fetchClinicalIndicators()` from `@/server/services/clinical` to get all 3 diseases in parallel, (2) upserts all indicators into the `clinical_indicators` table using `ON CONFLICT (disease_id, week, department) DO UPDATE` — use the sentinel value chosen in US-043 for national data",
-        "Function returns `{ indicatorsCount: number }` with the number of rows upserted",
-        "If `fetchClinicalIndicators()` returns partial data (some diseases failed), still upsert what was returned — log warnings for failures",
-        "Batch inserts in chunks of 500 rows max",
-        "Typecheck passes"
-      ],
-      "priority": 7,
-      "passes": true,
-      "notes": "Reuse `fetchClinicalIndicators()` from `src/server/services/clinical.ts` — it already uses Promise.allSettled internally. The current service only fetches national-level data by default (no department parameter). For the initial version, only sync national data (department = sentinel 'national' value). Department-level data can be added later if needed. The clinical dataset is smaller (~3 diseases x ~200 weeks = ~600 rows)."
-    },
-    {
-      "id": "US-047",
-      "title": "Create sync orchestrator and API route",
-      "description": "As a developer, I need a protected API route that orchestrates the full data sync pipeline and records the result in sync_metadata.",
-      "acceptanceCriteria": [
-        "Create `src/app/api/sync/route.ts` as a Next.js Route Handler with a GET handler",
-        "The route checks the `Authorization` header for `Bearer ${CRON_SECRET}` — if missing or wrong, return 401 JSON `{ error: 'Unauthorized' }`",
-        "On valid auth: (1) insert a new row into `sync_metadata` with status 'running', (2) call `syncWastewaterData(db)`, (3) call `syncClinicalData(db)`, (4) update the sync_metadata row with final counts and status 'success' or 'partial' if some step had errors",
-        "If the entire sync fails, update sync_metadata with status 'failed' and the error message",
-        "Return JSON response with sync results: `{ status, stationsCount, wastewaterCount, clinicalCount, errors, durationMs }`",
-        "Set `export const maxDuration = 60` for the route (Vercel serverless function timeout)",
-        "Typecheck passes"
-      ],
-      "priority": 8,
-      "passes": true,
-      "notes": "Use `process.env.CRON_SECRET` for the secret. Vercel Cron Jobs automatically send `Authorization: Bearer <CRON_SECRET>` when calling the endpoint. The `maxDuration` export tells Vercel to allow up to 60 seconds for this function (default is 10s on Hobby plan, but can be set up to 60s). Wrap the entire sync in a try/catch — never let the route crash without updating sync_metadata."
-    },
-    {
-      "id": "US-048",
-      "title": "Configure Vercel Cron Job for daily sync",
-      "description": "As a developer, I need the sync to run automatically every day via Vercel Cron Jobs.",
-      "acceptanceCriteria": [
-        "Create `vercel.json` at project root with a cron configuration that calls `/api/sync` daily at 06:00 UTC",
-        "The cron config should be: `{ \"crons\": [{ \"path\": \"/api/sync\", \"schedule\": \"0 6 * * *\" }] }`",
-        "Add `CRON_SECRET` to the environment variables documentation — add a comment in the sync route file explaining that this env var must be set in Vercel project settings",
-        "Typecheck passes"
-      ],
-      "priority": 9,
-      "passes": true,
-      "notes": "Vercel automatically adds the `Authorization: Bearer <CRON_SECRET>` header when calling cron endpoints — the CRON_SECRET env var must be set in Vercel project settings (Settings > Environment Variables). The schedule `0 6 * * *` means daily at 6:00 AM UTC (7:00 or 8:00 AM Paris time depending on DST). The vercel.json file may already contain other config — check first and merge rather than overwrite."
-    },
-    {
-      "id": "US-049",
-      "title": "Migrate wastewater tRPC procedures to read from database",
-      "description": "As a developer, I need to update the wastewater tRPC router to query the Drizzle database instead of fetching from live government APIs, while maintaining the exact same response shapes.",
-      "acceptanceCriteria": [
-        "Update `src/server/trpc/routers/wastewater.ts` — remove imports of `fetchIndicators` and `fetchStations` from sumeau service",
-        "Import `db` from `@/server/db` and schema tables from `@/server/db/schema`",
-        "`getIndicators` procedure: query `wastewater_indicators` table with Drizzle, apply optional `stationIds` filter (WHERE station_id IN (...)), apply optional `dateRange` filter (WHERE week >= from AND week <= to), return `WastewaterIndicator[]` with same shape: `{ week, stationId, value, smoothedValue }`",
-        "`getStations` procedure: query `stations` table, return `Station[]` with same shape: `{ name, commune, sandreId, population, lat, lng }`",
-        "`getNationalTrend` procedure: query `wastewater_indicators` WHERE station_id = 'National_54', order by week ASC, return `NationalAggregate[]` with same shape: `{ week, value, smoothedValue }`",
-        "Column name mapping: DB `station_id` -> response `stationId`, DB `sandre_id` -> response `sandreId`, DB `smoothed_value` -> response `smoothedValue`, DB `er_visit_rate` -> response `erVisitRate`",
-        "Typecheck passes"
-      ],
-      "priority": 10,
-      "passes": true,
-      "notes": "CRITICAL: The response shapes must be IDENTICAL to what the frontend currently expects. The frontend uses `indicator.stationId`, `indicator.smoothedValue`, `station.sandreId`, etc. Map snake_case DB columns to camelCase response fields. Use Drizzle's `select()` with `.where()` and `.orderBy()`. For the stationIds filter, use `inArray(wastewaterIndicatorsTable.stationId, input.stationIds)` from drizzle-orm. For dateRange, use `gte` and `lte` operators."
-    },
-    {
-      "id": "US-050",
-      "title": "Migrate clinical tRPC procedures to read from database",
-      "description": "As a developer, I need to update the clinical tRPC router to query the database instead of calling the Odissé API.",
-      "acceptanceCriteria": [
-        "Update `src/server/trpc/routers/clinical.ts` — remove imports of `fetchClinicalIndicators` and `fetchClinicalIndicatorsByDisease` from clinical service",
-        "Import `db` from `@/server/db` and schema tables from `@/server/db/schema`",
-        "`getIndicators` procedure: query `clinical_indicators` table with Drizzle, apply optional `diseaseIds` filter, apply optional `department` filter (use sentinel value for national, or filter by department code), apply optional `dateRange` filter, sort by week ASC, return `ClinicalIndicator[]` with same shape: `{ week, diseaseId, erVisitRate }`",
-        "When `department` is not provided, return national-level data (where department column = sentinel value for national)",
-        "Column name mapping: DB `disease_id` -> response `diseaseId`, DB `er_visit_rate` -> response `erVisitRate`",
-        "Typecheck passes"
-      ],
-      "priority": 11,
-      "passes": true,
-      "notes": "CRITICAL: Same response shape as before. The frontend uses `indicator.diseaseId`, `indicator.erVisitRate`. When no department is specified, filter for national data only (the sentinel value used in US-043). When a department IS specified, filter for that department code. Use `eq`, `inArray`, `gte`, `lte`, `and` from drizzle-orm for building WHERE clauses."
-    },
-    {
-      "id": "US-051",
-      "title": "Add database health check to the health page",
-      "description": "As a developer, I want the /health page to show database connectivity status and last sync information alongside existing API checks.",
-      "acceptanceCriteria": [
-        "Add a new section 'Base de données' to the health page at `src/app/health/page.tsx`",
-        "The section makes a fetch call to a new endpoint `/api/health/db` that checks: (1) database connectivity (a simple `SELECT 1` query), (2) last sync metadata (most recent row from sync_metadata table)",
-        "Create `src/app/api/health/db/route.ts` — returns JSON with `{ connected: boolean, lastSync: { status, startedAt, completedAt, stationsCount, wastewaterCount, clinicalCount } | null, responseTimeMs: number }`",
-        "Health page displays: database connection status (green/red dot), last sync time ('Dernière synchronisation: [date]'), last sync status and row counts",
-        "If last sync is older than 48 hours, show an amber warning indicator",
-        "Update the total service count in the summary banner to include the DB check",
+        "Create `src/components/rougeole-chart.tsx` as a 'use client' component",
+        "Use Recharts `ResponsiveContainer` + `LineChart` with a single `Line` for notification rate",
+        "X-axis: years (categorical), Y-axis: notification rate per 100,000 (label: '/100 000 hab.')",
+        "Line color: use a red/coral tone (e.g., `hsl(0, 70%, 50%)`) distinct from existing wastewater/clinical colors",
+        "Show dots on each data point (`dot={true}`), tooltip showing year and exact rate formatted to 2 decimals",
+        "Use tRPC `trpc.rougeole.getIndicators.useQuery()` to fetch data",
+        "Show loading skeleton (use existing Skeleton component from shadcn) while data loads",
+        "Add the chart as a new section on the home page (`src/app/page.tsx`) BELOW the existing chart+map grid",
+        "Section has heading: 'Rougeole — Taux de notification (déclarations obligatoires)'",
+        "Wrap in a Card component for visual consistency",
         "Typecheck passes",
         "Verify in browser using dev-browser skill"
       ],
-      "priority": 12,
+      "priority": 5,
       "passes": true,
-      "notes": "The health page is a client component at `src/app/health/page.tsx`. The new `/api/health/db` route is a lightweight server-side endpoint. The DB health check should use `db.execute(sql`SELECT 1`)` to test connectivity. For the last sync, query `sync_metadata` ORDER BY started_at DESC LIMIT 1. The 48-hour staleness threshold is a reasonable default since sync runs daily."
+      "notes": "The home page is a 'use client' component at src/app/page.tsx. The existing chart+map section ends around line 100. Add the rougeole section after it. Use the existing department preference from `useDepartmentPreferences()` hook (already used on the page) to pass to the tRPC query. Recharts is already installed. Import Card from '@/components/ui/card'. The chart is simpler than wastewater (single line, no dual Y-axes, no legend grouping)."
     },
     {
-      "id": "US-052",
-      "title": "Create seed script for initial database population",
-      "description": "As a developer, I need a way to seed the database with initial data before going live, by triggering the sync endpoint.",
+      "id": "US-065",
+      "title": "Department filtering for rougeole chart",
+      "description": "As a user, I want to filter the rougeole chart by department so I can see local measles trends.",
       "acceptanceCriteria": [
-        "Add a `db:seed` script to package.json that calls the sync endpoint with the CRON_SECRET: `\"db:seed\": \"curl -s -H 'Authorization: Bearer '\\\"$CRON_SECRET\\\"'' http://localhost:3000/api/sync | jq .\"` ",
-        "Add a comment in the script or a section in the sync route file documenting the seed process: (1) set POSTGRES_URL and CRON_SECRET in .env.local, (2) run `npm run dev`, (3) in another terminal run `npm run db:push` then `npm run db:seed`",
-        "The sync route already handles full ingestion — no new server code needed",
-        "Typecheck passes"
+        "The rougeole chart reads the current department from the existing `useDepartmentPreferences()` hook (already on the home page)",
+        "When a department is selected in the existing DepartmentSelect filter, the rougeole chart updates to show that department's data",
+        "When no department is selected (null/undefined), the chart shows national aggregate data (department='national')",
+        "The chart heading or a subtitle indicates which department is displayed (e.g., 'France entière' or department name)",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
       ],
-      "priority": 13,
+      "priority": 6,
       "passes": true,
-      "notes": "The seed process reuses the sync API route — no separate seed logic needed. `db:push` creates the tables from the schema (faster than running migrations for initial setup). The curl command assumes the dev server is running on port 3000. The `jq .` at the end pretty-prints the JSON response. If jq is not installed, the output will still work, just not be formatted."
+      "notes": "The `useDepartmentPreferences()` hook returns `[department, setDepartment]` where department is a string code or null. Pass `department ?? undefined` to the tRPC query. Use `FRENCH_DEPARTMENTS` from constants to look up department name from code. This may already be partially done in US-064 if the chart component reads department state — this story ensures it's properly wired and displays the department name."
+    },
+    {
+      "id": "US-066",
+      "title": "Data info/explanation page",
+      "description": "As a user, I want a dedicated page explaining all the data sources and metrics so I can understand what the dashboard shows.",
+      "acceptanceCriteria": [
+        "Create page at `src/app/info/page.tsx` (route: `/info`)",
+        "Page is a server component (no 'use client')",
+        "Section 1 — Eaux usées: explains SUM'Eau network, viral concentration in wastewater, weekly frequency, link to data.gouv.fr SUM'Eau dataset",
+        "Section 2 — Passages aux urgences: explains Odissé/SurSaUD syndromic surveillance, ER visit rate meaning, lists diseases (grippe, bronchiolite, COVID-19), weekly frequency, link to Odissé",
+        "Section 3 — Rougeole: explains mandatory notifications (déclarations obligatoires), what 'taux de notification pour 100 000 habitants' means, annual frequency, coverage 2005–2023, underreporting caveat (~56% completeness per 2013 estimate), link to Odissé dataset",
+        "Use shadcn Card components for each section with clear headings",
+        "All text in French",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 7,
+      "passes": false,
+      "notes": "This is a static content page — no tRPC queries needed. Use `import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'`. External links should use `target='_blank' rel='noopener noreferrer'`. Keep the tone informative but accessible. Source URLs: SUM'Eau (data.gouv.fr), Odissé (odisse.santepubliquefrance.fr), Rougeole dataset page (odisse.santepubliquefrance.fr/explore/dataset/rougeole-donnees-declaration-obligatoire/)."
+    },
+    {
+      "id": "US-067",
+      "title": "Navigation to info page",
+      "description": "As a user, I want easy access to the info page from the home page so I can learn about the data.",
+      "acceptanceCriteria": [
+        "Add a 'À propos des données' link in the header component (`src/components/layout/header.tsx`) using Next.js `Link` to `/info`",
+        "Add a small 'En savoir plus sur les données →' link on the home page, near the disclaimer/intro section at the top",
+        "Both links use `next/link` for client-side navigation",
+        "Header link is styled consistently with existing header elements",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 8,
+      "passes": false,
+      "notes": "The header is at `src/components/layout/header.tsx` — currently has logo/title + RefreshButton + ThemeToggle. Add the link between the title area and the controls. For the home page link, add it near the disclaimer text (around line 52-61 in page.tsx). Use `import Link from 'next/link'`."
     }
   ]
 }
