@@ -1,29 +1,37 @@
 "use client";
 
 import { useCallback } from "react";
-import { useLocalStorage } from "./use-local-storage";
+import { useQueryState, createParser } from "nuqs";
 import { CLINICAL_DISEASE_IDS } from "@/lib/constants";
 import type { ClinicalDiseaseId } from "@/types/clinical";
 
-const STORAGE_KEY = "eauxvid:clinical-overlays";
+const clinicalParser = createParser({
+  parse: (v: string): ClinicalDiseaseId[] => {
+    if (v === "none") return [];
+    return v
+      .split(",")
+      .map((s) => s.trim())
+      .filter((id) =>
+        (CLINICAL_DISEASE_IDS as readonly string[]).includes(id)
+      ) as ClinicalDiseaseId[];
+  },
+  serialize: (v: ClinicalDiseaseId[]) =>
+    v.length === 0 ? "none" : v.join(","),
+  eq: (a: ClinicalDiseaseId[], b: ClinicalDiseaseId[]) =>
+    a.length === b.length && a.every((v, i) => v === b[i]),
+}).withDefault([...CLINICAL_DISEASE_IDS]).withOptions({ history: "replace" });
 
-/**
- * Hook for managing enabled clinical data overlays.
- * Persists to localStorage. All 3 diseases enabled by default.
- */
 export function useClinicalPreferences() {
-  const [enabledDiseases, setEnabledDiseases] = useLocalStorage<
-    ClinicalDiseaseId[]
-  >(STORAGE_KEY, [...CLINICAL_DISEASE_IDS]);
+  const [enabledDiseases, setEnabledDiseases] = useQueryState(
+    "clinical",
+    clinicalParser
+  );
 
   const toggleDisease = useCallback(
     (id: ClinicalDiseaseId) => {
-      setEnabledDiseases((prev) => {
-        if (prev.includes(id)) {
-          return prev.filter((d) => d !== id);
-        }
-        return [...prev, id];
-      });
+      void setEnabledDiseases((prev) =>
+        prev.includes(id) ? prev.filter((d) => d !== id) : [...prev, id]
+      );
     },
     [setEnabledDiseases]
   );
@@ -33,7 +41,7 @@ export function useClinicalPreferences() {
       const valid = ids.filter((id) =>
         (CLINICAL_DISEASE_IDS as readonly string[]).includes(id)
       );
-      setEnabledDiseases(valid);
+      void setEnabledDiseases(valid);
     },
     [setEnabledDiseases]
   );
@@ -43,10 +51,5 @@ export function useClinicalPreferences() {
     [enabledDiseases]
   );
 
-  return {
-    enabledDiseases,
-    toggleDisease,
-    setDiseases,
-    isEnabled,
-  };
+  return { enabledDiseases, toggleDisease, setDiseases, isEnabled };
 }

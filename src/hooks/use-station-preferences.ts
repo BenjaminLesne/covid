@@ -1,28 +1,26 @@
 "use client";
 
 import { useCallback } from "react";
-import { useLocalStorage } from "./use-local-storage";
+import { useQueryState, createParser } from "nuqs";
 import {
   NATIONAL_STATION_ID,
   MAX_SELECTED_STATIONS,
 } from "@/lib/constants";
 
-const STORAGE_KEY = "eauxvid:selected-stations";
+const stationsParser = createParser({
+  parse: (v: string) =>
+    v.split(",").map((s) => s.trim()).filter(Boolean),
+  serialize: (v: string[]) => v.join(","),
+  eq: (a: string[], b: string[]) =>
+    a.length === b.length && a.every((v, i) => v === b[i]),
+}).withDefault([NATIONAL_STATION_ID]).withOptions({ history: "replace" });
 
-/**
- * Hook for managing selected station IDs.
- * National average is always included and cannot be removed.
- * Maximum of MAX_SELECTED_STATIONS additional stations can be selected.
- */
 export function useStationPreferences() {
-  const [selectedIds, setSelectedIds] = useLocalStorage<string[]>(
-    STORAGE_KEY,
-    [NATIONAL_STATION_ID]
-  );
+  const [selectedIds, setSelectedIds] = useQueryState("stations", stationsParser);
 
   const addStation = useCallback(
     (stationId: string) => {
-      setSelectedIds((prev) => {
+      void setSelectedIds((prev) => {
         const withoutNational = prev.filter(
           (id) => id !== NATIONAL_STATION_ID
         );
@@ -40,8 +38,8 @@ export function useStationPreferences() {
 
   const removeStation = useCallback(
     (stationId: string) => {
-      if (stationId === NATIONAL_STATION_ID) return; // Cannot remove national
-      setSelectedIds((prev) => prev.filter((id) => id !== stationId));
+      if (stationId === NATIONAL_STATION_ID) return;
+      void setSelectedIds((prev) => prev.filter((id) => id !== stationId));
     },
     [setSelectedIds]
   );
@@ -49,7 +47,7 @@ export function useStationPreferences() {
   const toggleStation = useCallback(
     (stationId: string) => {
       if (stationId === NATIONAL_STATION_ID) return;
-      setSelectedIds((prev) => {
+      void setSelectedIds((prev) => {
         if (prev.includes(stationId)) {
           return prev.filter((id) => id !== stationId);
         }
@@ -78,7 +76,7 @@ export function useStationPreferences() {
         NATIONAL_STATION_ID,
         ...nonNational.slice(0, MAX_SELECTED_STATIONS),
       ];
-      setSelectedIds(clamped);
+      void setSelectedIds(clamped);
     },
     [setSelectedIds]
   );

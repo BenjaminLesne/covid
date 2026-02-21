@@ -1,23 +1,17 @@
 "use client";
 
 import { useCallback, useMemo } from "react";
-import { useLocalStorage } from "./use-local-storage";
+import { useQueryState, parseAsString } from "nuqs";
 import { FRENCH_DEPARTMENTS } from "@/lib/constants";
 
-const STORAGE_KEY = "eauxvid:clinical-department";
-
-/**
- * Hook for managing the selected department for clinical data.
- * `null` means "France entière" (national level).
- */
 export function useDepartmentPreferences() {
-  const [department, setRaw] = useLocalStorage<string | null>(
-    STORAGE_KEY,
-    null
+  const [department, setRaw] = useQueryState(
+    "dep",
+    parseAsString.withOptions({ history: "replace" })
   );
 
   const setDepartment = useCallback(
-    (code: string | null) => setRaw(code),
+    (code: string | null) => void setRaw(code),
     [setRaw]
   );
 

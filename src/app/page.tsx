@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { Suspense, useCallback, useMemo } from "react";
+import { useQueryState, createParser } from "nuqs";
 import { StationSelect } from "@/components/filters/station-select";
 import { DateRangePicker } from "@/components/filters/date-range-picker";
 import { WastewaterChart } from "@/components/chart/wastewater-chart";
@@ -8,46 +9,32 @@ import { FranceMap } from "@/components/map/france-map";
 import { ClinicalToggle } from "@/components/filters/clinical-toggle";
 import { DepartmentSelect } from "@/components/filters/department-select";
 import { useStationPreferences } from "@/hooks/use-station-preferences";
-import { useDateRange } from "@/hooks/use-date-range";
-import { useClinicalPreferences } from "@/hooks/use-clinical-preferences";
 import { useDepartmentPreferences } from "@/hooks/use-department-preferences";
-import { useUrlSync } from "@/hooks/use-url-sync";
 import { RougeoleChart } from "@/components/rougeole-chart";
+import { Skeleton } from "@/components/ui/skeleton";
 
-export default function Home() {
-  const { selectedIds, toggleStation, canAddMore, setStations } =
+const hiddenParser = createParser({
+  parse: (v: string) => v.split(",").map((s) => s.trim()).filter(Boolean),
+  serialize: (v: string[]) => v.join(","),
+  eq: (a: string[], b: string[]) =>
+    a.length === b.length && a.every((v, i) => v === b[i]),
+}).withDefault([]).withOptions({ history: "replace" });
+
+function HomeContent() {
+  const { selectedIds, toggleStation, canAddMore } =
     useStationPreferences();
-  const { dateRange, setRange, setPreset, preset } = useDateRange();
-  const { enabledDiseases, setDiseases } = useClinicalPreferences();
-  const { department, setDepartment, departmentLabel } = useDepartmentPreferences();
+  const { department, departmentLabel } = useDepartmentPreferences();
 
-  const [hiddenKeys, setHiddenKeys] = useState<Set<string>>(new Set());
-  const toggleLine = useCallback((key: string) => {
-    setHiddenKeys((prev) => {
-      const next = new Set(prev);
-      if (next.has(key)) {
-        next.delete(key);
-      } else {
-        next.add(key);
-      }
-      return next;
-    });
-  }, []);
-
-  useUrlSync({
-    dateRange,
-    preset,
-    stationIds: selectedIds,
-    clinicalIds: enabledDiseases,
-    hiddenKeys,
-    department,
-    setRange,
-    setPreset,
-    setStations,
-    setDiseases,
-    setHiddenKeys,
-    setDepartment,
-  });
+  const [hiddenArray, setHiddenArray] = useQueryState("hidden", hiddenParser);
+  const hiddenKeys = useMemo(() => new Set(hiddenArray), [hiddenArray]);
+  const toggleLine = useCallback(
+    (key: string) => {
+      void setHiddenArray((prev) =>
+        prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]
+      );
+    },
+    [setHiddenArray]
+  );
 
   return (
     <div className="flex flex-col gap-6">
@@ -114,5 +101,27 @@ export default function Home() {
       {/* Rougeole section */}
       <RougeoleChart department={department} />
     </div>
+  );
+}
+
+function HomeFallback() {
+  return (
+    <div className="flex flex-col gap-6">
+      <Skeleton className="h-16 w-full" />
+      <div className="flex flex-col gap-4 sm:flex-row">
+        <Skeleton className="h-10 flex-1" />
+        <Skeleton className="h-10 flex-1" />
+        <Skeleton className="h-10 w-48" />
+      </div>
+      <Skeleton className="h-[400px] w-full" />
+    </div>
+  );
+}
+
+export default function Home() {
+  return (
+    <Suspense fallback={<HomeFallback />}>
+      <HomeContent />
+    </Suspense>
   );
 }
