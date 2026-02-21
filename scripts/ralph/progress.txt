@@ -95,3 +95,17 @@ Started: Fri 21 Feb 2026
   - The `Cannot read properties of undefined (reading 'call')` error in Next.js dev is a webpack HMR issue — fixed by hard reload
 ---
 
+## 2026-02-21 - US-066
+- Created `src/app/info/page.tsx` — server component at `/info` route
+- Three sections with Card components: Eaux usées (SUM'Eau), Passages aux urgences (SurSaUD/Odissé), Rougeole (DO)
+- Each section explains the data source, metrics, frequency, and links to the original data
+- Includes back-link to home page, page metadata for SEO
+- All text in French, external links with target="_blank" rel="noopener noreferrer"
+- Browser verified: page renders correctly with dark theme
+- Files changed: `src/app/info/page.tsx`, `tasks/prd.json`
+- **Learnings for future iterations:**
+  - Info pages are simple server components — no 'use client' needed, no tRPC
+  - shadcn Card components work well for structured content sections
+  - Use `&apos;` for apostrophes in JSX to avoid HTML entity issues
+---
+
