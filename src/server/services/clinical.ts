@@ -111,6 +111,69 @@ async function fetchSingleDisease(
 }
 
 // ---------------------------------------------------------------------------
+// Bulk department fetch (exports/json — like rougeole)
+// ---------------------------------------------------------------------------
+
+/**
+ * Fetch department-level clinical indicators for a single disease in bulk.
+ *
+ * Uses the `/exports/json` endpoint which returns all records at once
+ * (no pagination), filtered by the age group. Each record includes a `dep`
+ * field with the department code.
+ */
+async function fetchSingleDiseaseDepartments(
+  diseaseId: ClinicalDiseaseId,
+): Promise<ClinicalIndicator[]> {
+  const meta = CLINICAL_DATASETS[diseaseId];
+
+  const url = new URL(
+    `${ODISSE_API_BASE}/${meta.departmentDatasetId}/exports/json`,
+  );
+  url.searchParams.set(
+    "where",
+    `sursaud_cl_age_gene='${meta.ageFilter}'`,
+  );
+  url.searchParams.set("select", `semaine,dep,${meta.rateFieldName}`);
+
+  const res = await fetch(url.toString(), {
+    signal: AbortSignal.timeout(30_000),
+  });
+
+  if (!res.ok) {
+    throw new Error(
+      `Odissé dept export error for ${diseaseId}: ${res.status} ${res.statusText}`,
+    );
+  }
+
+  const raw: Record<string, unknown>[] = await res.json();
+
+  const indicators: ClinicalIndicator[] = [];
+
+  for (const record of raw) {
+    const weekRaw = record["semaine"];
+    if (typeof weekRaw !== "string" || !weekRaw) continue;
+
+    const dep = record["dep"];
+    if (typeof dep !== "string" || !dep) continue;
+
+    const rateRaw = record[meta.rateFieldName];
+    const erVisitRate =
+      typeof rateRaw === "number" && Number.isFinite(rateRaw)
+        ? rateRaw
+        : null;
+
+    indicators.push({
+      week: normalizeWeek(weekRaw),
+      diseaseId,
+      erVisitRate,
+      department: dep,
+    });
+  }
+
+  return indicators;
+}
+
+// ---------------------------------------------------------------------------
 // Public API
 // ---------------------------------------------------------------------------
 
@@ -162,6 +225,40 @@ export async function fetchClinicalIndicatorsByDisease(
 
   // Sort by week (lexicographic ISO week comparison)
   indicators.sort((a, b) => a.week.localeCompare(b.week));
+
+  return indicators;
+}
+
+/**
+ * Fetch department-level clinical indicators for all 3 diseases in bulk.
+ *
+ * Uses the `/exports/json` endpoint (like rougeole) to fetch all department
+ * data in 3 parallel requests — one per disease.
+ *
+ * Uses Promise.allSettled so that failure of one disease does not block others.
+ *
+ * Returns ClinicalIndicator[] with `department` populated.
+ */
+export async function fetchClinicalDepartmentIndicators(): Promise<
+  ClinicalIndicator[]
+> {
+  const results = await Promise.allSettled(
+    CLINICAL_DISEASE_IDS.map((id) => fetchSingleDiseaseDepartments(id)),
+  );
+
+  const indicators: ClinicalIndicator[] = [];
+
+  for (let i = 0; i < results.length; i++) {
+    const result = results[i];
+    if (result.status === "fulfilled") {
+      indicators.push(...result.value);
+    } else {
+      console.warn(
+        `Failed to fetch dept clinical data for ${CLINICAL_DISEASE_IDS[i]}:`,
+        result.reason,
+      );
+    }
+  }
 
   return indicators;
 }

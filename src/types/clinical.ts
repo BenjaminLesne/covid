@@ -8,7 +8,7 @@
 /** Supported clinical disease identifiers. */
 export type ClinicalDiseaseId = "flu" | "bronchiolitis" | "covid_clinical";
 
-/** A single weekly clinical indicator reading (national ER visit rate). */
+/** A single weekly clinical indicator reading (ER visit rate). */
 export interface ClinicalIndicator {
   /** ISO week string, e.g. "2024-W03" */
   week: string;
@@ -16,6 +16,8 @@ export interface ClinicalIndicator {
   diseaseId: ClinicalDiseaseId;
   /** ER visit rate per 100,000 population */
   erVisitRate: number | null;
+  /** Department code (e.g. "75"), absent for national-level data */
+  department?: string;
 }
 
 /** Metadata for a clinical dataset (Odissé API configuration). */

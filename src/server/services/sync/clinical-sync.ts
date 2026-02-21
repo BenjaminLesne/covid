@@ -8,7 +8,10 @@
 import { sql } from "drizzle-orm";
 import type { VercelPgDatabase } from "drizzle-orm/vercel-postgres";
 import { clinicalIndicatorsTable } from "@/server/db/schema";
-import { fetchClinicalIndicators } from "@/server/services/clinical";
+import {
+  fetchClinicalIndicators,
+  fetchClinicalDepartmentIndicators,
+} from "@/server/services/clinical";
 
 const BATCH_SIZE = 500;
 
@@ -33,10 +36,16 @@ function chunk<T>(arr: T[], size: number): T[][] {
 export async function syncClinicalData(
   db: VercelPgDatabase,
 ): Promise<{ indicatorsCount: number }> {
-  const indicators = await fetchClinicalIndicators();
+  // Fetch national and department data in parallel
+  const [nationalIndicators, deptIndicators] = await Promise.all([
+    fetchClinicalIndicators(),
+    fetchClinicalDepartmentIndicators(),
+  ]);
 
   let indicatorsCount = 0;
-  for (const batch of chunk(indicators, BATCH_SIZE)) {
+
+  // 1. Upsert national rows
+  for (const batch of chunk(nationalIndicators, BATCH_SIZE)) {
     await db
       .insert(clinicalIndicatorsTable)
       .values(
@@ -44,6 +53,31 @@ export async function syncClinicalData(
           week: ind.week,
           disease_id: ind.diseaseId,
           department: "national" as const,
+          er_visit_rate: ind.erVisitRate,
+        })),
+      )
+      .onConflictDoUpdate({
+        target: [
+          clinicalIndicatorsTable.disease_id,
+          clinicalIndicatorsTable.week,
+          clinicalIndicatorsTable.department,
+        ],
+        set: {
+          er_visit_rate: sql`excluded.er_visit_rate`,
+        },
+      });
+    indicatorsCount += batch.length;
+  }
+
+  // 2. Upsert department-level rows
+  for (const batch of chunk(deptIndicators, BATCH_SIZE)) {
+    await db
+      .insert(clinicalIndicatorsTable)
+      .values(
+        batch.map((ind) => ({
+          week: ind.week,
+          disease_id: ind.diseaseId,
+          department: ind.department!,
           er_visit_rate: ind.erVisitRate,
         })),
       )
