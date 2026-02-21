@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useState } from "react";
 import { CalendarIcon } from "lucide-react";
 import { type DateRange as RDPDateRange } from "react-day-picker";
 import { useDateRange } from "@/hooks/use-date-range";
@@ -28,7 +28,7 @@ function formatDate(date: Date): string {
 }
 
 export function DateRangePicker() {
-  const { fromDate, toDate, setRange } = useDateRange();
+  const { fromDate, toDate, setRange, setPreset, preset } = useDateRange();
   const [open, setOpen] = useState(false);
 
   const selected: RDPDateRange = {
@@ -45,27 +45,17 @@ export function DateRangePicker() {
     }
   };
 
-  const applyPreset = useCallback(
-    (months: number) => {
-      const to = new Date();
-      const from = new Date();
-      from.setMonth(from.getMonth() - months);
-      setRange(from, to);
-    },
-    [setRange]
-  );
-
   return (
     <div className="flex flex-wrap items-center gap-2">
-      {PRESETS.map((preset) => (
+      {PRESETS.map((p) => (
         <Button
-          key={preset.months}
-          variant="outline"
+          key={p.months}
+          variant={preset === p.months ? "default" : "outline"}
           size="sm"
           className="text-xs"
-          onClick={() => applyPreset(preset.months)}
+          onClick={() => setPreset(p.months)}
         >
-          {preset.label}
+          {p.label}
         </Button>
       ))}
       <Popover open={open} onOpenChange={setOpen}>

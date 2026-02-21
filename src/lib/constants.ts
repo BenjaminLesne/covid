@@ -69,35 +69,40 @@ export const CLINICAL_DISEASE_IDS: readonly ClinicalDiseaseId[] = [
 ] as const;
 
 /** Configuration for each clinical surveillance dataset. */
-export const CLINICAL_DATASETS: Record<ClinicalDiseaseId, ClinicalDatasetMeta> = {
-  flu: {
-    id: "flu",
-    label: "Grippe",
-    datasetId: "grippe-passages-aux-urgences-et-actes-sos-medecins-france",
-    departmentDatasetId: "grippe-passages-aux-urgences-et-actes-sos-medecins-departement",
-    rateFieldName: "taux_passages_grippe_sau",
-    color: "hsl(0, 75%, 55%)",
-    ageFilter: "Tous âges",
-  },
-  bronchiolitis: {
-    id: "bronchiolitis",
-    label: "Bronchiolite <1 an",
-    datasetId: "bronchiolite-passages-aux-urgences-et-actes-sos-medecins-france",
-    departmentDatasetId: "bronchiolite-passages-aux-urgences-et-actes-sos-medecins-departement",
-    rateFieldName: "taux_passages_bronchio_sau",
-    color: "hsl(190, 80%, 45%)",
-    ageFilter: "0 an",
-  },
-  covid_clinical: {
-    id: "covid_clinical",
-    label: "COVID-19",
-    datasetId: "covid-19-passages-aux-urgences-et-actes-sos-medecins-france",
-    departmentDatasetId: "covid-19-passages-aux-urgences-et-actes-sos-medecins-departement",
-    rateFieldName: "taux_passages_covid_sau",
-    color: "hsl(45, 90%, 50%)",
-    ageFilter: "Tous âges",
-  },
-} as const;
+export const CLINICAL_DATASETS: Record<ClinicalDiseaseId, ClinicalDatasetMeta> =
+  {
+    flu: {
+      id: "flu",
+      label: "Grippe",
+      datasetId: "grippe-passages-aux-urgences-et-actes-sos-medecins-france",
+      departmentDatasetId:
+        "grippe-passages-aux-urgences-et-actes-sos-medecins-departement",
+      rateFieldName: "taux_passages_grippe_sau",
+      color: "hsl(0, 75%, 55%)",
+      ageFilter: "Tous âges",
+    },
+    bronchiolitis: {
+      id: "bronchiolitis",
+      label: "Bronchiolite <1 an",
+      datasetId:
+        "bronchiolite-passages-aux-urgences-et-actes-sos-medecins-france",
+      departmentDatasetId:
+        "bronchiolite-passages-aux-urgences-et-actes-sos-medecins-departement",
+      rateFieldName: "taux_passages_bronchio_sau",
+      color: "hsl(190, 80%, 45%)",
+      ageFilter: "0 an",
+    },
+    covid_clinical: {
+      id: "covid_clinical",
+      label: "COVID-19",
+      datasetId: "covid-19-passages-aux-urgences-et-actes-sos-medecins-france",
+      departmentDatasetId:
+        "covid-19-passages-aux-urgences-et-actes-sos-medecins-departement",
+      rateFieldName: "taux_passages_covid_sau",
+      color: "hsl(45, 90%, 50%)",
+      ageFilter: "Tous âges",
+    },
+  } as const;
 
 /** All French departments (metropolitan + overseas). */
 export const FRENCH_DEPARTMENTS: readonly { code: string; name: string }[] = [

@@ -93,4 +93,49 @@ describe("useDateRange", () => {
     expect(result.current.fromDate).toBeInstanceOf(Date);
     expect(result.current.toDate).toBeInstanceOf(Date);
   });
+
+  it("setPreset stores a preset and recomputes dates dynamically", () => {
+    const { result } = renderHook(() => useDateRange());
+    act(() => {
+      result.current.setPreset(12);
+    });
+    expect(result.current.preset).toBe(12);
+
+    const expectedFrom = new Date();
+    expectedFrom.setMonth(expectedFrom.getMonth() - 12);
+    const diffFrom = Math.abs(
+      result.current.fromDate.getTime() - expectedFrom.getTime()
+    );
+    expect(diffFrom).toBeLessThan(86400000);
+  });
+
+  it("preset is recomputed from today on mount", () => {
+    // Simulate a stored preset from a previous session
+    localStorage.setItem(
+      "eauxvid:date-range",
+      JSON.stringify({ from: "2024-01-01", to: "2024-12-31", preset: 12 })
+    );
+    const { result } = renderHook(() => useDateRange());
+    // The stale dates should be ignored — recomputed from today
+    const now = new Date();
+    const diffTo = Math.abs(
+      result.current.toDate.getTime() - now.getTime()
+    );
+    expect(diffTo).toBeLessThan(86400000);
+    expect(result.current.dateRange.to).toBe(now.toISOString().slice(0, 10));
+  });
+
+  it("custom date range clears preset", () => {
+    const { result } = renderHook(() => useDateRange());
+    act(() => {
+      result.current.setPreset(12);
+    });
+    expect(result.current.preset).toBe(12);
+
+    act(() => {
+      result.current.setRange(new Date("2024-03-01"), new Date("2024-09-01"));
+    });
+    expect(result.current.preset).toBeUndefined();
+    expect(result.current.dateRange.from).toBe("2024-03-01");
+  });
 });

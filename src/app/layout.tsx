@@ -5,6 +5,7 @@ import { Providers } from "@/components/providers";
 import { Header } from "@/components/layout/header";
 import { Footer } from "@/components/layout/footer";
 import "./globals.css";
+import { env } from "@/env";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -32,6 +33,13 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
+        {env.NODE_ENV === "development" && (
+          // eslint-disable-next-line @next/next/no-sync-scripts
+          <script
+            src="https://unpkg.com/react-scan/dist/auto.global.js"
+            crossOrigin="anonymous"
+          />
+        )}
         <Providers>
           <div className="flex min-h-screen flex-col">
             <Header />

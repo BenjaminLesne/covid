@@ -17,7 +17,7 @@ import { RougeoleChart } from "@/components/rougeole-chart";
 export default function Home() {
   const { selectedIds, toggleStation, canAddMore, setStations } =
     useStationPreferences();
-  const { dateRange, setRange } = useDateRange();
+  const { dateRange, setRange, setPreset, preset } = useDateRange();
   const { enabledDiseases, setDiseases } = useClinicalPreferences();
   const { department, setDepartment, departmentLabel } = useDepartmentPreferences();
 
@@ -36,11 +36,13 @@ export default function Home() {
 
   useUrlSync({
     dateRange,
+    preset,
     stationIds: selectedIds,
     clinicalIds: enabledDiseases,
     hiddenKeys,
     department,
     setRange,
+    setPreset,
     setStations,
     setDiseases,
     setHiddenKeys,

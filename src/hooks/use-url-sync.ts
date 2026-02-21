@@ -10,12 +10,21 @@ import type { ClinicalDiseaseId } from "@/types/clinical";
 // ---------------------------------------------------------------------------
 
 const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+const RANGE_RE = /^(\d+)m$/;
 
 function parseDateParam(value: string | null): string | null {
   if (!value || !ISO_DATE_RE.test(value)) return null;
   const d = new Date(value);
   if (isNaN(d.getTime())) return null;
   return value;
+}
+
+function parseRangeParam(value: string | null): number | null {
+  if (!value) return null;
+  const m = RANGE_RE.exec(value);
+  if (!m) return null;
+  const months = parseInt(m[1], 10);
+  return months > 0 ? months : null;
 }
 
 function parseStationsParam(value: string | null): string[] | null {
@@ -58,14 +67,19 @@ function parseDepartmentParam(value: string | null): string | null {
 
 function buildSearchString(
   dateRange: DateRange,
+  preset: number | undefined,
   stationIds: string[],
   clinicalIds: ClinicalDiseaseId[],
   hiddenKeys: Set<string>,
   department: string | null
 ): string {
   const params = new URLSearchParams();
-  params.set("from", dateRange.from);
-  params.set("to", dateRange.to);
+  if (preset != null) {
+    params.set("range", `${preset}m`);
+  } else {
+    params.set("from", dateRange.from);
+    params.set("to", dateRange.to);
+  }
   params.set("stations", stationIds.join(","));
   params.set("clinical", clinicalIds.join(","));
   if (hiddenKeys.size > 0) {
@@ -83,11 +97,13 @@ function buildSearchString(
 
 interface UseUrlSyncOptions {
   dateRange: DateRange;
+  preset: number | undefined;
   stationIds: string[];
   clinicalIds: ClinicalDiseaseId[];
   hiddenKeys: Set<string>;
   department: string | null;
   setRange: (from: Date, to: Date) => void;
+  setPreset: (months: number) => void;
   setStations: (ids: string[]) => void;
   setDiseases: (ids: ClinicalDiseaseId[]) => void;
   setHiddenKeys: (keys: Set<string>) => void;
@@ -96,11 +112,13 @@ interface UseUrlSyncOptions {
 
 export function useUrlSync({
   dateRange,
+  preset,
   stationIds,
   clinicalIds,
   hiddenKeys,
   department,
   setRange,
+  setPreset,
   setStations,
   setDiseases,
   setHiddenKeys,
@@ -117,6 +135,7 @@ export function useUrlSync({
     const hasAny =
       params.has("from") ||
       params.has("to") ||
+      params.has("range") ||
       params.has("stations") ||
       params.has("clinical") ||
       params.has("hidden") ||
@@ -124,14 +143,19 @@ export function useUrlSync({
 
     if (hasAny) {
       // Override localStorage with URL values (only for params that exist)
-      const from = parseDateParam(params.get("from"));
-      const to = parseDateParam(params.get("to"));
-      if (from && to) {
-        setRange(new Date(from), new Date(to));
-      } else if (from) {
-        setRange(new Date(from), new Date(dateRange.to));
-      } else if (to) {
-        setRange(new Date(dateRange.from), new Date(to));
+      const rangeMonths = parseRangeParam(params.get("range"));
+      if (rangeMonths != null) {
+        setPreset(rangeMonths);
+      } else {
+        const from = parseDateParam(params.get("from"));
+        const to = parseDateParam(params.get("to"));
+        if (from && to) {
+          setRange(new Date(from), new Date(to));
+        } else if (from) {
+          setRange(new Date(from), new Date(dateRange.to));
+        } else if (to) {
+          setRange(new Date(dateRange.from), new Date(to));
+        }
       }
 
       const stations = parseStationsParam(params.get("stations"));
@@ -155,7 +179,7 @@ export function useUrlSync({
       }
     } else {
       // No URL params — push current state to URL
-      const qs = buildSearchString(dateRange, stationIds, clinicalIds, hiddenKeys, department);
+      const qs = buildSearchString(dateRange, preset, stationIds, clinicalIds, hiddenKeys, department);
       window.history.replaceState(null, "", `?${qs}`);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -168,7 +192,7 @@ export function useUrlSync({
       mountSkipped.current = true;
       return;
     }
-    const qs = buildSearchString(dateRange, stationIds, clinicalIds, hiddenKeys, department);
+    const qs = buildSearchString(dateRange, preset, stationIds, clinicalIds, hiddenKeys, department);
     window.history.replaceState(null, "", `?${qs}`);
-  }, [dateRange, stationIds, clinicalIds, hiddenKeys, department]);
+  }, [dateRange, preset, stationIds, clinicalIds, hiddenKeys, department]);
 }

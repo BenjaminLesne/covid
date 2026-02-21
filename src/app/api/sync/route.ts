@@ -18,6 +18,7 @@
 
 import { NextResponse } from "next/server";
 import { eq } from "drizzle-orm";
+import { env } from "@/env";
 import { db } from "@/server/db";
 import { syncMetadataTable } from "@/server/db/schema";
 import { syncWastewaterData } from "@/server/services/sync/wastewater-sync";
@@ -28,7 +29,7 @@ export const maxDuration = 60;
 
 export async function GET(request: Request): Promise<NextResponse> {
   const authHeader = request.headers.get("Authorization");
-  const expected = `Bearer ${process.env.CRON_SECRET}`;
+  const expected = `Bearer ${env.CRON_SECRET}`;
 
   if (!authHeader || authHeader !== expected) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
