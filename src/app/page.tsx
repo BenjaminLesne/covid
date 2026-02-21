@@ -13,6 +13,7 @@ import { useDateRange } from "@/hooks/use-date-range";
 import { useClinicalPreferences } from "@/hooks/use-clinical-preferences";
 import { useDepartmentPreferences } from "@/hooks/use-department-preferences";
 import { useUrlSync } from "@/hooks/use-url-sync";
+import { RougeoleChart } from "@/components/rougeole-chart";
 
 export default function Home() {
   const { selectedIds, toggleStation, canAddMore, setStations } =
@@ -98,6 +99,9 @@ export default function Home() {
           />
         </div>
       </div>
+
+      {/* Rougeole section */}
+      <RougeoleChart department={department} />
     </div>
   );
 }
