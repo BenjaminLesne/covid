@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Droplets, Menu, Info } from "lucide-react";
 import { ThemeToggle } from "@/components/layout/theme-toggle";
 import { RefreshButton } from "@/components/layout/refresh-button";
+import { FeedbackButton } from "@/components/layout/feedback-button";
 import { Button } from "@/components/ui/button";
 import {
   Sheet,
@@ -30,6 +31,7 @@ export function Header() {
           >
             À propos des données
           </Link>
+          <FeedbackButton />
           <RefreshButton />
           <ThemeToggle />
 
