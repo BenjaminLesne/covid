@@ -33,7 +33,7 @@ export function ChartLegend({ entries, hiddenKeys, onToggle }: ChartLegendProps)
   return (
     <div className="flex flex-wrap gap-x-4 gap-y-2 lg:flex-col lg:gap-y-1.5">
       {groups.map((group) => (
-        <div key={group.label ?? "default"} className="flex flex-wrap gap-x-4 gap-y-2 lg:flex-col lg:gap-y-1.5">
+        <div key={group.label ?? "default"} className="flex flex-col gap-y-1.5">
           {group.label && (
             <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide px-2">
               {group.label}
