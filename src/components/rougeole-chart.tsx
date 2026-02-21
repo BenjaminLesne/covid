@@ -10,6 +10,7 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts";
+import { ExternalLink } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -78,6 +79,15 @@ export function RougeoleChart({ department }: RougeoleChartProps) {
           Rougeole — Taux de notification (déclarations obligatoires)
         </CardTitle>
         <p className="text-muted-foreground text-xs">{departmentLabel}</p>
+        <a
+          href="https://www.santepubliquefrance.fr/maladies-et-traumatismes/maladies-a-prevention-vaccinale/rougeole"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1 text-xs"
+        >
+          Voir le dernier bulletin rougeole&nbsp;→
+          <ExternalLink className="h-3 w-3" />
+        </a>
       </CardHeader>
       <CardContent>
         <ResponsiveContainer width="100%" height={300}>

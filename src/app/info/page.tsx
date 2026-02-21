@@ -164,6 +164,16 @@ export default function InfoPage() {
               Source : Odissé — Rougeole, données de déclaration obligatoire
             </a>
           </p>
+          <p>
+            <a
+              href="https://www.santepubliquefrance.fr/maladies-et-traumatismes/maladies-a-prevention-vaccinale/rougeole"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-primary underline hover:no-underline"
+            >
+              Bulletins de surveillance rougeole — Santé publique France
+            </a>
+          </p>
         </CardContent>
       </Card>
     </div>
