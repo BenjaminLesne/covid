@@ -49,6 +49,27 @@ export default function Home() {
 
   return (
     <div className="flex flex-col gap-6">
+      {/* Presentation */}
+      <section className="flex flex-col gap-1">
+        <h1 className="text-xl font-semibold tracking-tight">
+          Tableau de bord de surveillance sanitaire
+        </h1>
+        <p className="text-muted-foreground text-sm">
+          Suivi de la concentration virale dans les eaux usées (réseau{" "}
+          <a
+            href="https://www.sum-eau.fr"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="underline underline-offset-2 hover:text-foreground"
+          >
+            SUM&apos;Eau
+          </a>
+          ) croisé avec les données cliniques de passages aux urgences —
+          Covid-19, bronchiolite, grippe et rougeole. Sélectionnez des
+          stations, un département et une période pour explorer les tendances.
+        </p>
+      </section>
+
       {/* Filters: station select + department select + date range */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
         <div className="flex-1">
