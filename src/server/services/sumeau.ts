@@ -197,24 +197,24 @@ function parseStationsJson(records: OdisseStationRecord[]): Station[] {
 
 /**
  * Fetch wastewater indicator data from SUM'Eau.
- * Tries the data.gouv.fr CSV first, falls back to the Odissé JSON endpoint.
+ * Tries the Odissé JSON first, falls back to the data.gouv.fr CSV endpoint.
  */
 export async function fetchIndicators(): Promise<WastewaterIndicator[]> {
-  // Try primary CSV endpoint
+  // Try primary: Odissé JSON
   try {
     const res = await fetch(DATA_URLS.indicators.primary, {
       next: { revalidate: REVALIDATE_INTERVAL },
       signal: AbortSignal.timeout(15_000),
     });
     if (res.ok) {
-      const csvText = await res.text();
-      return parseIndicatorsCsv(csvText);
+      const json: OdisseIndicatorRecord[] = await res.json();
+      return parseIndicatorsJson(json);
     }
   } catch {
     // Fall through to fallback
   }
 
-  // Fallback: Odissé JSON
+  // Fallback: data.gouv.fr CSV
   const res = await fetch(DATA_URLS.indicators.fallback, {
     next: { revalidate: REVALIDATE_INTERVAL },
     signal: AbortSignal.timeout(15_000),
@@ -224,30 +224,30 @@ export async function fetchIndicators(): Promise<WastewaterIndicator[]> {
       `Failed to fetch indicators from both primary and fallback endpoints`
     );
   }
-  const json: OdisseIndicatorRecord[] = await res.json();
-  return parseIndicatorsJson(json);
+  const csvText = await res.text();
+  return parseIndicatorsCsv(csvText);
 }
 
 /**
  * Fetch station metadata from SUM'Eau.
- * Tries the data.gouv.fr CSV first, falls back to the Odissé JSON endpoint.
+ * Tries the Odissé JSON first, falls back to the data.gouv.fr CSV endpoint.
  */
 export async function fetchStations(): Promise<Station[]> {
-  // Try primary CSV endpoint
+  // Try primary: Odissé JSON
   try {
     const res = await fetch(DATA_URLS.stations.primary, {
       next: { revalidate: REVALIDATE_INTERVAL },
       signal: AbortSignal.timeout(15_000),
     });
     if (res.ok) {
-      const csvText = await res.text();
-      return parseStationsCsv(csvText);
+      const json: OdisseStationRecord[] = await res.json();
+      return parseStationsJson(json);
     }
   } catch {
     // Fall through to fallback
   }
 
-  // Fallback: Odissé JSON
+  // Fallback: data.gouv.fr CSV
   const res = await fetch(DATA_URLS.stations.fallback, {
     next: { revalidate: REVALIDATE_INTERVAL },
     signal: AbortSignal.timeout(15_000),
@@ -257,6 +257,6 @@ export async function fetchStations(): Promise<Station[]> {
       `Failed to fetch stations from both primary and fallback endpoints`
     );
   }
-  const json: OdisseStationRecord[] = await res.json();
-  return parseStationsJson(json);
+  const csvText = await res.text();
+  return parseStationsCsv(csvText);
 }

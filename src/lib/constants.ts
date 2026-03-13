@@ -38,15 +38,15 @@ export const NATIONAL_STATION_ID = "national";
 export const DATA_URLS = {
   indicators: {
     primary:
-      "https://www.data.gouv.fr/api/1/datasets/r/2963ccb5-344d-4978-bdd3-08aaf9efe514",
-    fallback:
       "https://odisse.santepubliquefrance.fr/explore/dataset/sum-eau-indicateurs/download?format=json",
+    fallback:
+      "https://www.data.gouv.fr/api/1/datasets/r/2963ccb5-344d-4978-bdd3-08aaf9efe514",
   },
   stations: {
     primary:
-      "https://www.data.gouv.fr/api/1/datasets/r/dd9cf705-a759-46c6-afd6-bc85cf25f363",
-    fallback:
       "https://odisse.santepubliquefrance.fr/explore/dataset/sumeau_stations/download?format=json",
+    fallback:
+      "https://www.data.gouv.fr/api/1/datasets/r/dd9cf705-a759-46c6-afd6-bc85cf25f363",
   },
 } as const;
 

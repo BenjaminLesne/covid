@@ -17,13 +17,14 @@
  */
 
 import { NextResponse } from "next/server";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { env } from "@/env";
 import { db } from "@/server/db";
-import { syncMetadataTable } from "@/server/db/schema";
+import { syncMetadataTable, wastewaterIndicatorsTable } from "@/server/db/schema";
 import { syncWastewaterData } from "@/server/services/sync/wastewater-sync";
 import { syncClinicalData } from "@/server/services/sync/clinical-sync";
 import { syncRougeoleData } from "@/server/services/sync/rougeole-sync";
+import { notifyDiscord } from "@/server/services/sync/notify";
 
 export const maxDuration = 60;
 
@@ -79,6 +80,40 @@ export async function GET(request: Request): Promise<NextResponse> {
       errors.push(
         `Rougeole sync failed: ${err instanceof Error ? err.message : String(err)}`,
       );
+    }
+
+    // Check for stale wastewater data and alert via Discord
+    if (wastewaterCount > 0) {
+      try {
+        const [latest] = await db
+          .select({ maxWeek: sql<string>`max(${wastewaterIndicatorsTable.week})` })
+          .from(wastewaterIndicatorsTable);
+
+        if (latest?.maxWeek) {
+          const [yearStr, weekStr] = latest.maxWeek.split("-W");
+          const latestYear = Number(yearStr);
+          const latestWeek = Number(weekStr);
+
+          // Compute current ISO week
+          const now = new Date();
+          const jan4 = new Date(now.getFullYear(), 0, 4);
+          const dayOfYear = Math.floor((now.getTime() - jan4.getTime()) / 86_400_000) + jan4.getDay();
+          const currentWeek = Math.ceil(dayOfYear / 7);
+          const currentYear = now.getFullYear();
+
+          // Approximate week gap (works across year boundaries for small gaps)
+          const gap = (currentYear - latestYear) * 52 + (currentWeek - latestWeek);
+
+          if (gap > 2) {
+            const currentWeekStr = `${currentYear}-W${String(currentWeek).padStart(2, "0")}`;
+            await notifyDiscord(
+              `**[EauxVid Alert]** Wastewater data is stale — latest week is ${latest.maxWeek}, expected at least ${currentWeekStr} (gap: ${gap} weeks)`,
+            );
+          }
+        }
+      } catch {
+        // Non-critical — don't fail the sync over a notification error
+      }
     }
 
     // Determine final status
