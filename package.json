@@ -14,7 +14,8 @@
     "db:migrate": "drizzle-kit migrate",
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
-    "db:seed": "curl -s -H \"Authorization: Bearer $CRON_SECRET\" http://localhost:3000/api/sync | jq ."
+    "db:seed": "source .env.local && curl -s -H \"Authorization: Bearer $CRON_SECRET\" http://localhost:3000/api/sync | jq .",
+    "db:seed:prod": "source .env.local && curl -s -H \"Authorization: Bearer $CRON_SECRET\" https://eauxvid.benjamin-lesne.dev/api/sync | jq ."
   },
   "dependencies": {
     "@t3-oss/env-core": "^0.13.10",
