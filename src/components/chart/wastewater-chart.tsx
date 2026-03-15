@@ -6,7 +6,7 @@ import { trpc } from "@/lib/trpc";
 import { useStationPreferences } from "@/hooks/use-station-preferences";
 import { useDateRange } from "@/hooks/use-date-range";
 import { useClinicalPreferences } from "@/hooks/use-clinical-preferences";
-import { NATIONAL_STATION_ID, CLINICAL_DATASETS } from "@/lib/constants";
+import { NATIONAL_STATION_ID, NATIONAL_COLUMN, CLINICAL_DATASETS, slugifyStationName } from "@/lib/constants";
 import { Skeleton } from "@/components/ui/skeleton";
 import { QueryError } from "@/components/query-error";
 import {
@@ -29,17 +29,14 @@ export const LINE_COLORS = [
   "hsl(50, 90%, 45%)",  // gold
 ] as const;
 
-/** The national aggregate column name in the indicators data. */
-const NATIONAL_COLUMN = "National_54";
-
 /** Prefix for clinical data keys in chart data points. */
 const CLINICAL_KEY_PREFIX = "clinical_";
 
-/** Build a mapping from SANDRE ID → station display name (column name in indicators). */
+/** Build a mapping from SANDRE ID → indicator column key (slugified station name). */
 function buildSandreToColumnMap(stations: Station[]): Map<string, string> {
   const map = new Map<string, string>();
   for (const s of stations) {
-    map.set(s.sandreId, s.name);
+    map.set(s.sandreId, slugifyStationName(s.name));
   }
   return map;
 }
@@ -164,7 +161,7 @@ export function WastewaterChart({ hiddenKeys, onToggle, department, departmentLa
     map.set(NATIONAL_COLUMN, "Moyenne nationale Covid");
     if (stations) {
       for (const s of stations) {
-        map.set(s.name, s.name);
+        map.set(slugifyStationName(s.name), s.name);
       }
     }
     return map;

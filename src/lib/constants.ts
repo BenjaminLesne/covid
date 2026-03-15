@@ -34,6 +34,22 @@ export const MAX_SELECTED_STATIONS = 5;
 /** Station ID used for the national aggregate. */
 export const NATIONAL_STATION_ID = "national";
 
+/** The national aggregate column name in the indicators data (all 54 stations). */
+export const NATIONAL_COLUMN = "national_54";
+
+/**
+ * Slugify a station name to match the Odissé JSON field key format.
+ * E.g. "BONNEUIL-EN-FRANCE" → "bonneuil_en_france"
+ */
+export function slugifyStationName(name: string): string {
+  return name
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_|_$/g, "");
+}
+
 /** SUM'Eau data source URLs. */
 export const DATA_URLS = {
   indicators: {

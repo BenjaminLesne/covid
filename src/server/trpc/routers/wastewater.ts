@@ -7,12 +7,7 @@ import {
 } from "@/server/db/schema";
 import { and, asc, eq, gte, inArray, lte } from "drizzle-orm";
 import type { NationalAggregate } from "@/types/wastewater";
-
-/**
- * The national aggregate column name in the indicators data.
- * "National_54" represents all 54 stations.
- */
-const NATIONAL_COLUMN = "National_54";
+import { NATIONAL_COLUMN } from "@/lib/constants";
 
 export const wastewaterRouter = router({
   /**
@@ -81,7 +76,7 @@ export const wastewaterRouter = router({
 
   /**
    * Get national aggregate time series.
-   * Queries the National_54 station from wastewater_indicators and returns as NationalAggregate[].
+   * Queries the national_54 station from wastewater_indicators and returns as NationalAggregate[].
    */
   getNationalTrend: publicProcedure.query(async () => {
     const rows = await db
