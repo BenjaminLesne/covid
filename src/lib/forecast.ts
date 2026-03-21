@@ -102,12 +102,13 @@ export function forecastWastewater(
     const z = 1.96;
 
     return predictions.map((pred, i) => {
-      const stderr = errors[i];
+      // errors[i] is MSE (variance) from ctsa — take sqrt for standard error
+      const se = Math.sqrt(errors[i]);
       return {
         week: incrementWeek(lastWeek, i + 1),
         predictedValue: Math.max(0, pred),
-        lowerBound: Math.max(0, pred - z * stderr),
-        upperBound: Math.max(0, pred + z * stderr),
+        lowerBound: Math.max(0, pred - z * se),
+        upperBound: Math.max(0, pred + z * se),
       };
     });
   } catch {
