@@ -1,5 +1,5 @@
 # Ralph Progress Log
-Started: Fri 21 Feb 2026
+Started: Fri 21 Mar 2026
 
 ## Codebase Patterns
 - Project uses Next.js 15 App Router with TypeScript strict mode
@@ -23,240 +23,128 @@ Started: Fri 21 Feb 2026
 - Use `pgTable` third argument callback `(table) => [...]` for indexes/constraints
 - `db.insert().values().returning()` returns array — destructure `[row]` for single result
 - Tests use vitest, co-located with source as `*.test.ts` (e.g., `src/lib/severity.test.ts`) — run with `npx vitest run <file>`
-- `arima` npm package: `new ARIMA({ auto: true, verbose: false }).train(values).predict(n)` → `[predictions[], errors[]]`
-- ISO week parsing/incrementing: use `YYYY-WXX` format, handle 52/53-week years
-- Drizzle `date` type from `drizzle-orm/pg-core` for date-only columns; `onConflictDoNothing()` for skip-duplicate inserts
+- Sickness router at `src/server/trpc/routers/sickness.ts` — list/create/delete, all protectedProcedure
 - Recharts already installed — used for wastewater chart in `src/components/chart/wastewater-chart.tsx`
 - Recharts range bands: use `[lower, upper]` array values in data with a single `<Area>` component (not two stacked Areas)
+- Recharts `ReferenceArea`: use `x1`/`x2` with ISO week string values from X axis, `yAxisId` required, `ifOverflow="hidden"` to clip
 - Home page is 'use client' at `src/app/page.tsx` — uses hooks for state (useDepartmentPreferences, useStationPreferences, etc.)
-- Odissé API base: `https://odisse.santepubliquefrance.fr/api/explore/v2.1/`
-- Rougeole API uses exports/json endpoint (not records) — returns flat array, no pagination needed
-- Rougeole types in `src/types/rougeole.ts`, fetch service in `src/server/services/rougeole.ts`
----
-
-## 2026-02-21 - US-060
-- Created `src/types/rougeole.ts` with `RougeoleIndicator` interface
-- Created `src/server/services/rougeole.ts` with `fetchRougeoleIndicators()` function
-- Fetches from Odissé exports/json endpoint pre-filtered for "Tous âges"
-- Files changed: `src/types/rougeole.ts`, `src/server/services/rougeole.ts`
-- **Learnings for future iterations:**
-  - The rougeole dataset uses exports/json endpoint which returns a flat JSON array (unlike clinical data which uses records endpoint with pagination)
-  - Field names: `annee`, `dep`, `libgeo`, `tx`, `rou`, `population`
-  - `annee` can be string or number in the API response — always convert to string
----
-
-## 2026-02-21 - US-061
-- Added `rougeoleIndicatorsTable` to `src/server/db/schema.ts`
-- Columns: id (serial PK), year (varchar), department (varchar, default 'national'), notification_rate (doublePrecision), cases (integer)
-- Unique composite index on (year, department)
-- Generated migration: `drizzle/0004_chemical_ronan.sql`
-- Files changed: `src/server/db/schema.ts`, `drizzle/0004_chemical_ronan.sql`, `drizzle/meta/`
-- **Learnings for future iterations:**
-  - Follow existing pattern: use `pgTable` third arg callback for indexes
-  - `uniqueIndex` imported from `drizzle-orm/pg-core`
----
-
-## 2026-02-21 - US-062
-- Created `src/server/services/sync/rougeole-sync.ts` with `syncRougeoleData(db)` function
-- Added `rougeole_count` column to `syncMetadataTable` in schema.ts
-- Generated migration `drizzle/0005_kind_robbie_robertson.sql`
-- Integrated into `/api/sync` route alongside wastewater and clinical
-- Computes national aggregates: sum cases, weighted avg rate = (totalCases/totalPop)*100000
-- Files changed: `src/server/services/sync/rougeole-sync.ts`, `src/server/db/schema.ts`, `src/app/api/sync/route.ts`, drizzle migrations
-- **Learnings for future iterations:**
-  - Follow chunk/batch pattern from clinical-sync.ts
-  - National aggregate must be computed manually from department data (not in API)
----
-
-## 2026-02-21 - US-063
-- Created `src/server/trpc/routers/rougeole.ts` with `getIndicators` query
-- Registered `rougeoleRouter` in root router at `src/server/trpc/router.ts`
-- Query accepts optional `department` input, defaults to 'national'
-- Maps snake_case DB columns to camelCase response
-- Files changed: `src/server/trpc/routers/rougeole.ts`, `src/server/trpc/router.ts`
----
-
-## 2026-02-21 - US-064
-- Created `src/components/rougeole-chart.tsx` with Recharts LineChart
-- Single line for notification rate, red/coral color (hsl(0, 70%, 50%))
-- X-axis: years, Y-axis: rate /100 000 hab., dots on data points, tooltip with 2 decimal formatting
-- Loading skeleton, error state, wrapped in Card component
-- Added to home page below chart+map grid section
-- Files changed: `src/components/rougeole-chart.tsx`, `src/app/page.tsx`
-- **Learnings for future iterations:**
-  - RougeoleChart accepts `department` prop from home page — this also covers US-065 department filtering
-  - Uses `useMemo` for departmentLabel lookup from FRENCH_DEPARTMENTS constants
----
-
-## 2026-02-21 - US-065
-- Already fully implemented as part of US-064 — no additional code changes needed
-- Verified: department prop wired from `useDepartmentPreferences()` → RougeoleChart → tRPC query
-- tRPC router defaults to 'national' when no department specified
-- Chart subtitle shows "France entière" or "code — name" for selected department
-- Browser verification: UI renders correctly (DB error expected — infra not set up yet)
-- Files changed: `tasks/prd.json` (marked US-064 and US-065 as passing)
-- **Learnings for future iterations:**
-  - When building a chart component, wire department filtering from the start to avoid a separate story
-  - The `Cannot read properties of undefined (reading 'call')` error in Next.js dev is a webpack HMR issue — fixed by hard reload
----
-
-## 2026-02-21 - US-066
-- Created `src/app/info/page.tsx` — server component at `/info` route
-- Three sections with Card components: Eaux usées (SUM'Eau), Passages aux urgences (SurSaUD/Odissé), Rougeole (DO)
-- Each section explains the data source, metrics, frequency, and links to the original data
-- Includes back-link to home page, page metadata for SEO
-- All text in French, external links with target="_blank" rel="noopener noreferrer"
-- Browser verified: page renders correctly with dark theme
-- Files changed: `src/app/info/page.tsx`, `tasks/prd.json`
-- **Learnings for future iterations:**
-  - Info pages are simple server components — no 'use client' needed, no tRPC
-  - shadcn Card components work well for structured content sections
-  - Use `&apos;` for apostrophes in JSX to avoid HTML entity issues
----
-
-## 2026-02-21 - US-067
-- Added "À propos des données" link in header (`src/components/layout/header.tsx`) between title and controls
-- Added "En savoir plus sur les données →" inline link in home page disclaimer text (`src/app/page.tsx`)
-- Both links use Next.js `Link` component for client-side navigation to `/info`
-- Header link hidden on mobile (`hidden sm:block`) to avoid crowding
-- Browser verified: both links render and navigate correctly
-- Files changed: `src/components/layout/header.tsx`, `src/app/page.tsx`, `tasks/prd.json`
-- **Learnings for future iterations:**
-  - Header uses flex with gap — adjust `gap-1` to `gap-3` when adding text links alongside icon buttons
-  - Inline links in paragraphs work well for contextual navigation (inside disclaimer text)
+- Sickness panel at `src/components/sickness/sickness-panel.tsx` — shown only when logged in, uses trpc.sickness.list/create/delete
+- `usersTable` and `sessionsTable` defined in `src/server/db/schema.ts` — sessions FK to users, token is unique
+- `bcryptjs` installed for password hashing (with `@types/bcryptjs`)
+- `npx` doesn't work for drizzle-kit in this project — use `./node_modules/.bin/drizzle-kit` directly
+- `npx shadcn@latest` doesn't work — use `./node_modules/.bin/shadcn add <component>` directly
+- `React.FormEvent` is deprecated — use `React.FormEvent<HTMLFormElement>` instead
+- tRPC context uses `cookies()` from `next/headers` — passed via `createContext` in `src/server/trpc/init.ts`
+- `protectedProcedure` in `init.ts` validates session cookie and adds `ctx.user` ({ id, email })
+- Auth router at `src/server/trpc/routers/auth.ts` — register/login/logout/me procedures
+- Cookie name: `session_token`, HTTP-only, 30-day expiry, lax sameSite
 ---
 
 ## 2026-03-21 - US-060
-- Removed RougeoleChart import and render from `src/app/page.tsx`
-- Removed "rougeole" from page description text (kept Covid-19, bronchiolite, grippe)
-- Component file `src/components/rougeole-chart.tsx` left in place (per acceptance criteria)
-- Browser verified: Rougeole chart no longer appears on dashboard
-- Files changed: `src/app/page.tsx`
+- Added `usersTable` (id, email unique, password_hash, created_at) and `sessionsTable` (id, user_id FK, token unique, expires_at) to schema
+- Installed `bcryptjs` + `@types/bcryptjs`
+- Generated Drizzle migration `0007_bizarre_jack_murdock.sql`
+- Files changed: `src/server/db/schema.ts`, `drizzle/0007_bizarre_jack_murdock.sql`, `drizzle/meta/*`, `package.json`, `package-lock.json`
 - **Learnings for future iterations:**
-  - Minimal removal — just delete import + JSX usage, no need to touch component file
+  - `npx drizzle-kit` fails in this project — use `./node_modules/.bin/drizzle-kit generate` instead
+  - Drizzle FK syntax: `.references(() => usersTable.id)` on the column definition
+  - Index on sessions added via pgTable 3rd arg callback `(table) => [index(...).on(table.user_id)]`
 ---
 
 ## 2026-03-21 - US-061
-- Created `src/lib/wave-detection.ts` with `detectWaves(series)` function and `Wave` type
-- Derivative-based approach: rolling 25th-percentile baseline, 10% threshold, sustained rise detection (3+ points), minimum 4-week duration
-- Incomplete waves at series end excluded
-- Handles nulls by filtering them out upfront
-- Files changed: `src/lib/wave-detection.ts`
+- Created auth tRPC router with register, login, logout, me procedures
+- Added tRPC context creation with `cookies()` from `next/headers`
+- Added `protectedProcedure` middleware that validates session and injects `ctx.user`
+- Updated API route handler to use `createContext`
+- Registered auth router in root router
+- Files changed: `src/server/trpc/init.ts`, `src/server/trpc/routers/auth.ts`, `src/server/trpc/router.ts`, `src/app/api/trpc/[trpc]/route.ts`
 - **Learnings for future iterations:**
-  - Wave detection uses smoothed_value from DB — national station ID is 'national_54'
-  - Rolling baseline with 25th percentile works better than simple moving average for non-stationary data
-  - Threshold at 10% of global range avoids noise while catching real waves
----
-
-## 2026-03-21 - US-061b
-- Created `src/lib/wave-detection.test.ts` with 8 test cases using vitest
-- Tests: single triangle wave, multiple waves, flat data (no waves), null gaps, small noise, fewer than 10 points, incomplete wave at end, property relationships
-- All tests pass, typecheck passes
-- Files changed: `src/lib/wave-detection.test.ts`
-- **Learnings for future iterations:**
-  - Tests go next to source files as `*.test.ts` (not in `__tests__/` subfolder) — matches existing `severity.test.ts` pattern
-  - Wave detection's 10% global range threshold means test noise must be truly tiny (±1 unit on 50 baseline), not sinusoidal
-  - `makeSeries` helper generating `YYYY-WXX` weeks is reusable for future wave/forecast tests
+  - `initTRPC.context<Context>().create()` is the pattern to add typed context to tRPC
+  - `cookies()` from `next/headers` is async in Next.js 15 — must `await cookies()`
+  - Drizzle doesn't support chaining `.where()` — use `and()` to combine conditions
+  - The fetch adapter's `createContext` receives the request but we use `cookies()` directly (Next.js manages cookie access)
 ---
 
 ## 2026-03-21 - US-062
-- Created `src/lib/wave-stats.ts` with `computeWaveStats(waves)` function and `WaveStats` interface
-- Stats: waveCount, avgDuration±std, avgFrequency±std, avgAmplitude±std, avgInterWaveGap±std
-- Frequency computed as waves/year from total span; std from peak-to-peak intervals
-- Edge cases: 0 waves → all nulls, 1 wave → count+means only, 2+ waves → gaps/frequency
-- Created `src/lib/wave-stats.test.ts` with 5 test cases (0, 1, 2, 5+ waves, frequency check)
-- All tests pass, typecheck passes
-- Files changed: `src/lib/wave-stats.ts`, `src/lib/wave-stats.test.ts`
+- Created `AuthButton` client component with login/register dialog (shadcn Dialog, Input, Label)
+- Added shadcn `input` and `label` components via `./node_modules/.bin/shadcn add input label`
+- Integrated `AuthButton` into header — shows "Connexion" when logged out, email + "Déconnexion" when logged in
+- Form toggles between login/register modes, shows inline validation errors
+- Auth state managed via `trpc.auth.me` query, invalidated on login/logout/register
+- Files changed: `src/components/auth/auth-button.tsx` (new), `src/components/layout/header.tsx`, `src/components/ui/input.tsx` (new), `src/components/ui/label.tsx` (new)
 - **Learnings for future iterations:**
-  - `weekToAbsolute` helper parses YYYY-WXX to year*52+week for gap computation — not perfect for year boundaries but close enough
-  - Sample std (n-1 denominator) used for consistency with statistical conventions
-  - Frequency std requires 3+ waves (need 2+ intervals to compute std of intervals)
+  - `npx shadcn@latest` doesn't work — use `./node_modules/.bin/shadcn add <component>` directly
+  - `React.FormEvent` is deprecated in this project's React types — use `React.FormEvent<HTMLFormElement>` instead
+  - Header is a server component but can import client components (like AuthButton with "use client")
+  - `trpc.useUtils()` provides `invalidate()` for cache busting after mutations
+  - Browser verification needed — no browser tools available in this iteration
 ---
 
 ## 2026-03-21 - US-063
-- Installed `arima` npm package (WASM-based ARIMA implementation)
-- Created `src/lib/forecast.ts` with `forecastWastewater(series, horizonWeeks?)` function
-- Auto-ARIMA fitting on filtered non-null values, returns predictions + 95% CI (z=1.96)
-- ISO week incrementing with year boundary handling (52/53-week years)
-- Exported `ForecastPoint` interface
-- Files changed: `src/lib/forecast.ts`, `package.json`, `package-lock.json`
+- Added `sicknessEpisodesTable` to schema: id (serial PK), user_id (FK to users), start_date (date), end_date (date), created_at (timestamp)
+- Added index on user_id for fast lookups
+- Generated Drizzle migration `0008_lumpy_johnny_blaze.sql`
+- Files changed: `src/server/db/schema.ts`, `drizzle/0008_lumpy_johnny_blaze.sql`, `drizzle/meta/*`
 - **Learnings for future iterations:**
-  - `arima` npm package API: `new ARIMA({ auto: true, verbose: false }).train(data).predict(n)` returns `[predictions[], errors[]]`
-  - Errors from ARIMA are standard errors — multiply by 1.96 for 95% CI
-  - ISO 8601: year has 53 weeks if Jan 1 or Dec 31 is Thursday
-  - Module requires at least 10 data points to produce meaningful forecast
----
-
-## 2026-03-21 - US-063b
-- Created `src/lib/forecast.test.ts` with 7 test cases using vitest
-- Tests: sinusoidal input produces forecast, flat input produces near-constant forecast, custom horizon weeks, week string incrementing across year boundary, lowerBound <= predicted <= upperBound, fewer than 10 points returns empty, series with null gaps
-- All tests pass, typecheck passes
-- Files changed: `src/lib/forecast.test.ts`
-- **Learnings for future iterations:**
-  - Reused `makeSeries` helper pattern from wave-detection.test.ts
-  - ARIMA on flat input returns values very close to the constant — `toBeCloseTo(42, 0)` is sufficient
-  - Week incrementing test uses startWeek=50 to verify year boundary crossing
-  - For bounds test, sinusoidal input works better than flat (flat may have stderr=0)
+  - Same FK pattern as sessions: `.references(() => usersTable.id)`
+  - Date columns use `date()` from drizzle-orm/pg-core (returns string, not Date object)
+  - Index pattern consistent: pgTable 3rd arg callback with `index("name").on(table.column)`
 ---
 
 ## 2026-03-21 - US-064
-- Created `src/server/trpc/routers/wave-analysis.ts` with two procedures:
-  - `getWaveStats`: queries smoothed_value by stationId, runs detectWaves + computeWaveStats, returns { waves, stats }
-  - `getForecast`: queries smoothed_value by stationId, runs forecastWastewater, returns forecast array
-- Shared `fetchSmoothedSeries(stationId)` helper to avoid duplication
-- Registered `waveAnalysisRouter` in root router as `waveAnalysis`
-- Typecheck passes, all 45 tests pass
-- Files changed: `src/server/trpc/routers/wave-analysis.ts`, `src/server/trpc/router.ts`
+- Created sickness tRPC router with `list`, `create`, `delete` procedures (all using `protectedProcedure`)
+- Registered as `sickness` in root router
+- `list` returns user's episodes sorted by start_date desc, mapped to camelCase
+- `create` validates startDate <= endDate, inserts and returns created episode
+- `delete` verifies ownership before deleting
+- Files changed: `src/server/trpc/routers/sickness.ts` (new), `src/server/trpc/router.ts`
 - **Learnings for future iterations:**
-  - Follow wastewater.ts pattern: publicProcedure, z.object input, map snake_case to camelCase
-  - Shared DB query helper within router file keeps procedures DRY
-  - Both procedures default stationId to NATIONAL_COLUMN ('national_54')
----
-
-## 2026-03-21 - US-064b
-- Added `forecast_snapshots` table to schema with `snapshot_date` (date) + `target_week` unique constraint
-- Generated migration `drizzle/0006_tricky_shatterstar.sql`
-- Added forecast snapshot generation to `/api/sync` route — runs after wastewater sync, inserts 3 rows per day using `onConflictDoNothing`
-- Added `getForecastHistory` tRPC procedure to wave-analysis router — returns all snapshots ordered by snapshot_date desc, target_week asc
-- Files changed: `src/server/db/schema.ts`, `drizzle/0006_tricky_shatterstar.sql`, `drizzle/meta/`, `src/app/api/sync/route.ts`, `src/server/trpc/routers/wave-analysis.ts`, `scripts/ralph/prd.json`
-- **Learnings for future iterations:**
-  - Use `date` type from `drizzle-orm/pg-core` for date-only columns (not timestamp)
-  - `onConflictDoNothing()` is cleaner than `onConflictDoUpdate` when you just want to skip duplicates
-  - Forecast snapshots only store national_54 data — keep it lightweight
-  - The `desc` import from `drizzle-orm` is needed alongside `asc` for ordering
+  - `protectedProcedure` provides `ctx.user` with `{ id, email }` — use `ctx.user.id` for ownership checks
+  - String comparison works for ISO date validation (`startDate > endDate`)
+  - Pattern: select + ownership check before delete (don't just delete with WHERE)
 ---
 
 ## 2026-03-21 - US-065
-- Added forecast rendering to WastewaterChart: grey dashed line + confidence band
-- Forecast query via `trpc.waveAnalysis.getForecast` runs in parallel with main data
-- Confidence band uses Recharts `Area` with `[lower, upper]` array tuple in data (single Area, not two stacked)
-- Forecast bridges from last real data point (no gap) via setting forecast value on last real point
-- Legend entry "Prévision" in its own group, toggleable via existing hiddenKeys mechanism
-- Tooltip shows forecast value with dashed line icon, hides band key
-- Files changed: `src/components/chart/wastewater-chart.tsx`, `scripts/ralph/prd.json`
+- Created `SicknessPanel` client component with add form, episode list, and delete functionality
+- Panel only renders when user is logged in (checks `trpc.auth.me` query)
+- Add form with date inputs, end date auto-defaults to start date, inline error display
+- Episode list shows French-formatted dates, duration in days, delete button with `window.confirm`
+- React Query invalidation on create/delete for immediate UI updates
+- Integrated below WaveStatsPanel in `src/app/page.tsx`
+- Files changed: `src/components/sickness/sickness-panel.tsx` (new), `src/app/page.tsx`
 - **Learnings for future iterations:**
-  - Recharts `Area` supports `[lower, upper]` array values in data for range bands — much cleaner than two stacked Areas
-  - `ChartDataPoint` interface needed `number[]` added to allow array band values
-  - To bridge forecast to real data (no visual gap), set the forecast dataKey on the last real data point to its smoothed value
-  - Forecast station ID derived from `indicatorStationIds[0]` — follows first selected station
-  - Browser shows loading skeletons when no DB connected — expected, no rendering errors
+  - Sickness panel component at `src/components/sickness/sickness-panel.tsx`
+  - `trpc.sickness.list` query should be `enabled: !!me.data` to avoid 401 when logged out
+  - HTML date inputs return ISO strings (YYYY-MM-DD) — compatible with sickness router's string date fields
+  - Browser verification needed — no browser tools available in this iteration
 ---
 
 ## 2026-03-21 - US-066
-- Created `src/components/wave-stats-panel.tsx` with card-based wave statistics display
-- Cards: wave count, avg duration ± std, frequency ± std, amplitude ± std, inter-wave gap ± std, next wave estimate
-- French locale formatting (comma decimals) via `toLocaleString("fr-FR")`
-- Responsive grid: 2-col mobile, 4-col desktop (`grid-cols-2 md:grid-cols-4`)
-- Loading skeleton state with 4 skeleton cards
-- Reads station from `useStationPreferences()` — first non-national station or `NATIONAL_COLUMN`
-- Calls `trpc.waveAnalysis.getWaveStats` and `trpc.waveAnalysis.getForecast`
-- Added to `src/app/page.tsx` below chart+map row
-- Browser verified: skeleton cards render correctly in 4-col grid (no DB = loading state)
-- All 45 tests pass, typecheck clean
-- Files changed: `src/components/wave-stats-panel.tsx`, `src/app/page.tsx`
+- Added sickness episode markers as `ReferenceArea` bands on the wastewater chart
+- Fetches `trpc.auth.me` and `trpc.sickness.list` inside `WastewaterChart` component
+- Converts episode dates to ISO week strings via existing `dateToISOWeek`, clamps to chart range
+- Semi-transparent red bands (rgba(239, 68, 68, 0.15)) with subtle stroke
+- Legend entry "Mes épisodes" in "Personnel" group, only shown when logged in with episodes
+- Added `band?: boolean` to `LegendEntry` interface for filled rectangle swatch in legend
+- Markers hidden when toggled off via legend (uses existing `hiddenKeys` mechanism)
+- Files changed: `src/components/chart/wastewater-chart.tsx`, `src/components/chart/chart-legend.tsx`
 - **Learnings for future iterations:**
-  - StatCard pattern (label + value + unit) is reusable for any dashboard metric cards
-  - `toLocaleString("fr-FR")` handles comma decimals natively — no need for manual string replacement
-  - Wave stats panel follows same stationId derivation as WastewaterChart forecast
+  - `ReferenceArea` from recharts uses `x1`/`x2` props matching X axis data values (ISO week strings)
+  - `ReferenceArea` must be placed inside `ComposedChart` alongside other chart elements
+  - `ifOverflow="hidden"` clips reference areas to the chart bounds
+  - `sicknessWeekRanges` memo depends on `chartData` — must be defined after chartData memo
+  - Browser verification needed — no browser tools available in this iteration
 ---
 
+## 2026-03-21 - US-067
+- Added `SicknessStats` component inside `sickness-panel.tsx` showing: total episodes, avg per year (if >1yr span), avg duration, last episode date
+- Stats rendered as a grid inside the "Mes épisodes" card, visible only when ≥1 episode exists
+- All values computed client-side from full episode list (not filtered by date range)
+- French locale formatting (comma decimals, French date format)
+- Files changed: `src/components/sickness/sickness-panel.tsx`
+- **Learnings for future iterations:**
+  - Stats component kept as a private function in the same file — no need for separate file when tightly coupled
+  - `toLocaleString("fr-FR", { maximumFractionDigits: 1 })` for French number formatting
+  - Episodes are already sorted desc from the API; sort asc locally when computing time span
+  - Browser verification needed — no browser tools available in this iteration
+---

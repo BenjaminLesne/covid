@@ -1,17 +1,18 @@
 {
   "project": "EauxVid",
-  "description": "Wave Statistics & Predictions - Analyze wastewater Covid waves and forecast next values using ARIMA",
+  "branchName": "ralph/sickness-tracker",
+  "description": "Personal Sickness Tracker - Log illness episodes and see them as markers on the wastewater chart",
   "userStories": [
     {
       "id": "US-060",
-      "title": "Remove Rougeole chart from dashboard",
-      "description": "As a user, I no longer need the Rougeole chart cluttering the dashboard.",
+      "title": "Auth — users and sessions tables",
+      "description": "As a developer, I need user and session tables in the DB to support authentication.",
       "acceptanceCriteria": [
-        "RougeoleChart component removed from page.tsx render and its import removed",
-        "Rougeole mention removed from page description text (keep Covid-19, bronchiolite, grippe)",
-        "Component file src/components/rougeole-chart.tsx can stay (no dead-code cleanup required)",
-        "Typecheck passes",
-        "Verify in browser using dev-browser skill"
+        "Add `usersTable` to schema: id (serial PK), email (varchar, unique), password_hash (varchar), created_at (timestamp, default now)",
+        "Add `sessionsTable` to schema: id (serial PK), user_id (integer FK to users), token (varchar, unique), expires_at (timestamp)",
+        "Generate Drizzle migration successfully",
+        "Install `bcryptjs` and `@types/bcryptjs` as dependencies",
+        "Typecheck passes"
       ],
       "priority": 1,
       "passes": true,
@@ -19,162 +20,125 @@
     },
     {
       "id": "US-061",
-      "title": "Wave detection algorithm",
-      "description": "As a developer, I need a wave detection algorithm that identifies individual Covid waves from the smoothed wastewater time series.",
+      "title": "Auth — tRPC router with register, login, logout, me",
+      "description": "As a developer, I need auth API procedures so users can create accounts and log in.",
       "acceptanceCriteria": [
-        "New module src/lib/wave-detection.ts exports a detectWaves(series) function",
-        "Input: array of { week: string, value: number | null } sorted by week ascending",
-        "Uses derivative-based approach on smoothed values: wave starts when sustained upward trend begins, ends when value returns to baseline",
-        "Each detected wave object includes: startWeek, peakWeek, endWeek, peakValue, duration (weeks), amplitude (peak minus baseline)",
-        "Handles edge cases: incomplete waves at series boundaries are excluded, null/missing values are skipped",
-        "Export the Wave type interface from the module",
+        "Create `src/server/trpc/routers/auth.ts` with `register`, `login`, `logout`, `me` procedures",
+        "Register router in root router as `auth`",
+        "`register` validates email format and min 8-char password, hashes with bcryptjs, creates user + session, sets HTTP-only cookie `session_token` (30-day expiry)",
+        "`login` verifies email+password, creates session, sets HTTP-only cookie",
+        "`logout` deletes session from DB, clears cookie",
+        "`me` reads cookie, looks up session, returns { id, email } or null if no valid session",
+        "Create a `protectedProcedure` in `src/server/trpc/init.ts` that throws UNAUTHORIZED if no valid session",
+        "Use Next.js `cookies()` from `next/headers` to read/write cookies in tRPC context",
         "Typecheck passes"
       ],
       "priority": 2,
       "passes": true,
-      "notes": "Use smoothed_value from the DB, not raw value. National station ID is 'national_54'."
-    },
-    {
-      "id": "US-061b",
-      "title": "Unit tests for wave detection",
-      "description": "As a developer, I need tests to verify wave detection works correctly on synthetic data.",
-      "acceptanceCriteria": [
-        "Test file src/lib/__tests__/wave-detection.test.ts (or .spec.ts)",
-        "Test cases: single wave (triangle shape), multiple waves, flat data (no waves), data with null gaps, noisy data with small fluctuations that should not count as waves",
-        "Tests verify correct startWeek, peakWeek, endWeek, duration, amplitude for each detected wave",
-        "Tests pass",
-        "Typecheck passes"
-      ],
-      "priority": 3,
-      "passes": true,
-      "notes": "Use vitest or jest depending on what the project already uses. Check package.json for test runner."
+      "notes": "Cookie must be set via tRPC context or returned to a server action. For tRPC with fetch adapter, set cookies in the context creation by passing the request headers."
     },
     {
       "id": "US-062",
-      "title": "Wave statistics computation",
-      "description": "As a developer, I need to compute summary statistics from detected waves.",
+      "title": "Auth — login/register UI",
+      "description": "As a user, I want to create an account and log in so my sickness data is saved.",
       "acceptanceCriteria": [
-        "New module src/lib/wave-stats.ts exports a computeWaveStats(waves) function",
-        "Input: array of Wave objects from wave-detection.ts",
-        "Returns object with: waveCount, avgDuration, stdDuration, avgFrequency (waves/year), stdFrequency, avgAmplitude, stdAmplitude, avgInterWaveGap (weeks), stdInterWaveGap",
-        "All stats include mean + standard deviation",
-        "Edge cases: 0 waves returns all nulls, 1 wave returns count and amplitude but null for std/frequency/gap",
-        "Unit tests covering 0, 1, 2, and 5+ wave inputs",
-        "Tests pass",
-        "Typecheck passes"
+        "Add 'Connexion' button to header (visible when not logged in)",
+        "Clicking opens a dialog/sheet with login form (email + password + submit)",
+        "Form has a toggle link to switch to register mode ('Créer un compte') and back ('Se connecter')",
+        "Shows inline validation errors (bad email, short password, wrong credentials)",
+        "On success: dialog closes, header shows user email + 'Déconnexion' button",
+        "On logout click: calls logout procedure, header reverts to 'Connexion' button",
+        "Auth state managed via `trpc.auth.me` query (refetched on login/logout)",
+        "Session persists across page reloads (cookie-based)",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
       ],
-      "priority": 4,
+      "priority": 3,
       "passes": true,
-      "notes": "Use simple-statistics npm package if helpful, or compute mean/std manually (it's just a few lines)."
+      "notes": "Use shadcn Dialog component. Add shadcn input and label components if not already present."
     },
     {
       "id": "US-063",
-      "title": "Install arima package and create forecast module",
-      "description": "As a developer, I need an ARIMA-based forecast of the wastewater signal to predict the next 3 weeks.",
+      "title": "Sickness episodes — database table",
+      "description": "As a developer, I need to store sickness episodes per user.",
       "acceptanceCriteria": [
-        "npm install arima (add to dependencies)",
-        "New module src/lib/forecast.ts exports a forecastWastewater(series, horizonWeeks?) function",
-        "Input: array of { week: string, value: number | null } sorted by week ascending",
-        "Default horizonWeeks = 3",
-        "Uses arima npm package to fit ARIMA model on the smoothed values (filter out nulls)",
-        "Returns array of { week, predictedValue, lowerBound, upperBound } for each forecast week",
-        "Week strings are computed by incrementing ISO weeks from the last data point",
-        "Confidence interval (95%) widens over time",
+        "Add `sicknessEpisodesTable` to schema: id (serial PK), user_id (integer FK to users), start_date (date), end_date (date), created_at (timestamp, default now)",
+        "Add index on user_id for fast lookups",
+        "Generate Drizzle migration successfully",
         "Typecheck passes"
       ],
-      "priority": 5,
-      "passes": true,
-      "notes": "The arima npm package API: new ARIMA({ p, d, q, s, verbose: false }).train(data).predict(steps). Returns [predictions, errors]. Use auto mode if available. ISO week incrementing: parse 'YYYY-WXX' format, add weeks, handle year boundaries."
-    },
-    {
-      "id": "US-063b",
-      "title": "Unit tests for forecast module",
-      "description": "As a developer, I need tests to verify the forecast module produces reasonable output.",
-      "acceptanceCriteria": [
-        "Test file for forecast.ts",
-        "Test: sinusoidal input produces 3-week forecast with values in reasonable range",
-        "Test: flat/constant input produces near-constant forecast",
-        "Test: forecast returns correct number of weeks (default 3)",
-        "Test: week strings are correctly incremented from last input week",
-        "Test: lowerBound <= predictedValue <= upperBound for each forecast point",
-        "Tests pass",
-        "Typecheck passes"
-      ],
-      "priority": 6,
+      "priority": 4,
       "passes": true,
       "notes": ""
     },
     {
       "id": "US-064",
-      "title": "tRPC endpoints for wave stats and forecast",
-      "description": "As a frontend developer, I need API endpoints to fetch wave statistics and forecast data.",
+      "title": "Sickness episodes — tRPC CRUD router",
+      "description": "As a developer, I need API procedures to list, create, and delete sickness episodes.",
       "acceptanceCriteria": [
-        "New tRPC router src/server/trpc/routers/wave-analysis.ts",
-        "Procedure waveAnalysis.getWaveStats: input { stationId?: string } (default 'national_54'), queries wastewater_indicators for that station ordered by week, runs detectWaves + computeWaveStats, returns { waves: Wave[], stats: WaveStats }",
-        "Procedure waveAnalysis.getForecast: input { stationId?: string } (default 'national_54'), queries wastewater_indicators smoothed_value for that station, runs forecastWastewater, returns forecast array",
-        "Both procedures query DB directly (reuse existing wastewater_indicators table)",
-        "Router registered in root router at src/server/trpc/router.ts",
+        "Create `src/server/trpc/routers/sickness.ts` with `list`, `create`, `delete` procedures",
+        "Register router in root router as `sickness`",
+        "All procedures use `protectedProcedure` (requires authenticated user)",
+        "`list` returns current user's episodes sorted by start_date desc",
+        "`create` accepts { startDate: string, endDate: string }, validates startDate <= endDate, inserts row, returns created episode",
+        "`delete` accepts { id: number }, verifies episode belongs to current user before deleting",
         "Typecheck passes"
       ],
-      "priority": 7,
+      "priority": 5,
       "passes": true,
-      "notes": "Follow existing pattern in wastewater.ts router. Use smoothed_value column for both wave detection and forecasting."
-    },
-    {
-      "id": "US-064b",
-      "title": "Forecast snapshots DB table and sync integration",
-      "description": "As a user, I want national forecast predictions persisted so I can later compare predictions vs reality.",
-      "acceptanceCriteria": [
-        "New table forecast_snapshots in src/server/db/schema.ts: id (serial PK), created_at (timestamp, defaultNow), target_week (varchar), predicted_value (doublePrecision), lower_bound (doublePrecision), upper_bound (doublePrecision)",
-        "Unique constraint on (created_at cast to date, target_week) — or use a snapshot_date (date) column with unique on (snapshot_date, target_week) for simplicity",
-        "Generate Drizzle migration with db:generate",
-        "In /api/sync route (src/app/api/sync/route.ts): after wastewater sync completes, fetch national_54 smoothed data, run forecastWastewater, insert 3 rows into forecast_snapshots (one per predicted week), use onConflictDoNothing to skip if already run today",
-        "New tRPC procedure waveAnalysis.getForecastHistory: returns all past snapshots ordered by created_at desc, target_week asc",
-        "Typecheck passes"
-      ],
-      "priority": 8,
-      "passes": true,
-      "notes": "Only national_54 forecasts are stored — keep it lightweight. Follow existing sync pattern in src/app/api/sync/route.ts."
+      "notes": ""
     },
     {
       "id": "US-065",
-      "title": "Render forecast on main chart as grey curve with confidence band",
-      "description": "As a user, I want to see the predicted wastewater trend as a grey line continuing from the last real data point, with a shaded confidence band.",
+      "title": "Sickness logging UI — add/list/delete episodes",
+      "description": "As a user, I want to log when I was sick and manage my episodes.",
       "acceptanceCriteria": [
-        "In WastewaterChart component, call trpc.waveAnalysis.getForecast with the selected station ID",
-        "Forecast data merged into chart data array — forecast rows have predictedValue, lowerBound, upperBound fields while real data rows have null for these",
-        "Forecast line rendered as grey dashed Line on the existing ComposedChart (color: hsl(0, 0%, 60%), strokeDasharray: '5 5')",
-        "Confidence band rendered as grey semi-transparent Area between lowerBound and upperBound (fillOpacity ~0.15)",
-        "Forecast starts exactly where real data ends — last real data point value bridges to first forecast point",
-        "X-axis extends to accommodate forecast weeks",
-        "Legend entry 'Prévision' with grey styling, toggleable via existing hiddenKeys mechanism",
-        "Loading state while forecast computes (do not block main chart render)",
+        "'Mes épisodes' panel visible only when logged in (below the chart area)",
+        "'Ajouter un épisode' button opens a form with two date inputs: start date and end date",
+        "End date defaults to start date value when start date is picked",
+        "Submitted episodes appear in a list with start date, end date, duration, and a delete button",
+        "Delete button removes the episode after confirmation",
+        "List updates immediately after add/delete (React Query invalidation)",
         "Typecheck passes",
         "Verify in browser using dev-browser skill"
       ],
-      "priority": 9,
+      "priority": 6,
       "passes": true,
-      "notes": "Use Recharts Area component for the confidence band. The ComposedChart already supports mixing Line and Area. Forecast query can run in parallel with main data query."
+      "notes": "Use shadcn Card for the panel. Date inputs can be plain HTML date inputs or shadcn calendar/popover."
     },
     {
       "id": "US-066",
-      "title": "Wave statistics panel on dashboard",
-      "description": "As a user, I want to see key wave statistics in a section on the dashboard that replaces the Rougeole chart.",
+      "title": "Display sickness markers on chart",
+      "description": "As a user, I want to see my sickness episodes as shaded bands on the wastewater chart.",
       "acceptanceCriteria": [
-        "New component src/components/wave-stats-panel.tsx",
-        "Calls trpc.waveAnalysis.getWaveStats with selected station ID (from useStationPreferences — use first selected station or 'national_54' if national is selected)",
-        "Card-based layout showing: wave count, avg duration ± std (weeks), avg frequency ± std (waves/year), avg amplitude ± std, avg gap between waves ± std (weeks)",
-        "If forecast data available: show 'Prochaine vague estimée: semaine YYYY-WXX' with confidence range",
-        "Values formatted in French locale (comma for decimals)",
-        "Responsive: 2-col grid on mobile, 4-col on desktop (use Tailwind grid)",
-        "Loading skeleton while data fetches (reuse existing Skeleton component)",
-        "Added to page.tsx below the chart+map row (where Rougeole was)",
+        "Each sickness episode renders as a Recharts `ReferenceArea` on the wastewater chart",
+        "Band color: semi-transparent red/orange (e.g., rgba(239, 68, 68, 0.15))",
+        "Legend entry 'Mes épisodes' appears when user is logged in and has episodes",
+        "Markers only show for episodes overlapping the current chart date range",
+        "Markers update when date range filter changes",
+        "No markers when user is not logged in",
         "Typecheck passes",
         "Verify in browser using dev-browser skill"
       ],
-      "priority": 10,
+      "priority": 7,
       "passes": true,
-      "notes": "Stats update when station selection or date range changes. Use shadcn Card component. Follow existing patterns for loading states."
+      "notes": "ReferenceArea uses x1/x2 props with the week string values from the chart's X axis. Convert episode dates to ISO week strings."
+    },
+    {
+      "id": "US-067",
+      "title": "Personal sickness frequency stats",
+      "description": "As a user, I want to see basic stats about how often I get sick.",
+      "acceptanceCriteria": [
+        "Stats section visible inside the 'Mes épisodes' panel when logged in and has at least 1 episode",
+        "Shows: total episodes count, average episodes per year (if data spans > 1 year), average duration in days, date of last episode",
+        "Stats computed from all user episodes (not filtered by current date range)",
+        "Formatted in French locale (comma decimals, French date format)",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 8,
+      "passes": true,
+      "notes": ""
     }
   ]
 }
