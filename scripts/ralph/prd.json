@@ -1,6 +1,5 @@
 {
   "project": "EauxVid",
-  "branchName": "ralph/wave-statistics",
   "description": "Wave Statistics & Predictions - Analyze wastewater Covid waves and forecast next values using ARIMA",
   "userStories": [
     {
