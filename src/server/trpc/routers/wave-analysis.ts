@@ -1,0 +1,48 @@
+import { z } from "zod";
+import { router, publicProcedure } from "../init";
+import { db } from "@/server/db";
+import { wastewaterIndicatorsTable } from "@/server/db/schema";
+import { asc, eq } from "drizzle-orm";
+import { NATIONAL_COLUMN } from "@/lib/constants";
+import { detectWaves } from "@/lib/wave-detection";
+import { computeWaveStats } from "@/lib/wave-stats";
+import { forecastWastewater } from "@/lib/forecast";
+
+const stationInput = z
+  .object({
+    stationId: z.string().optional(),
+  })
+  .optional();
+
+async function fetchSmoothedSeries(stationId: string) {
+  const rows = await db
+    .select({
+      week: wastewaterIndicatorsTable.week,
+      value: wastewaterIndicatorsTable.smoothed_value,
+    })
+    .from(wastewaterIndicatorsTable)
+    .where(eq(wastewaterIndicatorsTable.station_id, stationId))
+    .orderBy(asc(wastewaterIndicatorsTable.week));
+
+  return rows;
+}
+
+export const waveAnalysisRouter = router({
+  getWaveStats: publicProcedure
+    .input(stationInput)
+    .query(async ({ input }) => {
+      const stationId = input?.stationId ?? NATIONAL_COLUMN;
+      const series = await fetchSmoothedSeries(stationId);
+      const waves = detectWaves(series);
+      const stats = computeWaveStats(waves);
+      return { waves, stats };
+    }),
+
+  getForecast: publicProcedure
+    .input(stationInput)
+    .query(async ({ input }) => {
+      const stationId = input?.stationId ?? NATIONAL_COLUMN;
+      const series = await fetchSmoothedSeries(stationId);
+      return forecastWastewater(series);
+    }),
+});
