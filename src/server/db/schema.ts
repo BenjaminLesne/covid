@@ -92,6 +92,26 @@ export const forecastSnapshotsTable = pgTable(
   ],
 );
 
+export const usersTable = pgTable("users", {
+  id: serial("id").primaryKey(),
+  email: varchar("email").notNull().unique(),
+  password_hash: varchar("password_hash").notNull(),
+  created_at: timestamp("created_at").defaultNow(),
+});
+
+export const sessionsTable = pgTable(
+  "sessions",
+  {
+    id: serial("id").primaryKey(),
+    user_id: integer("user_id")
+      .notNull()
+      .references(() => usersTable.id),
+    token: varchar("token").notNull().unique(),
+    expires_at: timestamp("expires_at").notNull(),
+  },
+  (table) => [index("sessions_user_id_idx").on(table.user_id)],
+);
+
 export const syncMetadataTable = pgTable("sync_metadata", {
   id: serial("id").primaryKey(),
   started_at: timestamp("started_at").notNull().defaultNow(),
