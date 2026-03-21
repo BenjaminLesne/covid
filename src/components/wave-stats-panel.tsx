@@ -132,7 +132,7 @@ export function WaveStatsPanel() {
     );
   }
 
-  if (!data) return null;
+  if (!data || !stats) return null;
 
   const firstWaveYear = data.waves.length > 0
     ? data.waves[0].startWeek.slice(0, 4)
