@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
-import { Line, XAxis, YAxis, CartesianGrid, ComposedChart } from "recharts";
+import { Area, Line, XAxis, YAxis, CartesianGrid, ComposedChart } from "recharts";
 import { trpc } from "@/lib/trpc";
 import { useStationPreferences } from "@/hooks/use-station-preferences";
 import { useDateRange } from "@/hooks/use-date-range";
@@ -18,6 +18,11 @@ import {
 import { ChartLegend, type LegendEntry } from "@/components/chart/chart-legend";
 import type { Station } from "@/types/wastewater";
 
+
+/** Color for forecast line and confidence band. */
+const FORECAST_COLOR = "hsl(0, 0%, 60%)";
+const FORECAST_KEY = "forecast";
+const FORECAST_BAND_KEY = "forecast_band";
 
 /** Predefined colors for chart lines. */
 export const LINE_COLORS = [
@@ -91,7 +96,7 @@ function dateToISOWeek(date: Date): string {
 
 interface ChartDataPoint {
   week: string;
-  [key: string]: number | string | null;
+  [key: string]: number | string | number[] | null;
 }
 
 interface WastewaterChartProps {
@@ -155,6 +160,13 @@ export function WastewaterChart({ hiddenKeys, onToggle, department, departmentLa
       }
     );
 
+  // Forecast: use first selected station (mapped to column name)
+  const forecastStationId = indicatorStationIds[0] ?? NATIONAL_COLUMN;
+  const { data: forecastData } = trpc.waveAnalysis.getForecast.useQuery(
+    { stationId: forecastStationId },
+    { enabled: !!stations },
+  );
+
   // Build stable display name mapping: stationId → label
   const displayNames = useMemo(() => {
     const map = new Map<string, string>();
@@ -196,10 +208,15 @@ export function WastewaterChart({ hiddenKeys, onToggle, department, departmentLa
         color: meta.color,
       };
     }
+    // Forecast entry
+    config[FORECAST_KEY] = {
+      label: "Prévision",
+      color: FORECAST_COLOR,
+    };
     return config;
   }, [indicatorStationIds, displayNames, enabledDiseases, clinicalLabelSuffix]);
 
-  // Pivot indicators into Recharts data format: one row per week, merged with clinical data
+  // Pivot indicators into Recharts data format: one row per week, merged with clinical + forecast data
   const chartData = useMemo(() => {
     if (!indicators || indicators.length === 0) return [];
 
@@ -227,11 +244,35 @@ export function WastewaterChart({ hiddenKeys, onToggle, department, departmentLa
       }
     }
 
+    // Bridge forecast to last real data point and append forecast weeks
+    if (forecastData && forecastData.length > 0) {
+      // Find the last real smoothed value for the forecast station to bridge
+      const smoothedKey = `${forecastStationId}_smoothed`;
+      const sorted = Array.from(weekMap.values()).sort((a, b) =>
+        (a.week as string).localeCompare(b.week as string)
+      );
+      const lastReal = sorted.findLast((p) => p[smoothedKey] != null);
+      if (lastReal) {
+        // Set forecast value on last real point to bridge (no gap)
+        lastReal[FORECAST_KEY] = lastReal[smoothedKey] as number;
+      }
+
+      for (const fp of forecastData) {
+        let point = weekMap.get(fp.week);
+        if (!point) {
+          point = { week: fp.week };
+          weekMap.set(fp.week, point);
+        }
+        point[FORECAST_KEY] = fp.predictedValue;
+        point[FORECAST_BAND_KEY] = [fp.lowerBound, fp.upperBound];
+      }
+    }
+
     // Sort by week chronologically
     return Array.from(weekMap.values()).sort((a, b) =>
       (a.week as string).localeCompare(b.week as string)
     );
-  }, [indicators, clinicalIndicators]);
+  }, [indicators, clinicalIndicators, forecastData, forecastStationId]);
 
   // Legend entries: wastewater (solid) + clinical (dashed)
   const legendEntries: LegendEntry[] = useMemo(() => {
@@ -252,6 +293,14 @@ export function WastewaterChart({ hiddenKeys, onToggle, department, departmentLa
         group: "Urgences",
       });
     }
+    // Forecast entry
+    entries.push({
+      key: FORECAST_KEY,
+      label: "Prévision",
+      color: FORECAST_COLOR,
+      dashed: true,
+      group: "Prévision",
+    });
     return entries;
   }, [indicatorStationIds, displayNames, enabledDiseases, clinicalLabelSuffix]);
 
@@ -351,11 +400,29 @@ export function WastewaterChart({ hiddenKeys, onToggle, department, departmentLa
                   }}
                   formatter={(value, name, _item, _index, payload) => {
                     const key = String(name);
-                    // Hide raw data entries from tooltip (they duplicate smoothed)
+                    // Hide raw data and forecast band entries from tooltip
                     if (key.endsWith("_raw")) return null;
+                    if (key === FORECAST_BAND_KEY) return null;
 
                     const configEntry = fullChartConfig[key];
                     const isClinical = key.startsWith(CLINICAL_KEY_PREFIX);
+
+                    // Forecast: show predicted value with dashed icon
+                    if (key === FORECAST_KEY) {
+                      const valueStr =
+                        value != null
+                          ? Number(value).toLocaleString("fr-FR", { maximumFractionDigits: 2 })
+                          : "—";
+                      return (
+                        <span className="flex items-center gap-2">
+                          <svg className="shrink-0" width="10" height="10" viewBox="0 0 10 10" aria-hidden="true">
+                            <line x1="0" y1="5" x2="10" y2="5" stroke={FORECAST_COLOR} strokeWidth="2" strokeDasharray="3 1.5" />
+                          </svg>
+                          <span className="text-muted-foreground">Prévision</span>
+                          <span className="font-mono font-medium ml-auto">{valueStr}</span>
+                        </span>
+                      );
+                    }
 
                     if (isClinical) {
                       // Clinical: show value with /100k suffix, no raw/smoothed distinction
@@ -470,6 +537,34 @@ export function WastewaterChart({ hiddenKeys, onToggle, department, departmentLa
                 />
               );
             })}
+
+            {/* Forecast confidence band (grey area between lower and upper bounds) */}
+            <Area
+              type="monotone"
+              dataKey={FORECAST_BAND_KEY}
+              stroke="none"
+              fill={FORECAST_COLOR}
+              fillOpacity={0.15}
+              yAxisId="wastewater"
+              hide={hiddenKeys.has(FORECAST_KEY)}
+              name={FORECAST_BAND_KEY}
+              legendType="none"
+              isAnimationActive={false}
+            />
+
+            {/* Forecast line (grey dashed) */}
+            <Line
+              type="monotone"
+              dataKey={FORECAST_KEY}
+              stroke={FORECAST_COLOR}
+              strokeWidth={2}
+              strokeDasharray="5 5"
+              dot={false}
+              connectNulls
+              name={FORECAST_KEY}
+              yAxisId="wastewater"
+              hide={hiddenKeys.has(FORECAST_KEY)}
+            />
           </ComposedChart>
         </ChartContainer>
       </div>

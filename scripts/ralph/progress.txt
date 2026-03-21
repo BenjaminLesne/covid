@@ -26,7 +26,8 @@ Started: Fri 21 Feb 2026
 - `arima` npm package: `new ARIMA({ auto: true, verbose: false }).train(values).predict(n)` → `[predictions[], errors[]]`
 - ISO week parsing/incrementing: use `YYYY-WXX` format, handle 52/53-week years
 - Drizzle `date` type from `drizzle-orm/pg-core` for date-only columns; `onConflictDoNothing()` for skip-duplicate inserts
-- Recharts already installed — used for wastewater chart in `src/components/wastewater-chart.tsx`
+- Recharts already installed — used for wastewater chart in `src/components/chart/wastewater-chart.tsx`
+- Recharts range bands: use `[lower, upper]` array values in data with a single `<Area>` component (not two stacked Areas)
 - Home page is 'use client' at `src/app/page.tsx` — uses hooks for state (useDepartmentPreferences, useStationPreferences, etc.)
 - Odissé API base: `https://odisse.santepubliquefrance.fr/api/explore/v2.1/`
 - Rougeole API uses exports/json endpoint (not records) — returns flat array, no pagination needed
@@ -223,5 +224,21 @@ Started: Fri 21 Feb 2026
   - `onConflictDoNothing()` is cleaner than `onConflictDoUpdate` when you just want to skip duplicates
   - Forecast snapshots only store national_54 data — keep it lightweight
   - The `desc` import from `drizzle-orm` is needed alongside `asc` for ordering
+---
+
+## 2026-03-21 - US-065
+- Added forecast rendering to WastewaterChart: grey dashed line + confidence band
+- Forecast query via `trpc.waveAnalysis.getForecast` runs in parallel with main data
+- Confidence band uses Recharts `Area` with `[lower, upper]` array tuple in data (single Area, not two stacked)
+- Forecast bridges from last real data point (no gap) via setting forecast value on last real point
+- Legend entry "Prévision" in its own group, toggleable via existing hiddenKeys mechanism
+- Tooltip shows forecast value with dashed line icon, hides band key
+- Files changed: `src/components/chart/wastewater-chart.tsx`, `scripts/ralph/prd.json`
+- **Learnings for future iterations:**
+  - Recharts `Area` supports `[lower, upper]` array values in data for range bands — much cleaner than two stacked Areas
+  - `ChartDataPoint` interface needed `number[]` added to allow array band values
+  - To bridge forecast to real data (no visual gap), set the forecast dataKey on the last real data point to its smoothed value
+  - Forecast station ID derived from `indicatorStationIds[0]` — follows first selected station
+  - Browser shows loading skeletons when no DB connected — expected, no rendering errors
 ---
 
