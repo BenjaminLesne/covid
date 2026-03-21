@@ -4,6 +4,7 @@ import { clinicalRouter } from "./routers/clinical";
 import { rougeoleRouter } from "./routers/rougeole";
 import { feedbackRouter } from "./routers/feedback";
 import { waveAnalysisRouter } from "./routers/wave-analysis";
+import { authRouter } from "./routers/auth";
 
 export const appRouter = router({
   wastewater: wastewaterRouter,
@@ -11,6 +12,7 @@ export const appRouter = router({
   rougeole: rougeoleRouter,
   feedback: feedbackRouter,
   waveAnalysis: waveAnalysisRouter,
+  auth: authRouter,
 });
 
 export type AppRouter = typeof appRouter;
