@@ -42,4 +42,6 @@ next-env.d.ts
 
 # ralph agent archives
 scripts/ralph/archive/
+scripts/ralph/*.png
 .env*.local
+.last-branch

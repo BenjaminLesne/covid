@@ -34,11 +34,18 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         {env.NODE_ENV === "development" && (
-          // eslint-disable-next-line @next/next/no-sync-scripts
-          <script
-            src="https://unpkg.com/react-scan/dist/auto.global.js"
-            crossOrigin="anonymous"
-          />
+          <>
+            {/* eslint-disable-next-line @next/next/no-sync-scripts */}
+            <script
+              src="https://unpkg.com/react-scan/dist/auto.global.js"
+              crossOrigin="anonymous"
+            />
+            {/* eslint-disable-next-line @next/next/no-sync-scripts */}
+            <script
+              src="https://unpkg.com/react-grab/dist/index.global.js"
+              crossOrigin="anonymous"
+            />
+          </>
         )}
         <Providers>
           <div className="flex min-h-screen flex-col">
