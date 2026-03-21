@@ -17,14 +17,20 @@
  */
 
 import { NextResponse } from "next/server";
-import { eq, sql } from "drizzle-orm";
+import { eq, sql, asc } from "drizzle-orm";
 import { env } from "@/env";
 import { db } from "@/server/db";
-import { syncMetadataTable, wastewaterIndicatorsTable } from "@/server/db/schema";
+import {
+  syncMetadataTable,
+  wastewaterIndicatorsTable,
+  forecastSnapshotsTable,
+} from "@/server/db/schema";
 import { syncWastewaterData } from "@/server/services/sync/wastewater-sync";
 import { syncClinicalData } from "@/server/services/sync/clinical-sync";
 import { syncRougeoleData } from "@/server/services/sync/rougeole-sync";
 import { notifyDiscord } from "@/server/services/sync/notify";
+import { forecastWastewater } from "@/lib/forecast";
+import { NATIONAL_COLUMN } from "@/lib/constants";
 
 export const maxDuration = 60;
 
@@ -80,6 +86,39 @@ export async function GET(request: Request): Promise<NextResponse> {
       errors.push(
         `Rougeole sync failed: ${err instanceof Error ? err.message : String(err)}`,
       );
+    }
+
+    // Generate and store national forecast snapshots
+    if (wastewaterCount > 0) {
+      try {
+        const rows = await db
+          .select({
+            week: wastewaterIndicatorsTable.week,
+            value: wastewaterIndicatorsTable.smoothed_value,
+          })
+          .from(wastewaterIndicatorsTable)
+          .where(eq(wastewaterIndicatorsTable.station_id, NATIONAL_COLUMN))
+          .orderBy(asc(wastewaterIndicatorsTable.week));
+
+        const forecast = forecastWastewater(rows);
+        if (forecast.length > 0) {
+          await db
+            .insert(forecastSnapshotsTable)
+            .values(
+              forecast.map((f) => ({
+                target_week: f.week,
+                predicted_value: f.predictedValue,
+                lower_bound: f.lowerBound,
+                upper_bound: f.upperBound,
+              })),
+            )
+            .onConflictDoNothing();
+        }
+      } catch (err) {
+        errors.push(
+          `Forecast snapshot failed: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      }
     }
 
     // Check for stale wastewater data and alert via Discord

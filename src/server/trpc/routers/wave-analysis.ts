@@ -1,8 +1,11 @@
 import { z } from "zod";
 import { router, publicProcedure } from "../init";
 import { db } from "@/server/db";
-import { wastewaterIndicatorsTable } from "@/server/db/schema";
-import { asc, eq } from "drizzle-orm";
+import {
+  wastewaterIndicatorsTable,
+  forecastSnapshotsTable,
+} from "@/server/db/schema";
+import { asc, desc, eq } from "drizzle-orm";
 import { NATIONAL_COLUMN } from "@/lib/constants";
 import { detectWaves } from "@/lib/wave-detection";
 import { computeWaveStats } from "@/lib/wave-stats";
@@ -45,4 +48,23 @@ export const waveAnalysisRouter = router({
       const series = await fetchSmoothedSeries(stationId);
       return forecastWastewater(series);
     }),
+
+  getForecastHistory: publicProcedure.query(async () => {
+    const rows = await db
+      .select({
+        id: forecastSnapshotsTable.id,
+        snapshotDate: forecastSnapshotsTable.snapshot_date,
+        targetWeek: forecastSnapshotsTable.target_week,
+        predictedValue: forecastSnapshotsTable.predicted_value,
+        lowerBound: forecastSnapshotsTable.lower_bound,
+        upperBound: forecastSnapshotsTable.upper_bound,
+      })
+      .from(forecastSnapshotsTable)
+      .orderBy(
+        desc(forecastSnapshotsTable.snapshot_date),
+        asc(forecastSnapshotsTable.target_week),
+      );
+
+    return rows;
+  }),
 });

@@ -5,6 +5,7 @@ import {
   serial,
   doublePrecision,
   timestamp,
+  date,
   text,
   uniqueIndex,
   index,
@@ -69,6 +70,25 @@ export const rougeoleIndicatorsTable = pgTable(
   },
   (table) => [
     uniqueIndex("rougeole_year_dept_idx").on(table.year, table.department),
+  ],
+);
+
+export const forecastSnapshotsTable = pgTable(
+  "forecast_snapshots",
+  {
+    id: serial("id").primaryKey(),
+    snapshot_date: date("snapshot_date").notNull().defaultNow(),
+    target_week: varchar("target_week", { length: 8 }).notNull(),
+    predicted_value: doublePrecision("predicted_value").notNull(),
+    lower_bound: doublePrecision("lower_bound").notNull(),
+    upper_bound: doublePrecision("upper_bound").notNull(),
+  },
+  (table) => [
+    uniqueIndex("forecast_snapshot_date_week_idx").on(
+      table.snapshot_date,
+      table.target_week,
+    ),
+    index("forecast_target_week_idx").on(table.target_week),
   ],
 );
 

@@ -43,6 +43,13 @@
       "when": 1771652280426,
       "tag": "0005_kind_robbie_robertson",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1774079014394,
+      "tag": "0006_tricky_shatterstar",
+      "breakpoints": true
     }
   ]
 }
