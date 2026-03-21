@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
-import { Area, Line, XAxis, YAxis, CartesianGrid, ComposedChart } from "recharts";
+import { Area, Line, XAxis, YAxis, CartesianGrid, ComposedChart, ReferenceArea } from "recharts";
 import { trpc } from "@/lib/trpc";
 import { useStationPreferences } from "@/hooks/use-station-preferences";
 import { useDateRange } from "@/hooks/use-date-range";
@@ -36,6 +36,10 @@ export const LINE_COLORS = [
 
 /** Prefix for clinical data keys in chart data points. */
 const CLINICAL_KEY_PREFIX = "clinical_";
+
+/** Key and color for sickness episode markers. */
+const SICKNESS_KEY = "sickness_episodes";
+const SICKNESS_COLOR = "rgba(239, 68, 68, 0.15)";
 
 /** Build a mapping from SANDRE ID → indicator column key (slugified station name). */
 function buildSandreToColumnMap(stations: Station[]): Map<string, string> {
@@ -167,6 +171,12 @@ export function WastewaterChart({ hiddenKeys, onToggle, department, departmentLa
     { enabled: !!stations },
   );
 
+  // Sickness episodes — only fetch when user is logged in
+  const me = trpc.auth.me.useQuery();
+  const sicknessEpisodes = trpc.sickness.list.useQuery(undefined, {
+    enabled: !!me.data,
+  });
+
   // Build stable display name mapping: stationId → label
   const displayNames = useMemo(() => {
     const map = new Map<string, string>();
@@ -274,6 +284,25 @@ export function WastewaterChart({ hiddenKeys, onToggle, department, departmentLa
     );
   }, [indicators, clinicalIndicators, forecastData, forecastStationId]);
 
+  // Convert sickness episodes to ISO week ranges, filtered to chart date range
+  const sicknessWeekRanges = useMemo(() => {
+    if (!me.data || !sicknessEpisodes.data || sicknessEpisodes.data.length === 0) return [];
+    if (chartData.length === 0) return [];
+    const firstWeek = chartData[0].week as string;
+    const lastWeek = chartData[chartData.length - 1].week as string;
+
+    return sicknessEpisodes.data
+      .map((ep) => {
+        const startWeek = dateToISOWeek(new Date(ep.startDate));
+        const endWeek = dateToISOWeek(new Date(ep.endDate));
+        // Clamp to chart range
+        const x1 = startWeek < firstWeek ? firstWeek : startWeek;
+        const x2 = endWeek > lastWeek ? lastWeek : endWeek;
+        return { x1, x2 };
+      })
+      .filter((r) => r.x1 <= r.x2);
+  }, [me.data, sicknessEpisodes.data, chartData]);
+
   // Legend entries: wastewater (solid) + clinical (dashed)
   const legendEntries: LegendEntry[] = useMemo(() => {
     const entries: LegendEntry[] = indicatorStationIds.map((stationId, index) => ({
@@ -301,8 +330,18 @@ export function WastewaterChart({ hiddenKeys, onToggle, department, departmentLa
       dashed: true,
       group: "Prévision",
     });
+    // Sickness episodes entry (only when logged in and has episodes)
+    if (sicknessWeekRanges.length > 0) {
+      entries.push({
+        key: SICKNESS_KEY,
+        label: "Mes épisodes",
+        color: "rgb(239, 68, 68)",
+        band: true,
+        group: "Personnel",
+      });
+    }
     return entries;
-  }, [indicatorStationIds, displayNames, enabledDiseases, clinicalLabelSuffix]);
+  }, [indicatorStationIds, displayNames, enabledDiseases, clinicalLabelSuffix, sicknessWeekRanges]);
 
   // Determine if any clinical diseases are enabled and visible (not hidden)
   const hasClinicalVisible = useMemo(() => {
@@ -576,6 +615,22 @@ export function WastewaterChart({ hiddenKeys, onToggle, department, departmentLa
               yAxisId="wastewater"
               hide={hiddenKeys.has(FORECAST_KEY)}
             />
+
+            {/* Sickness episode markers */}
+            {!hiddenKeys.has(SICKNESS_KEY) &&
+              sicknessWeekRanges.map((range, i) => (
+                <ReferenceArea
+                  key={`sickness-${i}`}
+                  x1={range.x1}
+                  x2={range.x2}
+                  yAxisId="wastewater"
+                  fill="rgb(239, 68, 68)"
+                  fillOpacity={0.15}
+                  stroke="rgb(239, 68, 68)"
+                  strokeOpacity={0.3}
+                  ifOverflow="hidden"
+                />
+              ))}
           </ComposedChart>
         </ChartContainer>
       </div>

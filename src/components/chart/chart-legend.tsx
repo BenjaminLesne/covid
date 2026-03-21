@@ -7,6 +7,7 @@ export interface LegendEntry {
   label: string;
   color: string;
   dashed?: boolean;
+  band?: boolean;
   group?: string;
 }
 
@@ -51,7 +52,12 @@ export function ChartLegend({ entries, hiddenKeys, onToggle }: ChartLegendProps)
                   hidden && "opacity-40"
                 )}
               >
-                {entry.dashed ? (
+                {entry.band ? (
+                  <span
+                    className="inline-block h-3 w-5 shrink-0 rounded-sm"
+                    style={{ backgroundColor: entry.color, opacity: 0.5 }}
+                  />
+                ) : entry.dashed ? (
                   <svg
                     className="shrink-0"
                     width="20"
