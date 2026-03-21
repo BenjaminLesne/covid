@@ -26,6 +26,55 @@ function formatDateFr(iso: string): string {
   });
 }
 
+function SicknessStats({
+  episodes,
+}: {
+  episodes: { startDate: string; endDate: string }[];
+}) {
+  const totalEpisodes = episodes.length;
+
+  const durations = episodes.map((ep) => durationDays(ep.startDate, ep.endDate));
+  const avgDuration = durations.reduce((a, b) => a + b, 0) / totalEpisodes;
+
+  const sorted = [...episodes].sort(
+    (a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime()
+  );
+  const earliest = new Date(sorted[0].startDate);
+  const latest = new Date(sorted[sorted.length - 1].startDate);
+  const spanYears =
+    (latest.getTime() - earliest.getTime()) / (365.25 * 86_400_000);
+
+  const lastEpisode = sorted[sorted.length - 1];
+
+  const fmt = (n: number) =>
+    n.toLocaleString("fr-FR", { maximumFractionDigits: 1 });
+
+  return (
+    <div className="grid grid-cols-2 gap-3 rounded-md border bg-muted/50 p-3 text-sm sm:grid-cols-4">
+      <div>
+        <p className="text-muted-foreground text-xs">Épisodes</p>
+        <p className="font-medium">{totalEpisodes}</p>
+      </div>
+      {spanYears > 1 && (
+        <div>
+          <p className="text-muted-foreground text-xs">Par an</p>
+          <p className="font-medium">{fmt(totalEpisodes / spanYears)}</p>
+        </div>
+      )}
+      <div>
+        <p className="text-muted-foreground text-xs">Durée moy.</p>
+        <p className="font-medium">
+          {fmt(avgDuration)} jour{avgDuration > 1 ? "s" : ""}
+        </p>
+      </div>
+      <div>
+        <p className="text-muted-foreground text-xs">Dernier épisode</p>
+        <p className="font-medium">{formatDateFr(lastEpisode.startDate)}</p>
+      </div>
+    </div>
+  );
+}
+
 export function SicknessPanel() {
   const me = trpc.auth.me.useQuery();
   const episodes = trpc.sickness.list.useQuery(undefined, {
@@ -169,6 +218,10 @@ export function SicknessPanel() {
               </div>
             ))}
           </div>
+        )}
+
+        {episodes.data && episodes.data.length > 0 && (
+          <SicknessStats episodes={episodes.data} />
         )}
 
         {episodes.data && episodes.data.length === 0 && (
