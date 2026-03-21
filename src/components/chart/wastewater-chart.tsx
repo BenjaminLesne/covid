@@ -296,7 +296,7 @@ export function WastewaterChart({ hiddenKeys, onToggle, department, departmentLa
     // Forecast entry
     entries.push({
       key: FORECAST_KEY,
-      label: "Prévision",
+      label: "Prévision (zone grisée = incertitude)",
       color: FORECAST_COLOR,
       dashed: true,
       group: "Prévision",
@@ -407,19 +407,30 @@ export function WastewaterChart({ hiddenKeys, onToggle, department, departmentLa
                     const configEntry = fullChartConfig[key];
                     const isClinical = key.startsWith(CLINICAL_KEY_PREFIX);
 
-                    // Forecast: show predicted value with dashed icon
+                    // Forecast: show predicted value + uncertainty range
                     if (key === FORECAST_KEY) {
                       const valueStr =
                         value != null
-                          ? Number(value).toLocaleString("fr-FR", { maximumFractionDigits: 2 })
+                          ? Number(value).toLocaleString("fr-FR", { maximumFractionDigits: 0 })
                           : "—";
+                      const band = payload?.[FORECAST_BAND_KEY as keyof typeof payload] as unknown as number[] | undefined;
+                      const bandStr = band
+                        ? `${Number(band[0]).toLocaleString("fr-FR", { maximumFractionDigits: 0 })} – ${Number(band[1]).toLocaleString("fr-FR", { maximumFractionDigits: 0 })}`
+                        : null;
                       return (
-                        <span className="flex items-center gap-2">
-                          <svg className="shrink-0" width="10" height="10" viewBox="0 0 10 10" aria-hidden="true">
-                            <line x1="0" y1="5" x2="10" y2="5" stroke={FORECAST_COLOR} strokeWidth="2" strokeDasharray="3 1.5" />
-                          </svg>
-                          <span className="text-muted-foreground">Prévision</span>
-                          <span className="font-mono font-medium ml-auto">{valueStr}</span>
+                        <span className="flex flex-col gap-0.5">
+                          <span className="flex items-center gap-2">
+                            <svg className="shrink-0" width="10" height="10" viewBox="0 0 10 10" aria-hidden="true">
+                              <line x1="0" y1="5" x2="10" y2="5" stroke={FORECAST_COLOR} strokeWidth="2" strokeDasharray="3 1.5" />
+                            </svg>
+                            <span className="text-muted-foreground">Prévision</span>
+                            <span className="font-mono font-medium ml-auto">{valueStr}</span>
+                          </span>
+                          {bandStr && (
+                            <span className="text-muted-foreground ml-5 text-[10px]">
+                              Incertitude : {bandStr}
+                            </span>
+                          )}
                         </span>
                       );
                     }
