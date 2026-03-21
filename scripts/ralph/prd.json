@@ -174,7 +174,7 @@
         "Verify in browser using dev-browser skill"
       ],
       "priority": 10,
-      "passes": false,
+      "passes": true,
       "notes": "Stats update when station selection or date range changes. Use shadcn Card component. Follow existing patterns for loading states."
     }
   ]

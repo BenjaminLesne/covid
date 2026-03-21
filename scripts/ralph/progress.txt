@@ -242,3 +242,21 @@ Started: Fri 21 Feb 2026
   - Browser shows loading skeletons when no DB connected — expected, no rendering errors
 ---
 
+## 2026-03-21 - US-066
+- Created `src/components/wave-stats-panel.tsx` with card-based wave statistics display
+- Cards: wave count, avg duration ± std, frequency ± std, amplitude ± std, inter-wave gap ± std, next wave estimate
+- French locale formatting (comma decimals) via `toLocaleString("fr-FR")`
+- Responsive grid: 2-col mobile, 4-col desktop (`grid-cols-2 md:grid-cols-4`)
+- Loading skeleton state with 4 skeleton cards
+- Reads station from `useStationPreferences()` — first non-national station or `NATIONAL_COLUMN`
+- Calls `trpc.waveAnalysis.getWaveStats` and `trpc.waveAnalysis.getForecast`
+- Added to `src/app/page.tsx` below chart+map row
+- Browser verified: skeleton cards render correctly in 4-col grid (no DB = loading state)
+- All 45 tests pass, typecheck clean
+- Files changed: `src/components/wave-stats-panel.tsx`, `src/app/page.tsx`
+- **Learnings for future iterations:**
+  - StatCard pattern (label + value + unit) is reusable for any dashboard metric cards
+  - `toLocaleString("fr-FR")` handles comma decimals natively — no need for manual string replacement
+  - Wave stats panel follows same stationId derivation as WastewaterChart forecast
+---
+
