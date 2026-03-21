@@ -11,6 +11,7 @@ import { DepartmentSelect } from "@/components/filters/department-select";
 import { useStationPreferences } from "@/hooks/use-station-preferences";
 import { useDepartmentPreferences } from "@/hooks/use-department-preferences";
 import { Skeleton } from "@/components/ui/skeleton";
+import { WaveStatsPanel } from "@/components/wave-stats-panel";
 
 const hiddenParser = createParser({
   parse: (v: string) => v.split(",").map((s) => s.trim()).filter(Boolean),
@@ -96,6 +97,9 @@ function HomeContent() {
           />
         </div>
       </div>
+
+      {/* Wave statistics panel */}
+      <WaveStatsPanel />
 
     </div>
   );
