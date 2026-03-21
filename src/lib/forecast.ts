@@ -81,26 +81,36 @@ export function forecastWastewater(
     (d): d is { week: string; value: number } => d.value !== null,
   );
 
-  if (clean.length < 10) return [];
+  // SARIMA with s=52 requires at least 2*s = 104 data points
+  if (clean.length < 104) return [];
 
   const values = clean.map((d) => d.value);
   const lastWeek = clean[clean.length - 1].week;
 
-  // Fit auto-ARIMA
-  const arima = new ARIMA({ auto: true, verbose: false });
-  arima.train(values);
-  const [predictions, errors] = arima.predict(horizonWeeks);
+  try {
+    // Fit SARIMA(1,1,1)(1,1,0)₅₂ — weekly data with yearly seasonality
+    const arima = new ARIMA({
+      p: 1, d: 1, q: 1,
+      P: 1, D: 1, Q: 0,
+      s: 52,
+      verbose: false,
+    });
+    arima.train(values);
+    const [predictions, errors] = arima.predict(horizonWeeks);
 
-  // Z-score for 95% confidence interval
-  const z = 1.96;
+    // Z-score for 95% confidence interval
+    const z = 1.96;
 
-  return predictions.map((pred, i) => {
-    const stderr = errors[i];
-    return {
-      week: incrementWeek(lastWeek, i + 1),
-      predictedValue: pred,
-      lowerBound: pred - z * stderr,
-      upperBound: pred + z * stderr,
-    };
-  });
+    return predictions.map((pred, i) => {
+      const stderr = errors[i];
+      return {
+        week: incrementWeek(lastWeek, i + 1),
+        predictedValue: Math.max(0, pred),
+        lowerBound: Math.max(0, pred - z * stderr),
+        upperBound: Math.max(0, pred + z * stderr),
+      };
+    });
+  } catch {
+    return [];
+  }
 }
