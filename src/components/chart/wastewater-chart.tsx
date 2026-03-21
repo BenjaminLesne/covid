@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
-import { Area, Line, XAxis, YAxis, CartesianGrid, ComposedChart } from "recharts";
+import { Line, XAxis, YAxis, CartesianGrid, ComposedChart } from "recharts";
 import { trpc } from "@/lib/trpc";
 import { useStationPreferences } from "@/hooks/use-station-preferences";
 import { useDateRange } from "@/hooks/use-date-range";
@@ -19,10 +19,9 @@ import { ChartLegend, type LegendEntry } from "@/components/chart/chart-legend";
 import type { Station } from "@/types/wastewater";
 
 
-/** Color for forecast line and confidence band. */
+/** Color for forecast line. */
 const FORECAST_COLOR = "hsl(0, 0%, 60%)";
 const FORECAST_KEY = "forecast";
-const FORECAST_BAND_KEY = "forecast_band";
 
 /** Predefined colors for chart lines. */
 export const LINE_COLORS = [
@@ -264,7 +263,6 @@ export function WastewaterChart({ hiddenKeys, onToggle, department, departmentLa
           weekMap.set(fp.week, point);
         }
         point[FORECAST_KEY] = fp.predictedValue;
-        point[FORECAST_BAND_KEY] = [fp.lowerBound, fp.upperBound];
       }
     }
 
@@ -402,7 +400,6 @@ export function WastewaterChart({ hiddenKeys, onToggle, department, departmentLa
                     const key = String(name);
                     // Hide raw data and forecast band entries from tooltip
                     if (key.endsWith("_raw")) return null;
-                    if (key === FORECAST_BAND_KEY) return null;
 
                     const configEntry = fullChartConfig[key];
                     const isClinical = key.startsWith(CLINICAL_KEY_PREFIX);
@@ -537,20 +534,6 @@ export function WastewaterChart({ hiddenKeys, onToggle, department, departmentLa
                 />
               );
             })}
-
-            {/* Forecast confidence band (grey area between lower and upper bounds) */}
-            <Area
-              type="monotone"
-              dataKey={FORECAST_BAND_KEY}
-              stroke="none"
-              fill={FORECAST_COLOR}
-              fillOpacity={0.15}
-              yAxisId="wastewater"
-              hide={hiddenKeys.has(FORECAST_KEY)}
-              name={FORECAST_BAND_KEY}
-              legendType="none"
-              isAnimationActive={false}
-            />
 
             {/* Forecast line (grey dashed) */}
             <Line
