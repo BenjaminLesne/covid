@@ -5,7 +5,7 @@ import {
   wastewaterIndicatorsTable,
   forecastSnapshotsTable,
 } from "@/server/db/schema";
-import { asc, desc, eq } from "drizzle-orm";
+import { asc, desc, sql } from "drizzle-orm";
 import { NATIONAL_COLUMN } from "@/lib/constants";
 import { detectWaves } from "@/lib/wave-detection";
 import { computeWaveStats } from "@/lib/wave-stats";
@@ -24,7 +24,7 @@ async function fetchSmoothedSeries(stationId: string) {
       value: wastewaterIndicatorsTable.smoothed_value,
     })
     .from(wastewaterIndicatorsTable)
-    .where(eq(wastewaterIndicatorsTable.station_id, stationId))
+    .where(sql`lower(${wastewaterIndicatorsTable.station_id}) = lower(${stationId})`)
     .orderBy(asc(wastewaterIndicatorsTable.week));
 
   return rows;
