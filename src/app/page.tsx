@@ -10,7 +10,6 @@ import { ClinicalToggle } from "@/components/filters/clinical-toggle";
 import { DepartmentSelect } from "@/components/filters/department-select";
 import { useStationPreferences } from "@/hooks/use-station-preferences";
 import { useDepartmentPreferences } from "@/hooks/use-department-preferences";
-import { RougeoleChart } from "@/components/rougeole-chart";
 import { Skeleton } from "@/components/ui/skeleton";
 
 const hiddenParser = createParser({
@@ -54,8 +53,8 @@ function HomeContent() {
             SUM&apos;Eau
           </a>
           ) croisé avec les données cliniques de passages aux urgences —
-          Covid-19, bronchiolite, grippe et rougeole. Sélectionnez des
-          stations, un département et une période pour explorer les tendances.
+          Covid-19, bronchiolite et grippe. Sélectionnez des stations, un
+          département et une période pour explorer les tendances.
         </p>
       </section>
 
@@ -98,8 +97,6 @@ function HomeContent() {
         </div>
       </div>
 
-      {/* Rougeole section */}
-      <RougeoleChart department={department} />
     </div>
   );
 }
