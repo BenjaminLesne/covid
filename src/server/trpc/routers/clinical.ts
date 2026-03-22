@@ -27,6 +27,7 @@ export const clinicalRouter = router({
               to: z.string(),
             })
             .optional(),
+          asOfDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
         })
         .optional()
     )
@@ -58,6 +59,12 @@ export const clinicalRouter = router({
         );
         conditions.push(
           lte(clinicalIndicatorsTable.week, input.dateRange.to)
+        );
+      }
+
+      if (input?.asOfDate) {
+        conditions.push(
+          lte(clinicalIndicatorsTable.first_seen_at, new Date(input.asOfDate + "T23:59:59Z"))
         );
       }
 

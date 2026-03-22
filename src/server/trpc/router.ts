@@ -5,7 +5,6 @@ import { rougeoleRouter } from "./routers/rougeole";
 import { feedbackRouter } from "./routers/feedback";
 import { waveAnalysisRouter } from "./routers/wave-analysis";
 import { authRouter } from "./routers/auth";
-import { timeMachineRouter } from "./routers/time-machine";
 import { eventsRouter } from "./routers/events";
 
 export const appRouter = router({
@@ -15,7 +14,6 @@ export const appRouter = router({
   feedback: feedbackRouter,
   waveAnalysis: waveAnalysisRouter,
   auth: authRouter,
-  timeMachine: timeMachineRouter,
   events: eventsRouter,
 });
 

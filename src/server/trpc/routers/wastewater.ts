@@ -24,6 +24,7 @@ export const wastewaterRouter = router({
               to: z.string(),
             })
             .optional(),
+          asOfDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
         })
         .optional()
     )
@@ -42,6 +43,12 @@ export const wastewaterRouter = router({
         );
         conditions.push(
           lte(wastewaterIndicatorsTable.week, input.dateRange.to)
+        );
+      }
+
+      if (input?.asOfDate) {
+        conditions.push(
+          lte(wastewaterIndicatorsTable.first_seen_at, new Date(input.asOfDate + "T23:59:59Z"))
         );
       }
 

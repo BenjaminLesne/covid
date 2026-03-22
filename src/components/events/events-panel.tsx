@@ -1,8 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Eye, Pencil, Plus, Trash2 } from "lucide-react";
-import { TimeMachineDialog } from "@/components/time-machine/time-machine-dialog";
+import { Pencil, Plus, Trash2 } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -139,8 +138,6 @@ export function EventsPanel() {
     },
     onError: (err) => setError(err.message),
   });
-
-  const [timeMachineDate, setTimeMachineDate] = useState<string | null>(null);
 
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editCategory, setEditCategory] = useState("sick");
@@ -424,15 +421,6 @@ export function EventsPanel() {
                       variant="ghost"
                       size="sm"
                       className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground"
-                      title="Voir les données à cette date"
-                      onClick={() => setTimeMachineDate(ev.date)}
-                    >
-                      <Eye className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground"
                       onClick={() => handleEdit(ev)}
                     >
                       <Pencil className="h-4 w-4" />
@@ -461,12 +449,6 @@ export function EventsPanel() {
           </p>
         )}
       </CardContent>
-
-      <TimeMachineDialog
-        open={timeMachineDate !== null}
-        onOpenChange={(open) => { if (!open) setTimeMachineDate(null); }}
-        defaultDate={timeMachineDate ?? undefined}
-      />
     </Card>
   );
 }

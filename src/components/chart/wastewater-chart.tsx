@@ -6,6 +6,7 @@ import { trpc } from "@/lib/trpc";
 import { useStationPreferences } from "@/hooks/use-station-preferences";
 import { useDateRange } from "@/hooks/use-date-range";
 import { useClinicalPreferences } from "@/hooks/use-clinical-preferences";
+import { useAsOfDate } from "@/hooks/use-as-of-date";
 import { NATIONAL_STATION_ID, NATIONAL_COLUMN, CLINICAL_DATASETS, slugifyStationName } from "@/lib/constants";
 import { EVENT_CATEGORIES, getCategoryByKey } from "@/lib/event-categories";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -62,6 +63,7 @@ export function WastewaterChart({ hiddenKeys, onToggle, department, departmentLa
   const { selectedIds } = useStationPreferences();
   const { dateRange } = useDateRange();
   const { enabledDiseases } = useClinicalPreferences();
+  const { asOfDate } = useAsOfDate();
 
   // Map "national" to "National_54" for querying, and get station names for others
   const { data: stations, isPending: stationsLoading, isError: stationsError, refetch: refetchStations } =
@@ -93,6 +95,7 @@ export function WastewaterChart({ hiddenKeys, onToggle, department, departmentLa
       {
         stationIds: indicatorStationIds,
         dateRange: weekRange,
+        asOfDate: asOfDate ?? undefined,
       },
       {
         enabled: indicatorStationIds.length > 0 && !!stations,
@@ -106,6 +109,7 @@ export function WastewaterChart({ hiddenKeys, onToggle, department, departmentLa
         diseaseIds: enabledDiseases.length > 0 ? enabledDiseases : undefined,
         dateRange: weekRange,
         department: department ?? undefined,
+        asOfDate: asOfDate ?? undefined,
       },
       {
         enabled: enabledDiseases.length > 0,

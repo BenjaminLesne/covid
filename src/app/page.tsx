@@ -4,6 +4,7 @@ import { Suspense, useCallback, useMemo } from "react";
 import { useQueryState, createParser } from "nuqs";
 import { StationSelect } from "@/components/filters/station-select";
 import { DateRangePicker } from "@/components/filters/date-range-picker";
+import { AsOfDatePicker } from "@/components/filters/as-of-date-picker";
 import { WastewaterChart } from "@/components/chart/wastewater-chart";
 import { FranceMap } from "@/components/map/france-map";
 import { ClinicalToggle } from "@/components/filters/clinical-toggle";
@@ -69,6 +70,7 @@ function HomeContent() {
           <DepartmentSelect />
         </div>
         <DateRangePicker />
+        <AsOfDatePicker />
       </div>
 
       {/* Clinical data overlay toggles */}
