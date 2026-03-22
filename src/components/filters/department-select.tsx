@@ -40,7 +40,7 @@ export function DepartmentSelect() {
             variant="outline"
             role="combobox"
             aria-expanded={open}
-            className="w-full justify-between"
+            className="w-44 justify-between"
           >
             <span className="flex items-center gap-2 truncate text-left">
               <Hospital className="h-4 w-4 shrink-0" />

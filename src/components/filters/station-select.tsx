@@ -74,7 +74,7 @@ export function StationSelect() {
             variant="outline"
             role="combobox"
             aria-expanded={open}
-            className="w-full justify-between"
+            className="w-52 justify-between"
           >
             <span className="truncate text-left">
               {selectedStations.length === 0

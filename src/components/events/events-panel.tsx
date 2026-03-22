@@ -255,6 +255,8 @@ export function EventsPanel() {
         <CardTitle>Mes événements</CardTitle>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
+        {events.data && <SicknessStats events={events.data} />}
+
         {!showForm ? (
           <Button
             variant="outline"
@@ -440,8 +442,6 @@ export function EventsPanel() {
             )}
           </div>
         )}
-
-        {events.data && <SicknessStats events={events.data} />}
 
         {events.data && events.data.length === 0 && (
           <p className="text-muted-foreground text-sm">

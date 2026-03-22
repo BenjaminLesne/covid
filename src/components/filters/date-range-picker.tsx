@@ -113,44 +113,51 @@ export function DateRangePicker() {
   };
 
   return (
-    <div className="flex flex-wrap items-center gap-2">
-      {PRESETS.map((p) => (
+    <div className="flex flex-col gap-1.5">
+      <span className="text-muted-foreground text-sm font-medium">
+        Période
+      </span>
+      <div className="flex flex-wrap items-center gap-1.5">
+        {PRESETS.map((p) => (
+          <Button
+            key={p.months}
+            variant={preset === p.months ? "default" : "outline"}
+            size="sm"
+            className="text-xs"
+            onClick={() => handlePreset(p.months)}
+          >
+            {p.label}
+          </Button>
+        ))}
         <Button
-          key={p.months}
-          variant={preset === p.months ? "default" : "outline"}
+          variant={
+            !preset && fromDate.getTime() <= DATA_START_DATE.getTime()
+              ? "default"
+              : "outline"
+          }
           size="sm"
           className="text-xs"
-          onClick={() => handlePreset(p.months)}
+          onClick={() => handlePreset(ALL_PRESET)}
         >
-          {p.label}
+          Tout
         </Button>
-      ))}
-      <Button
-        variant={
-          !preset && fromDate.getTime() <= DATA_START_DATE.getTime()
-            ? "default"
-            : "outline"
-        }
-        size="sm"
-        className="text-xs"
-        onClick={() => handlePreset(ALL_PRESET)}
-      >
-        Tout
-      </Button>
-      <DatePicker
-        label="Du"
-        value={fromDate}
-        onChange={handleFromChange}
-        minDate={DATA_START_DATE}
-        maxDate={toDate}
-      />
-      <DatePicker
-        label="Au"
-        value={toDate}
-        onChange={handleToChange}
-        minDate={fromDate}
-        maxDate={today}
-      />
+      </div>
+      <div className="flex items-center gap-2">
+        <DatePicker
+          label="Du"
+          value={fromDate}
+          onChange={handleFromChange}
+          minDate={DATA_START_DATE}
+          maxDate={toDate}
+        />
+        <DatePicker
+          label="Au"
+          value={toDate}
+          onChange={handleToChange}
+          minDate={fromDate}
+          maxDate={today}
+        />
+      </div>
     </div>
   );
 }

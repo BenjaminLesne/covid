@@ -62,13 +62,9 @@ function HomeContent() {
       </section>
 
       {/* Filters: station select + department select + date range */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
-        <div className="flex-1">
-          <StationSelect />
-        </div>
-        <div className="flex-1">
-          <DepartmentSelect />
-        </div>
+      <div className="flex flex-col gap-6 sm:flex-row sm:items-start">
+        <StationSelect />
+        <DepartmentSelect />
         <DateRangePicker />
         <AsOfDatePicker />
       </div>
