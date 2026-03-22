@@ -53,6 +53,57 @@ export const sicknessRouter = router({
       };
     }),
 
+  update: protectedProcedure
+    .input(
+      z.object({
+        id: z.number(),
+        startDate: z.string(),
+        endDate: z.string(),
+      }),
+    )
+    .mutation(async ({ input, ctx }) => {
+      if (input.startDate > input.endDate) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Start date must be before or equal to end date",
+        });
+      }
+
+      const [episode] = await db
+        .select()
+        .from(sicknessEpisodesTable)
+        .where(
+          and(
+            eq(sicknessEpisodesTable.id, input.id),
+            eq(sicknessEpisodesTable.user_id, ctx.user.id),
+          ),
+        )
+        .limit(1);
+
+      if (!episode) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Episode not found",
+        });
+      }
+
+      const [updated] = await db
+        .update(sicknessEpisodesTable)
+        .set({
+          start_date: input.startDate,
+          end_date: input.endDate,
+        })
+        .where(eq(sicknessEpisodesTable.id, input.id))
+        .returning();
+
+      return {
+        id: updated.id,
+        startDate: updated.start_date,
+        endDate: updated.end_date,
+        createdAt: updated.created_at,
+      };
+    }),
+
   delete: protectedProcedure
     .input(z.object({ id: z.number() }))
     .mutation(async ({ input, ctx }) => {
