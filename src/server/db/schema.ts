@@ -29,6 +29,7 @@ export const wastewaterIndicatorsTable = pgTable(
     station_id: varchar("station_id").notNull(),
     value: doublePrecision("value"),
     smoothed_value: doublePrecision("smoothed_value"),
+    first_seen_at: timestamp("first_seen_at").defaultNow(),
   },
   (table) => [
     uniqueIndex("wastewater_station_week_idx").on(
@@ -36,6 +37,7 @@ export const wastewaterIndicatorsTable = pgTable(
       table.week,
     ),
     index("wastewater_week_idx").on(table.week),
+    index("wastewater_first_seen_at_idx").on(table.first_seen_at),
   ],
 );
 
@@ -47,6 +49,7 @@ export const clinicalIndicatorsTable = pgTable(
     disease_id: varchar("disease_id").notNull(),
     department: varchar("department").notNull().default("national"),
     er_visit_rate: doublePrecision("er_visit_rate"),
+    first_seen_at: timestamp("first_seen_at").defaultNow(),
   },
   (table) => [
     uniqueIndex("clinical_disease_week_dept_idx").on(
@@ -56,6 +59,7 @@ export const clinicalIndicatorsTable = pgTable(
     ),
     index("clinical_week_idx").on(table.week),
     index("clinical_disease_id_idx").on(table.disease_id),
+    index("clinical_first_seen_at_idx").on(table.first_seen_at),
   ],
 );
 

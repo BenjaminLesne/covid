@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { Plus, Trash2 } from "lucide-react";
+import { Eye, Pencil, Plus, Trash2 } from "lucide-react";
+import { TimeMachineDialog } from "@/components/time-machine/time-machine-dialog";
 import { trpc } from "@/lib/trpc";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -98,6 +99,22 @@ export function SicknessPanel() {
     onError: (err) => setError(err.message),
   });
 
+  const [timeMachineDate, setTimeMachineDate] = useState<string | null>(null);
+
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editStart, setEditStart] = useState("");
+  const [editEnd, setEditEnd] = useState("");
+  const [editError, setEditError] = useState<string | null>(null);
+
+  const update = trpc.sickness.update.useMutation({
+    onSuccess: () => {
+      void utils.sickness.list.invalidate();
+      setEditingId(null);
+      setEditError(null);
+    },
+    onError: (err) => setEditError(err.message),
+  });
+
   const deleteMut = trpc.sickness.delete.useMutation({
     onSuccess: () => {
       void utils.sickness.list.invalidate();
@@ -121,6 +138,30 @@ export function SicknessPanel() {
     if (!endDate || endDate < value) {
       setEndDate(value);
     }
+  }
+
+  function handleEdit(ep: { id: number; startDate: string; endDate: string }) {
+    setEditingId(ep.id);
+    setEditStart(ep.startDate);
+    setEditEnd(ep.endDate);
+    setEditError(null);
+  }
+
+  function handleEditStartChange(value: string) {
+    setEditStart(value);
+    if (!editEnd || editEnd < value) {
+      setEditEnd(value);
+    }
+  }
+
+  function handleEditSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setEditError(null);
+    if (!editStart) {
+      setEditError("Date de début requise");
+      return;
+    }
+    update.mutate({ id: editingId!, startDate: editStart, endDate: editEnd || editStart });
   }
 
   function handleDelete(id: number) {
@@ -192,31 +233,99 @@ export function SicknessPanel() {
 
         {episodes.data && episodes.data.length > 0 && (
           <div className="divide-y rounded-md border">
-            {episodes.data.map((ep) => (
-              <div
-                key={ep.id}
-                className="flex items-center justify-between px-3 py-2 text-sm"
-              >
-                <div className="flex flex-col gap-0.5 sm:flex-row sm:items-center sm:gap-3">
-                  <span>
-                    {formatDateFr(ep.startDate)} — {formatDateFr(ep.endDate)}
-                  </span>
-                  <span className="text-muted-foreground text-xs">
-                    {durationDays(ep.startDate, ep.endDate)} jour
-                    {durationDays(ep.startDate, ep.endDate) > 1 ? "s" : ""}
-                  </span>
-                </div>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive"
-                  onClick={() => handleDelete(ep.id)}
-                  disabled={deleteMut.isPending}
+            {episodes.data.map((ep) =>
+              editingId === ep.id ? (
+                <form
+                  key={ep.id}
+                  onSubmit={handleEditSubmit}
+                  className="flex flex-col gap-2 px-3 py-2"
                 >
-                  <Trash2 className="h-4 w-4" />
-                </Button>
-              </div>
-            ))}
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+                    <div className="flex flex-col gap-1.5">
+                      <Label htmlFor={`edit-start-${ep.id}`}>Début</Label>
+                      <Input
+                        id={`edit-start-${ep.id}`}
+                        type="date"
+                        value={editStart}
+                        onChange={(e) => handleEditStartChange(e.target.value)}
+                        required
+                      />
+                    </div>
+                    <div className="flex flex-col gap-1.5">
+                      <Label htmlFor={`edit-end-${ep.id}`}>Fin</Label>
+                      <Input
+                        id={`edit-end-${ep.id}`}
+                        type="date"
+                        value={editEnd}
+                        onChange={(e) => setEditEnd(e.target.value)}
+                        min={editStart}
+                        required
+                      />
+                    </div>
+                    <div className="flex gap-2">
+                      <Button type="submit" size="sm" disabled={update.isPending}>
+                        {update.isPending ? "Enregistrement…" : "Enregistrer"}
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          setEditingId(null);
+                          setEditError(null);
+                        }}
+                      >
+                        Annuler
+                      </Button>
+                    </div>
+                  </div>
+                  {editError && <p className="text-sm text-destructive">{editError}</p>}
+                </form>
+              ) : (
+                <div
+                  key={ep.id}
+                  className="flex items-center justify-between px-3 py-2 text-sm"
+                >
+                  <div className="flex flex-col gap-0.5 sm:flex-row sm:items-center sm:gap-3">
+                    <span>
+                      {formatDateFr(ep.startDate)} — {formatDateFr(ep.endDate)}
+                    </span>
+                    <span className="text-muted-foreground text-xs">
+                      {durationDays(ep.startDate, ep.endDate)} jour
+                      {durationDays(ep.startDate, ep.endDate) > 1 ? "s" : ""}
+                    </span>
+                  </div>
+                  <div className="flex gap-1">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground"
+                      title="Voir les données à cette date"
+                      onClick={() => setTimeMachineDate(ep.startDate)}
+                    >
+                      <Eye className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground"
+                      onClick={() => handleEdit(ep)}
+                    >
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive"
+                      onClick={() => handleDelete(ep.id)}
+                      disabled={deleteMut.isPending}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              ),
+            )}
           </div>
         )}
 
@@ -230,6 +339,12 @@ export function SicknessPanel() {
           </p>
         )}
       </CardContent>
+
+      <TimeMachineDialog
+        open={timeMachineDate !== null}
+        onOpenChange={(open) => { if (!open) setTimeMachineDate(null); }}
+        defaultDate={timeMachineDate ?? undefined}
+      />
     </Card>
   );
 }
