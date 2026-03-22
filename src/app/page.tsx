@@ -12,7 +12,7 @@ import { useStationPreferences } from "@/hooks/use-station-preferences";
 import { useDepartmentPreferences } from "@/hooks/use-department-preferences";
 import { Skeleton } from "@/components/ui/skeleton";
 import { WaveStatsPanel } from "@/components/wave-stats-panel";
-import { SicknessPanel } from "@/components/sickness/sickness-panel";
+import { EventsPanel } from "@/components/events/events-panel";
 
 const hiddenParser = createParser({
   parse: (v: string) => v.split(",").map((s) => s.trim()).filter(Boolean),
@@ -102,8 +102,8 @@ function HomeContent() {
       {/* Wave statistics panel */}
       <WaveStatsPanel />
 
-      {/* Sickness episodes panel (visible when logged in) */}
-      <SicknessPanel />
+      {/* Events panel (visible when logged in) */}
+      <EventsPanel />
 
     </div>
   );
