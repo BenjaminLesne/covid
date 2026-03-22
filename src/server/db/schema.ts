@@ -116,19 +116,6 @@ export const sessionsTable = pgTable(
   (table) => [index("sessions_user_id_idx").on(table.user_id)],
 );
 
-export const sicknessEpisodesTable = pgTable(
-  "sickness_episodes",
-  {
-    id: serial("id").primaryKey(),
-    user_id: integer("user_id")
-      .notNull()
-      .references(() => usersTable.id),
-    start_date: date("start_date").notNull(),
-    end_date: date("end_date").notNull(),
-    created_at: timestamp("created_at").defaultNow(),
-  },
-  (table) => [index("sickness_episodes_user_id_idx").on(table.user_id)],
-);
 
 export const eventsTable = pgTable(
   "events",
