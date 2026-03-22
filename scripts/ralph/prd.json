@@ -1,144 +1,113 @@
 {
   "project": "EauxVid",
-  "branchName": "ralph/sickness-tracker",
-  "description": "Personal Sickness Tracker - Log illness episodes and see them as markers on the wastewater chart",
+  "branchName": "ralph/events",
+  "description": "Generic Events System - Replace sickness_episodes with a unified events table supporting categories (sick, gym, social, travel, other) displayed on the chart",
   "userStories": [
     {
-      "id": "US-060",
-      "title": "Auth — users and sessions tables",
-      "description": "As a developer, I need user and session tables in the DB to support authentication.",
+      "id": "US-070",
+      "title": "Event categories constants",
+      "description": "As a developer, I need a shared mapping of event categories to colors and labels so the chart and UI stay consistent.",
       "acceptanceCriteria": [
-        "Add `usersTable` to schema: id (serial PK), email (varchar, unique), password_hash (varchar), created_at (timestamp, default now)",
-        "Add `sessionsTable` to schema: id (serial PK), user_id (integer FK to users), token (varchar, unique), expires_at (timestamp)",
-        "Generate Drizzle migration successfully",
-        "Install `bcryptjs` and `@types/bcryptjs` as dependencies",
+        "Create `src/lib/event-categories.ts` exporting `EVENT_CATEGORIES` array and helper functions",
+        "Each category object: { key: string, label: string (French), color: string (CSS rgb) }",
+        "Categories: sick (Maladie, rgb(239,68,68)), gym (Sport, rgb(59,130,246)), social (Social, rgb(168,85,247)), travel (Voyage, rgb(245,158,11)), other (Autre, rgb(156,163,175))",
+        "Export `CATEGORY_KEYS` array of valid keys for validation",
+        "Export helper `getCategoryByKey(key: string)` returning the category object or undefined",
         "Typecheck passes"
       ],
       "priority": 1,
       "passes": true,
-      "notes": ""
+      "notes": "This is a pure constants/utility file with no DB or UI dependencies. Other stories import from it."
     },
     {
-      "id": "US-061",
-      "title": "Auth — tRPC router with register, login, logout, me",
-      "description": "As a developer, I need auth API procedures so users can create accounts and log in.",
+      "id": "US-071",
+      "title": "Events table schema",
+      "description": "As a developer, I need an events table in the database to store all user events.",
       "acceptanceCriteria": [
-        "Create `src/server/trpc/routers/auth.ts` with `register`, `login`, `logout`, `me` procedures",
-        "Register router in root router as `auth`",
-        "`register` validates email format and min 8-char password, hashes with bcryptjs, creates user + session, sets HTTP-only cookie `session_token` (30-day expiry)",
-        "`login` verifies email+password, creates session, sets HTTP-only cookie",
-        "`logout` deletes session from DB, clears cookie",
-        "`me` reads cookie, looks up session, returns { id, email } or null if no valid session",
-        "Create a `protectedProcedure` in `src/server/trpc/init.ts` that throws UNAUTHORIZED if no valid session",
-        "Use Next.js `cookies()` from `next/headers` to read/write cookies in tRPC context",
+        "Add `eventsTable` to `src/server/db/schema.ts`: id (serial PK), user_id (integer FK to users), category (varchar, not null), name (varchar, nullable), date (date, not null), end_date (date, nullable), created_at (timestamp, default now)",
+        "Add index on user_id",
+        "Add index on date",
+        "Do NOT remove `sicknessEpisodesTable` yet (migration handled separately)",
+        "Generate Drizzle migration successfully",
         "Typecheck passes"
       ],
       "priority": 2,
       "passes": true,
-      "notes": "Cookie must be set via tRPC context or returned to a server action. For tRPC with fetch adapter, set cookies in the context creation by passing the request headers."
+      "notes": "Keep sicknessEpisodesTable in schema for now — it will be removed after data migration."
     },
     {
-      "id": "US-062",
-      "title": "Auth — login/register UI",
-      "description": "As a user, I want to create an account and log in so my sickness data is saved.",
+      "id": "US-072",
+      "title": "Events tRPC router (CRUD)",
+      "description": "As a user, I want to create, list, update, and delete events so I can track my life events.",
       "acceptanceCriteria": [
-        "Add 'Connexion' button to header (visible when not logged in)",
-        "Clicking opens a dialog/sheet with login form (email + password + submit)",
-        "Form has a toggle link to switch to register mode ('Créer un compte') and back ('Se connecter')",
-        "Shows inline validation errors (bad email, short password, wrong credentials)",
-        "On success: dialog closes, header shows user email + 'Déconnexion' button",
-        "On logout click: calls logout procedure, header reverts to 'Connexion' button",
-        "Auth state managed via `trpc.auth.me` query (refetched on login/logout)",
-        "Session persists across page reloads (cookie-based)",
-        "Typecheck passes",
-        "Verify in browser using dev-browser skill"
+        "Create `src/server/trpc/routers/events.ts` with `list`, `create`, `update`, `delete` procedures",
+        "All procedures use `protectedProcedure`",
+        "`list` returns all events for current user, ordered by date desc",
+        "`create` accepts { category, name?, date, endDate? }, validates category against CATEGORY_KEYS from event-categories.ts, inserts row, returns created event",
+        "`update` accepts { id, category, name?, date, endDate? }, validates category, checks ownership, updates row",
+        "`delete` accepts { id }, checks ownership, deletes row",
+        "If endDate is provided, validate endDate >= date",
+        "Register router in root router as `events` (keep `sickness` router for now)",
+        "Typecheck passes"
       ],
       "priority": 3,
       "passes": true,
-      "notes": "Use shadcn Dialog component. Add shadcn input and label components if not already present."
+      "notes": "Keep sickness router registered temporarily — it will be removed when the UI is swapped."
     },
     {
-      "id": "US-063",
-      "title": "Sickness episodes — database table",
-      "description": "As a developer, I need to store sickness episodes per user.",
+      "id": "US-073",
+      "title": "Events panel UI (replaces SicknessPanel)",
+      "description": "As a user, I want a panel to manage all my events with category selection.",
       "acceptanceCriteria": [
-        "Add `sicknessEpisodesTable` to schema: id (serial PK), user_id (integer FK to users), start_date (date), end_date (date), created_at (timestamp, default now)",
-        "Add index on user_id for fast lookups",
-        "Generate Drizzle migration successfully",
-        "Typecheck passes"
+        "Create `src/components/events/events-panel.tsx` component titled 'Mes événements'",
+        "Add event form: category selector (shadcn Select with colored dot per category), optional name input, date picker, optional end date picker",
+        "Event list shows all events with colored category badge, date(s), name if set, and edit/delete buttons",
+        "Edit inline (same pattern as current sickness panel edit)",
+        "Delete with confirmation dialog",
+        "Time Machine button on each event (reuse existing TimeMachineDialog)",
+        "Stats section for sick-category events only (reuse existing SicknessStats logic)",
+        "Replace SicknessPanel with EventsPanel in page.tsx",
+        "Remove sickness router from root router, delete `src/server/trpc/routers/sickness.ts`",
+        "Remove `src/components/sickness/sickness-panel.tsx`",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
       ],
       "priority": 4,
       "passes": true,
-      "notes": ""
+      "notes": "Use shadcn Select component (add with `./node_modules/.bin/shadcn add select` if not present). Reuse patterns from sickness-panel.tsx."
     },
     {
-      "id": "US-064",
-      "title": "Sickness episodes — tRPC CRUD router",
-      "description": "As a developer, I need API procedures to list, create, and delete sickness episodes.",
+      "id": "US-074",
+      "title": "Display events on chart",
+      "description": "As a user, I want to see all my events on the wastewater chart so I can visually correlate them with sickness.",
       "acceptanceCriteria": [
-        "Create `src/server/trpc/routers/sickness.ts` with `list`, `create`, `delete` procedures",
-        "Register router in root router as `sickness`",
-        "All procedures use `protectedProcedure` (requires authenticated user)",
-        "`list` returns current user's episodes sorted by start_date desc",
-        "`create` accepts { startDate: string, endDate: string }, validates startDate <= endDate, inserts row, returns created episode",
-        "`delete` accepts { id: number }, verifies episode belongs to current user before deleting",
-        "Typecheck passes"
+        "Replace sickness-specific chart logic in wastewater-chart.tsx with generic event rendering",
+        "Fetch events via `trpc.events.list` instead of `trpc.sickness.list`",
+        "Events with end_date: render as ReferenceArea band in category color (same opacity pattern as current sickness bands)",
+        "Single-day events (no end_date): render as ReferenceLine vertical marker in category color",
+        "One legend entry per category that has events in the visible range, grouped under 'Personnel'",
+        "Each category toggleable via legend (extend hiddenKeys with category-based keys like `event_sick`, `event_gym`, etc.)",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
       ],
       "priority": 5,
       "passes": true,
-      "notes": ""
+      "notes": "Extend the existing sickness band logic. Use EVENT_CATEGORIES for colors. dateToISOWeek already exists for date-to-week conversion."
     },
     {
-      "id": "US-065",
-      "title": "Sickness logging UI — add/list/delete episodes",
-      "description": "As a user, I want to log when I was sick and manage my episodes.",
+      "id": "US-075",
+      "title": "Migrate sickness data and drop old table",
+      "description": "As a developer, I need to migrate existing sickness_episodes data to the events table and clean up the old table.",
       "acceptanceCriteria": [
-        "'Mes épisodes' panel visible only when logged in (below the chart area)",
-        "'Ajouter un épisode' button opens a form with two date inputs: start date and end date",
-        "End date defaults to start date value when start date is picked",
-        "Submitted episodes appear in a list with start date, end date, duration, and a delete button",
-        "Delete button removes the episode after confirmation",
-        "List updates immediately after add/delete (React Query invalidation)",
-        "Typecheck passes",
-        "Verify in browser using dev-browser skill"
+        "Create a Drizzle migration that: INSERT INTO events (user_id, category, date, end_date, created_at) SELECT user_id, 'sick', start_date, end_date, created_at FROM sickness_episodes",
+        "Migration then drops the sickness_episodes table",
+        "Remove `sicknessEpisodesTable` from `src/server/db/schema.ts`",
+        "Generate Drizzle migration successfully",
+        "Typecheck passes"
       ],
       "priority": 6,
       "passes": true,
-      "notes": "Use shadcn Card for the panel. Date inputs can be plain HTML date inputs or shadcn calendar/popover."
-    },
-    {
-      "id": "US-066",
-      "title": "Display sickness markers on chart",
-      "description": "As a user, I want to see my sickness episodes as shaded bands on the wastewater chart.",
-      "acceptanceCriteria": [
-        "Each sickness episode renders as a Recharts `ReferenceArea` on the wastewater chart",
-        "Band color: semi-transparent red/orange (e.g., rgba(239, 68, 68, 0.15))",
-        "Legend entry 'Mes épisodes' appears when user is logged in and has episodes",
-        "Markers only show for episodes overlapping the current chart date range",
-        "Markers update when date range filter changes",
-        "No markers when user is not logged in",
-        "Typecheck passes",
-        "Verify in browser using dev-browser skill"
-      ],
-      "priority": 7,
-      "passes": true,
-      "notes": "ReferenceArea uses x1/x2 props with the week string values from the chart's X axis. Convert episode dates to ISO week strings."
-    },
-    {
-      "id": "US-067",
-      "title": "Personal sickness frequency stats",
-      "description": "As a user, I want to see basic stats about how often I get sick.",
-      "acceptanceCriteria": [
-        "Stats section visible inside the 'Mes épisodes' panel when logged in and has at least 1 episode",
-        "Shows: total episodes count, average episodes per year (if data spans > 1 year), average duration in days, date of last episode",
-        "Stats computed from all user episodes (not filtered by current date range)",
-        "Formatted in French locale (comma decimals, French date format)",
-        "Typecheck passes",
-        "Verify in browser using dev-browser skill"
-      ],
-      "priority": 8,
-      "passes": true,
-      "notes": ""
+      "notes": "This runs LAST because all code must already reference eventsTable instead of sicknessEpisodesTable. The custom SQL migration should be created manually in the drizzle/ folder if drizzle-kit cannot express it."
     }
   ]
 }

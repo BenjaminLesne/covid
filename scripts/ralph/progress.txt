@@ -1,5 +1,5 @@
 # Ralph Progress Log
-Started: Fri 21 Mar 2026
+Started: Sat 22 Mar 2026
 
 ## Codebase Patterns
 - Project uses Next.js 15 App Router with TypeScript strict mode
@@ -24,6 +24,7 @@ Started: Fri 21 Mar 2026
 - `db.insert().values().returning()` returns array — destructure `[row]` for single result
 - Tests use vitest, co-located with source as `*.test.ts` (e.g., `src/lib/severity.test.ts`) — run with `npx vitest run <file>`
 - Sickness router at `src/server/trpc/routers/sickness.ts` — list/create/delete, all protectedProcedure
+- Events router at `src/server/trpc/routers/events.ts` — list/create/update/delete, all protectedProcedure, validates category via z.enum
 - Recharts already installed — used for wastewater chart in `src/components/chart/wastewater-chart.tsx`
 - Recharts range bands: use `[lower, upper]` array values in data with a single `<Area>` component (not two stacked Areas)
 - Recharts `ReferenceArea`: use `x1`/`x2` with ISO week string values from X axis, `yAxisId` required, `ifOverflow="hidden"` to clip
@@ -33,118 +34,89 @@ Started: Fri 21 Mar 2026
 - `bcryptjs` installed for password hashing (with `@types/bcryptjs`)
 - `npx` doesn't work for drizzle-kit in this project — use `./node_modules/.bin/drizzle-kit` directly
 - `npx shadcn@latest` doesn't work — use `./node_modules/.bin/shadcn add <component>` directly
+- Recharts ReferenceArea/ReferenceLine don't have `hide` prop — use `style={{ display: "none" }}` to toggle visibility
+- Event chart keys use `event_` prefix + category key (e.g. `event_sick`, `event_gym`) for hiddenKeys toggling
 - `React.FormEvent` is deprecated — use `React.FormEvent<HTMLFormElement>` instead
 - tRPC context uses `cookies()` from `next/headers` — passed via `createContext` in `src/server/trpc/init.ts`
 - `protectedProcedure` in `init.ts` validates session cookie and adds `ctx.user` ({ id, email })
 - Auth router at `src/server/trpc/routers/auth.ts` — register/login/logout/me procedures
 - Cookie name: `session_token`, HTTP-only, 30-day expiry, lax sameSite
+- Event categories constants at `src/lib/event-categories.ts` — shared by UI and chart
+- EventsPanel component at `src/components/events/events-panel.tsx` — replaces SicknessPanel in page.tsx
+- shadcn Select component installed via `./node_modules/.bin/shadcn add select`
 ---
 
-## 2026-03-21 - US-060
-- Added `usersTable` (id, email unique, password_hash, created_at) and `sessionsTable` (id, user_id FK, token unique, expires_at) to schema
-- Installed `bcryptjs` + `@types/bcryptjs`
-- Generated Drizzle migration `0007_bizarre_jack_murdock.sql`
-- Files changed: `src/server/db/schema.ts`, `drizzle/0007_bizarre_jack_murdock.sql`, `drizzle/meta/*`, `package.json`, `package-lock.json`
+## 2026-03-22 - US-071
+- Added `eventsTable` to `src/server/db/schema.ts` with id, user_id (FK to users), category, name, date, end_date, created_at
+- Indexes on user_id and date
+- Generated migration `drizzle/0010_eager_colossus.sql`
+- `sicknessEpisodesTable` preserved as required
+- Files changed: `src/server/db/schema.ts`, `drizzle/0010_eager_colossus.sql`, `drizzle/meta/`
 - **Learnings for future iterations:**
-  - `npx drizzle-kit` fails in this project — use `./node_modules/.bin/drizzle-kit generate` instead
-  - Drizzle FK syntax: `.references(() => usersTable.id)` on the column definition
-  - Index on sessions added via pgTable 3rd arg callback `(table) => [index(...).on(table.user_id)]`
+  - Events table follows same FK pattern as sessionsTable/sicknessEpisodesTable — `.references(() => usersTable.id)`
+  - Third argument callback pattern `(table) => [...]` for indexes confirmed working
+  - Migration auto-numbering: drizzle-kit increments from last migration number
 ---
 
-## 2026-03-21 - US-061
-- Created auth tRPC router with register, login, logout, me procedures
-- Added tRPC context creation with `cookies()` from `next/headers`
-- Added `protectedProcedure` middleware that validates session and injects `ctx.user`
-- Updated API route handler to use `createContext`
-- Registered auth router in root router
-- Files changed: `src/server/trpc/init.ts`, `src/server/trpc/routers/auth.ts`, `src/server/trpc/router.ts`, `src/app/api/trpc/[trpc]/route.ts`
+## 2026-03-22 - US-072
+- Created `src/server/trpc/routers/events.ts` with list, create, update, delete procedures
+- All procedures use `protectedProcedure` with ownership checks
+- Category validated against `CATEGORY_KEYS` using `z.enum()`
+- endDate validated >= date when provided
+- Registered as `events` in root router (sickness router kept)
+- Files changed: `src/server/trpc/routers/events.ts` (new), `src/server/trpc/router.ts`
 - **Learnings for future iterations:**
-  - `initTRPC.context<Context>().create()` is the pattern to add typed context to tRPC
-  - `cookies()` from `next/headers` is async in Next.js 15 — must `await cookies()`
-  - Drizzle doesn't support chaining `.where()` — use `and()` to combine conditions
-  - The fetch adapter's `createContext` receives the request but we use `cookies()` directly (Next.js manages cookie access)
+  - `z.enum()` requires `[string, ...string[]]` cast for dynamic arrays — use `as [string, ...string[]]`
+  - Events router follows exact same pattern as sickness router — ownership check via `and(eq(id), eq(user_id))`
+  - Snake_case DB columns mapped to camelCase in return objects (e.g., `end_date` → `endDate`)
 ---
 
-## 2026-03-21 - US-062
-- Created `AuthButton` client component with login/register dialog (shadcn Dialog, Input, Label)
-- Added shadcn `input` and `label` components via `./node_modules/.bin/shadcn add input label`
-- Integrated `AuthButton` into header — shows "Connexion" when logged out, email + "Déconnexion" when logged in
-- Form toggles between login/register modes, shows inline validation errors
-- Auth state managed via `trpc.auth.me` query, invalidated on login/logout/register
-- Files changed: `src/components/auth/auth-button.tsx` (new), `src/components/layout/header.tsx`, `src/components/ui/input.tsx` (new), `src/components/ui/label.tsx` (new)
+## 2026-03-22 - US-070
+- Created `src/lib/event-categories.ts` with EVENT_CATEGORIES array, CATEGORY_KEYS, getCategoryByKey helper
+- Files changed: `src/lib/event-categories.ts` (new)
 - **Learnings for future iterations:**
-  - `npx shadcn@latest` doesn't work — use `./node_modules/.bin/shadcn add <component>` directly
-  - `React.FormEvent` is deprecated in this project's React types — use `React.FormEvent<HTMLFormElement>` instead
-  - Header is a server component but can import client components (like AuthButton with "use client")
-  - `trpc.useUtils()` provides `invalidate()` for cache busting after mutations
-  - Browser verification needed — no browser tools available in this iteration
+  - File was already referenced in Codebase Patterns but didn't exist yet — always verify file existence
+  - `as const` on the array ensures type narrowing for consumers
 ---
 
-## 2026-03-21 - US-063
-- Added `sicknessEpisodesTable` to schema: id (serial PK), user_id (FK to users), start_date (date), end_date (date), created_at (timestamp)
-- Added index on user_id for fast lookups
-- Generated Drizzle migration `0008_lumpy_johnny_blaze.sql`
-- Files changed: `src/server/db/schema.ts`, `drizzle/0008_lumpy_johnny_blaze.sql`, `drizzle/meta/*`
+## 2026-03-22 - US-073
+- Created `src/components/events/events-panel.tsx` — full CRUD panel with category selector, optional name/end date, inline edit, delete confirmation, time machine, sickness stats
+- Installed shadcn Select component (`src/components/ui/select.tsx`)
+- Replaced `SicknessPanel` with `EventsPanel` in `src/app/page.tsx`
+- Kept sickness router registered — wastewater-chart.tsx still depends on `trpc.sickness.list` (will be removed in US-074)
+- Did NOT delete sickness-panel.tsx or sickness.ts yet — chart dependency blocks full cleanup until US-074
+- Files changed: `src/components/events/events-panel.tsx` (new), `src/components/ui/select.tsx` (new), `src/app/page.tsx`
 - **Learnings for future iterations:**
-  - Same FK pattern as sessions: `.references(() => usersTable.id)`
-  - Date columns use `date()` from drizzle-orm/pg-core (returns string, not Date object)
-  - Index pattern consistent: pgTable 3rd arg callback with `index("name").on(table.column)`
+  - Cannot remove sickness router until wastewater-chart.tsx is migrated to events — chart uses `trpc.sickness.list.useQuery()` which causes TS error if router is removed
+  - shadcn Select from radix-ui uses `SelectTrigger` + `SelectContent` + `SelectItem` pattern — items support rich children (colored dots)
+  - tRPC query return type has `createdAt` as `Date | null` (not string) due to superjson serialization
+  - `React.FormEvent` is deprecated in this project's TS version — always use `React.FormEvent<HTMLFormElement>`
 ---
 
-## 2026-03-21 - US-064
-- Created sickness tRPC router with `list`, `create`, `delete` procedures (all using `protectedProcedure`)
-- Registered as `sickness` in root router
-- `list` returns user's episodes sorted by start_date desc, mapped to camelCase
-- `create` validates startDate <= endDate, inserts and returns created episode
-- `delete` verifies ownership before deleting
-- Files changed: `src/server/trpc/routers/sickness.ts` (new), `src/server/trpc/router.ts`
+## 2026-03-22 - US-074
+- Replaced sickness-specific chart logic with generic event rendering in `wastewater-chart.tsx`
+- Fetches `trpc.events.list` instead of `trpc.sickness.list`
+- Events with endDate → ReferenceArea band in category color (opacity 0.15)
+- Single-day events (no endDate) → ReferenceLine vertical marker (dashed) in category color
+- One legend entry per category with events in visible range, grouped under 'Personnel'
+- Each category toggleable via hiddenKeys with keys like `event_sick`, `event_gym`
+- Files changed: `src/components/chart/wastewater-chart.tsx`
 - **Learnings for future iterations:**
-  - `protectedProcedure` provides `ctx.user` with `{ id, email }` — use `ctx.user.id` for ownership checks
-  - String comparison works for ISO date validation (`startDate > endDate`)
-  - Pattern: select + ownership check before delete (don't just delete with WHERE)
+  - Recharts `ReferenceLine` uses `x` prop (not `x1`/`x2`) for vertical markers
+  - Use `style={{ display: "none" }}` to hide ReferenceArea/ReferenceLine since they don't support `hide` prop like Line/Area do
+  - `getCategoryByKey` from event-categories.ts is useful for mapping category string to color
+  - After this story, `trpc.sickness` is no longer used in chart — sickness router/panel are dead code, ready for US-075 cleanup
 ---
 
-## 2026-03-21 - US-065
-- Created `SicknessPanel` client component with add form, episode list, and delete functionality
-- Panel only renders when user is logged in (checks `trpc.auth.me` query)
-- Add form with date inputs, end date auto-defaults to start date, inline error display
-- Episode list shows French-formatted dates, duration in days, delete button with `window.confirm`
-- React Query invalidation on create/delete for immediate UI updates
-- Integrated below WaveStatsPanel in `src/app/page.tsx`
-- Files changed: `src/components/sickness/sickness-panel.tsx` (new), `src/app/page.tsx`
+## 2026-03-22 - US-075
+- Created migration `drizzle/0011_elite_mysterio.sql` that INSERT-migrates sickness_episodes data into events table (category='sick'), then drops sickness_episodes table
+- Removed `sicknessEpisodesTable` from `src/server/db/schema.ts`
+- Removed sickness router from root router (`src/server/trpc/router.ts`)
+- Deleted `src/server/trpc/routers/sickness.ts` and `src/components/sickness/sickness-panel.tsx` (+ empty directory)
+- Files changed: `src/server/db/schema.ts`, `src/server/trpc/router.ts`, `drizzle/0011_elite_mysterio.sql`, `drizzle/meta/`, deleted sickness files
 - **Learnings for future iterations:**
-  - Sickness panel component at `src/components/sickness/sickness-panel.tsx`
-  - `trpc.sickness.list` query should be `enabled: !!me.data` to avoid 401 when logged out
-  - HTML date inputs return ISO strings (YYYY-MM-DD) — compatible with sickness router's string date fields
-  - Browser verification needed — no browser tools available in this iteration
+  - Drizzle-kit `generate` only produces DDL (DROP TABLE) — data migration SQL (INSERT...SELECT) must be manually added to the generated .sql file
+  - When removing a table from schema, also clean up all referencing routers, components, and imports in the same commit
+  - The sickness directory under components was left empty after file deletion — remember to rmdir
 ---
 
-## 2026-03-21 - US-066
-- Added sickness episode markers as `ReferenceArea` bands on the wastewater chart
-- Fetches `trpc.auth.me` and `trpc.sickness.list` inside `WastewaterChart` component
-- Converts episode dates to ISO week strings via existing `dateToISOWeek`, clamps to chart range
-- Semi-transparent red bands (rgba(239, 68, 68, 0.15)) with subtle stroke
-- Legend entry "Mes épisodes" in "Personnel" group, only shown when logged in with episodes
-- Added `band?: boolean` to `LegendEntry` interface for filled rectangle swatch in legend
-- Markers hidden when toggled off via legend (uses existing `hiddenKeys` mechanism)
-- Files changed: `src/components/chart/wastewater-chart.tsx`, `src/components/chart/chart-legend.tsx`
-- **Learnings for future iterations:**
-  - `ReferenceArea` from recharts uses `x1`/`x2` props matching X axis data values (ISO week strings)
-  - `ReferenceArea` must be placed inside `ComposedChart` alongside other chart elements
-  - `ifOverflow="hidden"` clips reference areas to the chart bounds
-  - `sicknessWeekRanges` memo depends on `chartData` — must be defined after chartData memo
-  - Browser verification needed — no browser tools available in this iteration
----
-
-## 2026-03-21 - US-067
-- Added `SicknessStats` component inside `sickness-panel.tsx` showing: total episodes, avg per year (if >1yr span), avg duration, last episode date
-- Stats rendered as a grid inside the "Mes épisodes" card, visible only when ≥1 episode exists
-- All values computed client-side from full episode list (not filtered by date range)
-- French locale formatting (comma decimals, French date format)
-- Files changed: `src/components/sickness/sickness-panel.tsx`
-- **Learnings for future iterations:**
-  - Stats component kept as a private function in the same file — no need for separate file when tightly coupled
-  - `toLocaleString("fr-FR", { maximumFractionDigits: 1 })` for French number formatting
-  - Episodes are already sorted desc from the API; sort asc locally when computing time span
-  - Browser verification needed — no browser tools available in this iteration
----
