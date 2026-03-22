@@ -2,8 +2,8 @@
 
 import { useState } from "react";
 import { CalendarIcon } from "lucide-react";
-import { type DateRange as RDPDateRange } from "react-day-picker";
 import { useDateRange } from "@/hooks/use-date-range";
+import { DATA_START_DATE } from "@/lib/constants";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import {
@@ -15,9 +15,12 @@ import { cn } from "@/lib/utils";
 
 const PRESETS = [
   { label: "1 mois", months: 1 },
+  { label: "3 mois", months: 3 },
   { label: "6 mois", months: 6 },
   { label: "1 an", months: 12 },
 ] as const;
+
+const ALL_PRESET = 0;
 
 function formatDate(date: Date): string {
   return date.toLocaleDateString("fr-FR", {
@@ -27,21 +30,85 @@ function formatDate(date: Date): string {
   });
 }
 
-export function DateRangePicker() {
-  const { fromDate, toDate, setRange, setPreset, preset } = useDateRange();
+function DatePicker({
+  label,
+  value,
+  onChange,
+  minDate,
+  maxDate,
+}: {
+  label: string;
+  value: Date;
+  onChange: (date: Date) => void;
+  minDate?: Date;
+  maxDate?: Date;
+}) {
   const [open, setOpen] = useState(false);
 
-  const selected: RDPDateRange = {
-    from: fromDate,
-    to: toDate,
+  return (
+    <div className="flex items-center gap-1.5">
+      <span className="text-muted-foreground text-xs font-medium">{label}</span>
+      <Popover open={open} onOpenChange={setOpen}>
+        <PopoverTrigger asChild>
+          <Button
+            variant="outline"
+            size="sm"
+            className={cn("justify-start text-left font-normal text-xs")}
+          >
+            <CalendarIcon className="mr-1.5 h-3.5 w-3.5" />
+            {formatDate(value)}
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent className="w-auto p-0" align="start">
+          <Calendar
+            mode="single"
+            selected={value}
+            onSelect={(date) => {
+              if (date) {
+                onChange(date);
+                setOpen(false);
+              }
+            }}
+            defaultMonth={value}
+            disabled={[
+              ...(minDate ? [{ before: minDate }] : []),
+              ...(maxDate ? [{ after: maxDate }] : []),
+            ]}
+            captionLayout="dropdown"
+            startMonth={DATA_START_DATE}
+            endMonth={new Date()}
+          />
+        </PopoverContent>
+      </Popover>
+    </div>
+  );
+}
+
+export function DateRangePicker() {
+  const { fromDate, toDate, setRange, setPreset, preset } = useDateRange();
+  const today = new Date();
+
+  const handleFromChange = (date: Date) => {
+    if (date > toDate) {
+      setRange(date, date);
+    } else {
+      setRange(date, toDate);
+    }
   };
 
-  const handleSelect = (range: RDPDateRange | undefined) => {
-    if (range?.from && range?.to) {
-      setRange(range.from, range.to);
-    } else if (range?.from) {
-      // User has selected start date, waiting for end date — just update from
-      setRange(range.from, toDate);
+  const handleToChange = (date: Date) => {
+    if (date < fromDate) {
+      setRange(date, date);
+    } else {
+      setRange(fromDate, date);
+    }
+  };
+
+  const handlePreset = (months: number) => {
+    if (months === ALL_PRESET) {
+      setRange(DATA_START_DATE, today);
+    } else {
+      setPreset(months);
     }
   };
 
@@ -53,39 +120,37 @@ export function DateRangePicker() {
           variant={preset === p.months ? "default" : "outline"}
           size="sm"
           className="text-xs"
-          onClick={() => setPreset(p.months)}
+          onClick={() => handlePreset(p.months)}
         >
           {p.label}
         </Button>
       ))}
-      <Popover open={open} onOpenChange={setOpen}>
-        <PopoverTrigger asChild>
-          <Button
-            variant="outline"
-            className={cn(
-              "w-full justify-start text-left font-normal sm:w-auto"
-            )}
-          >
-            <CalendarIcon className="mr-2 h-4 w-4" />
-            <span className="truncate">
-              {formatDate(fromDate)} — {formatDate(toDate)}
-            </span>
-          </Button>
-        </PopoverTrigger>
-        <PopoverContent className="w-auto p-0" align="start">
-          <Calendar
-            mode="range"
-            selected={selected}
-            onSelect={handleSelect}
-            numberOfMonths={2}
-            defaultMonth={fromDate}
-            disabled={{ after: new Date() }}
-            captionLayout="dropdown"
-            startMonth={new Date(2021, 0)}
-            endMonth={new Date()}
-          />
-        </PopoverContent>
-      </Popover>
+      <Button
+        variant={
+          !preset && fromDate.getTime() <= DATA_START_DATE.getTime()
+            ? "default"
+            : "outline"
+        }
+        size="sm"
+        className="text-xs"
+        onClick={() => handlePreset(ALL_PRESET)}
+      >
+        Tout
+      </Button>
+      <DatePicker
+        label="Du"
+        value={fromDate}
+        onChange={handleFromChange}
+        minDate={DATA_START_DATE}
+        maxDate={toDate}
+      />
+      <DatePicker
+        label="Au"
+        value={toDate}
+        onChange={handleToChange}
+        minDate={fromDate}
+        maxDate={today}
+      />
     </div>
   );
 }

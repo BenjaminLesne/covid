@@ -69,6 +69,9 @@ export const DATA_URLS = {
 /** Default date range: last 6 months. */
 export const DEFAULT_DATE_RANGE_MONTHS = 6;
 
+/** Earliest date with available data (January 2021). */
+export const DATA_START_DATE = new Date(2021, 0, 1);
+
 // ---------------------------------------------------------------------------
 // Clinical surveillance (Odissé API)
 // ---------------------------------------------------------------------------
