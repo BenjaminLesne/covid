@@ -1,12 +1,13 @@
 "use client";
 
 import { useMemo } from "react";
-import { Area, Line, XAxis, YAxis, CartesianGrid, ComposedChart, ReferenceArea } from "recharts";
+import { Area, Line, XAxis, YAxis, CartesianGrid, ComposedChart, ReferenceArea, ReferenceLine } from "recharts";
 import { trpc } from "@/lib/trpc";
 import { useStationPreferences } from "@/hooks/use-station-preferences";
 import { useDateRange } from "@/hooks/use-date-range";
 import { useClinicalPreferences } from "@/hooks/use-clinical-preferences";
 import { NATIONAL_STATION_ID, NATIONAL_COLUMN, CLINICAL_DATASETS, slugifyStationName } from "@/lib/constants";
+import { EVENT_CATEGORIES, getCategoryByKey } from "@/lib/event-categories";
 import { Skeleton } from "@/components/ui/skeleton";
 import { QueryError } from "@/components/query-error";
 import {
@@ -33,8 +34,8 @@ const FORECAST_COLOR = "hsl(0, 0%, 60%)";
 const FORECAST_KEY = "forecast";
 const FORECAST_BAND_KEY = "forecast_band";
 
-/** Key and color for sickness episode markers. */
-const SICKNESS_KEY = "sickness_episodes";
+/** Prefix for event category keys in legend/hiddenKeys (e.g. event_sick). */
+const EVENT_KEY_PREFIX = "event_";
 
 /** Build a mapping from SANDRE ID → indicator column key (slugified station name). */
 function buildSandreToColumnMap(stations: Station[]): Map<string, string> {
@@ -118,9 +119,9 @@ export function WastewaterChart({ hiddenKeys, onToggle, department, departmentLa
     { enabled: !!stations },
   );
 
-  // Sickness episodes — only fetch when user is logged in
+  // Events — only fetch when user is logged in
   const me = trpc.auth.me.useQuery();
-  const sicknessEpisodes = trpc.sickness.list.useQuery(undefined, {
+  const userEvents = trpc.events.list.useQuery(undefined, {
     enabled: !!me.data,
   });
 
@@ -231,24 +232,40 @@ export function WastewaterChart({ hiddenKeys, onToggle, department, departmentLa
     );
   }, [indicators, clinicalIndicators, forecastData, forecastStationId]);
 
-  // Convert sickness episodes to ISO week ranges, filtered to chart date range
-  const sicknessWeekRanges = useMemo(() => {
-    if (!me.data || !sicknessEpisodes.data || sicknessEpisodes.data.length === 0) return [];
+  // Convert events to chart markers, filtered to chart date range
+  const eventMarkers = useMemo(() => {
+    if (!me.data || !userEvents.data || userEvents.data.length === 0) return [];
     if (chartData.length === 0) return [];
     const firstWeek = chartData[0].week as string;
     const lastWeek = chartData[chartData.length - 1].week as string;
 
-    return sicknessEpisodes.data
-      .map((ep) => {
-        const startWeek = dateToISOWeek(new Date(ep.startDate));
-        const endWeek = dateToISOWeek(new Date(ep.endDate));
-        // Clamp to chart range
-        const x1 = startWeek < firstWeek ? firstWeek : startWeek;
-        const x2 = endWeek > lastWeek ? lastWeek : endWeek;
-        return { x1, x2 };
+    return userEvents.data
+      .map((ev) => {
+        const startWeek = dateToISOWeek(new Date(ev.date));
+        const endWeek = ev.endDate ? dateToISOWeek(new Date(ev.endDate)) : null;
+        const cat = getCategoryByKey(ev.category);
+        const color = cat?.color ?? "rgb(156,163,175)";
+        const key = `${EVENT_KEY_PREFIX}${ev.category}`;
+        if (endWeek) {
+          // Range event → ReferenceArea
+          const x1 = startWeek < firstWeek ? firstWeek : startWeek;
+          const x2 = endWeek > lastWeek ? lastWeek : endWeek;
+          if (x1 > x2) return null;
+          return { type: "area" as const, x1, x2, color, key };
+        } else {
+          // Single-day event → ReferenceLine
+          if (startWeek < firstWeek || startWeek > lastWeek) return null;
+          return { type: "line" as const, x: startWeek, color, key };
+        }
       })
-      .filter((r) => r.x1 <= r.x2);
-  }, [me.data, sicknessEpisodes.data, chartData]);
+      .filter((m): m is NonNullable<typeof m> => m !== null);
+  }, [me.data, userEvents.data, chartData]);
+
+  // Determine which event categories have visible markers
+  const eventCategoriesInRange = useMemo(() => {
+    const categoryKeys = new Set(eventMarkers.map((m) => m.key));
+    return EVENT_CATEGORIES.filter((cat) => categoryKeys.has(`${EVENT_KEY_PREFIX}${cat.key}`));
+  }, [eventMarkers]);
 
   // Legend entries: wastewater (solid) + clinical (dashed)
   const legendEntries: LegendEntry[] = useMemo(() => {
@@ -277,18 +294,18 @@ export function WastewaterChart({ hiddenKeys, onToggle, department, departmentLa
       dashed: true,
       group: "Prévision",
     });
-    // Sickness episodes entry (only when logged in and has episodes)
-    if (sicknessWeekRanges.length > 0) {
+    // Event category entries (one per category with events in range)
+    for (const cat of eventCategoriesInRange) {
       entries.push({
-        key: SICKNESS_KEY,
-        label: "Mes épisodes",
-        color: "rgb(239, 68, 68)",
+        key: `${EVENT_KEY_PREFIX}${cat.key}`,
+        label: cat.label,
+        color: cat.color,
         band: true,
         group: "Personnel",
       });
     }
     return entries;
-  }, [indicatorStationIds, displayNames, enabledDiseases, clinicalLabelSuffix, sicknessWeekRanges]);
+  }, [indicatorStationIds, displayNames, enabledDiseases, clinicalLabelSuffix, eventCategoriesInRange]);
 
   // Determine if any clinical diseases are enabled and visible (not hidden)
   const hasClinicalVisible = useMemo(() => {
@@ -563,21 +580,34 @@ export function WastewaterChart({ hiddenKeys, onToggle, department, departmentLa
               hide={hiddenKeys.has(FORECAST_KEY)}
             />
 
-            {/* Sickness episode markers */}
-            {!hiddenKeys.has(SICKNESS_KEY) &&
-              sicknessWeekRanges.map((range, i) => (
+            {/* Event markers: bands (ReferenceArea) and lines (ReferenceLine) */}
+            {eventMarkers.map((marker, i) =>
+              marker.type === "area" ? (
                 <ReferenceArea
-                  key={`sickness-${i}`}
-                  x1={range.x1}
-                  x2={range.x2}
+                  key={`event-area-${i}`}
+                  x1={marker.x1}
+                  x2={marker.x2}
                   yAxisId="wastewater"
-                  fill="rgb(239, 68, 68)"
+                  fill={marker.color}
                   fillOpacity={0.15}
-                  stroke="rgb(239, 68, 68)"
+                  stroke={marker.color}
                   strokeOpacity={0.3}
                   ifOverflow="hidden"
+                  style={hiddenKeys.has(marker.key) ? { display: "none" } : undefined}
                 />
-              ))}
+              ) : (
+                <ReferenceLine
+                  key={`event-line-${i}`}
+                  x={marker.x}
+                  yAxisId="wastewater"
+                  stroke={marker.color}
+                  strokeWidth={2}
+                  strokeDasharray="4 2"
+                  ifOverflow="hidden"
+                  style={hiddenKeys.has(marker.key) ? { display: "none" } : undefined}
+                />
+              )
+            )}
           </ComposedChart>
         </ChartContainer>
       </div>
