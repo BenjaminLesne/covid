@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { TRPCError } from "@trpc/server";
 import { router, publicProcedure } from "../init";
 import { db } from "@/server/db";
 import { usersTable, sessionsTable } from "@/server/db/schema";
@@ -19,10 +20,18 @@ export const authRouter = router({
     .mutation(async ({ input, ctx }) => {
       const passwordHash = await hash(input.password, 10);
 
-      const [user] = await db
-        .insert(usersTable)
-        .values({ email: input.email, password_hash: passwordHash })
-        .returning({ id: usersTable.id, email: usersTable.email });
+      let user;
+      try {
+        [user] = await db
+          .insert(usersTable)
+          .values({ email: input.email, password_hash: passwordHash })
+          .returning({ id: usersTable.id, email: usersTable.email });
+      } catch (error: unknown) {
+        if (error instanceof Error && "code" in error && (error as { code: string }).code === "23505") {
+          throw new TRPCError({ code: "CONFLICT", message: "Email already registered" });
+        }
+        throw error;
+      }
 
       const token = randomUUID();
       const expiresAt = new Date(Date.now() + THIRTY_DAYS_MS);
@@ -59,12 +68,12 @@ export const authRouter = router({
         .limit(1);
 
       if (!user) {
-        throw new Error("Invalid email or password");
+        throw new TRPCError({ code: "UNAUTHORIZED", message: "Invalid email or password" });
       }
 
       const valid = await compare(input.password, user.password_hash);
       if (!valid) {
-        throw new Error("Invalid email or password");
+        throw new TRPCError({ code: "UNAUTHORIZED", message: "Invalid email or password" });
       }
 
       const token = randomUUID();
