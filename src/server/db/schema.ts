@@ -130,6 +130,25 @@ export const sicknessEpisodesTable = pgTable(
   (table) => [index("sickness_episodes_user_id_idx").on(table.user_id)],
 );
 
+export const eventsTable = pgTable(
+  "events",
+  {
+    id: serial("id").primaryKey(),
+    user_id: integer("user_id")
+      .notNull()
+      .references(() => usersTable.id),
+    category: varchar("category").notNull(),
+    name: varchar("name"),
+    date: date("date").notNull(),
+    end_date: date("end_date"),
+    created_at: timestamp("created_at").defaultNow(),
+  },
+  (table) => [
+    index("events_user_id_idx").on(table.user_id),
+    index("events_date_idx").on(table.date),
+  ],
+);
+
 export const syncMetadataTable = pgTable("sync_metadata", {
   id: serial("id").primaryKey(),
   started_at: timestamp("started_at").notNull().defaultNow(),
