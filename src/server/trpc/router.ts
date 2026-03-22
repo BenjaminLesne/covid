@@ -7,6 +7,7 @@ import { waveAnalysisRouter } from "./routers/wave-analysis";
 import { authRouter } from "./routers/auth";
 import { sicknessRouter } from "./routers/sickness";
 import { timeMachineRouter } from "./routers/time-machine";
+import { eventsRouter } from "./routers/events";
 
 export const appRouter = router({
   wastewater: wastewaterRouter,
@@ -17,6 +18,7 @@ export const appRouter = router({
   auth: authRouter,
   sickness: sicknessRouter,
   timeMachine: timeMachineRouter,
+  events: eventsRouter,
 });
 
 export type AppRouter = typeof appRouter;
