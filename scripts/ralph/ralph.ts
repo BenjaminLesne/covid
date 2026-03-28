@@ -1,4 +1,4 @@
-import { spawn } from "node:child_process";
+import { execSync, spawn } from "node:child_process";
 import {
   existsSync,
   readFileSync,
@@ -260,11 +260,12 @@ function formatMetricDelta(before?: string, after?: string): string {
 
 function buildIterationSummary(
   iteration: number,
+  totalTasks: number,
   maxIterations: number,
   tokenSummary: TokenSummary | null,
   lighthouseSummary: LighthouseProgressSummary,
 ): string {
-  const titleBits = [`✨ Iteration ${iteration}/${maxIterations}`];
+  const titleBits = [`✨ Iteration ${iteration}/${totalTasks} (max ${maxIterations})`];
   if (lighthouseSummary?.storyLabel)
     titleBits.push(lighthouseSummary.storyLabel);
 
@@ -349,12 +350,16 @@ function buildIterationSummary(
   return `\n${buildBox(titleBits.join("  •  "), rows, 78)}`;
 }
 
+// ── Git helpers ────────────────────────────────────────
+function getCurrentGitBranch(): string {
+  return execSync("git rev-parse --abbrev-ref HEAD", { encoding: "utf-8" }).trim();
+}
+
 // ── Archive previous run ────────────────────────────────
 function archiveIfBranchChanged() {
-  const prd = readJson(PRD_FILE);
-  if (!prd || !existsSync(LAST_BRANCH_FILE)) return;
+  if (!existsSync(PRD_FILE) || !existsSync(LAST_BRANCH_FILE)) return;
 
-  const currentBranch = (prd.branchName as string) || "";
+  const currentBranch = getCurrentGitBranch();
   const lastBranch = readText(LAST_BRANCH_FILE).trim();
 
   if (currentBranch && lastBranch && currentBranch !== lastBranch) {
@@ -375,8 +380,7 @@ function archiveIfBranchChanged() {
 }
 
 function trackBranch() {
-  const prd = readJson(PRD_FILE);
-  const branch = (prd?.branchName as string) || "";
+  const branch = getCurrentGitBranch();
   if (branch) writeFileSync(LAST_BRANCH_FILE, branch);
 }
 
@@ -621,6 +625,16 @@ function buildEscalationSummary(escalations: Escalation[]): string {
   );
 }
 
+// ── Task counting ──────────────────────────────────────
+function countTasks(): { total: number; remaining: number } {
+  const prd = readJson(PRD_FILE);
+  if (!prd) return { total: 0, remaining: 0 };
+  const stories = (prd.userStories as Array<{ passes?: boolean }>) ?? [];
+  const total = stories.length;
+  const remaining = stories.filter((s) => !s.passes).length;
+  return { total, remaining };
+}
+
 // ── Main ────────────────────────────────────────────────
 async function main() {
   const { tool, maxIterations } = parseArgs();
@@ -630,19 +644,25 @@ async function main() {
 
   if (!existsSync(PROGRESS_FILE)) initProgressFile();
 
+  const { total, remaining } = countTasks();
   console.log(
-    bold(`Starting Ralph - Tool: ${tool} - Max iterations: ${maxIterations}`),
+    bold(
+      `Starting Ralph - Tool: ${tool} - ${remaining} task${remaining !== 1 ? "s" : ""} remaining out of ${total} (max ${maxIterations} iterations)`,
+    ),
   );
 
   for (let i = 1; i <= maxIterations; i++) {
+    const tasks = countTasks();
+    const taskLabel = `${i}/${tasks.remaining} (max ${maxIterations})`;
     console.log(`\n${"=".repeat(63)}`);
-    console.log(bold(`  Ralph Iteration ${i} of ${maxIterations} (${tool})`));
+    console.log(bold(`  Ralph Iteration ${taskLabel} (${tool})`));
     console.log("=".repeat(63));
 
     const result = await runTool(tool);
     console.log(
       buildIterationSummary(
         i,
+        tasks.remaining,
         maxIterations,
         result.tokenSummary,
         parseLatestLighthouseSummary(PROGRESS_FILE),
@@ -656,7 +676,7 @@ async function main() {
       console.log(
         green(
           bold(
-            `\nRalph completed all tasks! (iteration ${i} of ${maxIterations})`,
+            `\nRalph completed all tasks! (iteration ${i}, ${tasks.total} tasks)`,
           ),
         ),
       );
