@@ -18,7 +18,7 @@
         "Typecheck passes"
       ],
       "priority": 1,
-      "passes": false,
+      "passes": true,
       "notes": "The existing `weekToAbsolute` at line 31 uses `year * 52 + w` which is an approximation. For `absoluteToWeek`, a pragmatic approach: `year = floor(abs / 52)`, `week = abs % 52`, adjust if week is 0 or > weeksInYear(year). Import `incrementWeek` from `@/lib/forecast` if needed, or keep it self-contained. The `clamp` helper can be inline: `Math.max(0, Math.min(1, x))`. For the forecast slope, use simple linear regression on the 3 predictedValues or just check if the last value > first value."
     },
     {
