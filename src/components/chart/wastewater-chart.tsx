@@ -35,6 +35,10 @@ const FORECAST_COLOR = "hsl(0, 0%, 60%)";
 const FORECAST_KEY = "forecast";
 const FORECAST_BAND_KEY = "forecast_band";
 
+/** Composite prediction history (past forecasts). */
+const PREDICTION_HISTORY_KEY = "prediction_history";
+const PREDICTION_HISTORY_COLOR = "hsl(0, 0%, 75%)";
+
 /** Prefix for event category keys in legend/hiddenKeys (e.g. event_sick). */
 const EVENT_KEY_PREFIX = "event_";
 
@@ -123,6 +127,9 @@ export function WastewaterChart({ hiddenKeys, onToggle, department, departmentLa
     { enabled: !!stations },
   );
 
+  // Composite forecast (historical predictions)
+  const { data: compositeForecast } = trpc.waveAnalysis.getCompositeForecast.useQuery();
+
   // Events — only fetch when user is logged in
   const me = trpc.auth.me.useQuery();
   const userEvents = trpc.events.list.useQuery(undefined, {
@@ -175,6 +182,11 @@ export function WastewaterChart({ hiddenKeys, onToggle, department, departmentLa
       label: "Prévision",
       color: FORECAST_COLOR,
     };
+    // Prediction history entry
+    config[PREDICTION_HISTORY_KEY] = {
+      label: "Prédictions passées",
+      color: PREDICTION_HISTORY_COLOR,
+    };
     return config;
   }, [indicatorStationIds, displayNames, enabledDiseases, clinicalLabelSuffix]);
 
@@ -206,6 +218,18 @@ export function WastewaterChart({ hiddenKeys, onToggle, department, departmentLa
       }
     }
 
+    // Merge composite forecast (historical predictions)
+    if (compositeForecast) {
+      for (const cf of compositeForecast) {
+        let point = weekMap.get(cf.targetWeek);
+        if (!point) {
+          point = { week: cf.targetWeek };
+          weekMap.set(cf.targetWeek, point);
+        }
+        point[PREDICTION_HISTORY_KEY] = cf.predictedValue;
+      }
+    }
+
     // Bridge forecast to last real data point and append forecast weeks
     if (forecastData && forecastData.length > 0) {
       // Find the last real smoothed value for the forecast station to bridge
@@ -234,7 +258,7 @@ export function WastewaterChart({ hiddenKeys, onToggle, department, departmentLa
     return Array.from(weekMap.values()).sort((a, b) =>
       (a.week as string).localeCompare(b.week as string)
     );
-  }, [indicators, clinicalIndicators, forecastData, forecastStationId]);
+  }, [indicators, clinicalIndicators, forecastData, forecastStationId, compositeForecast]);
 
   // Convert events to chart markers, filtered to chart date range
   const eventMarkers = useMemo(() => {
@@ -295,6 +319,14 @@ export function WastewaterChart({ hiddenKeys, onToggle, department, departmentLa
       key: FORECAST_KEY,
       label: "Prévision (zone grisée = incertitude)",
       color: FORECAST_COLOR,
+      dashed: true,
+      group: "Prévision",
+    });
+    // Prediction history entry
+    entries.push({
+      key: PREDICTION_HISTORY_KEY,
+      label: "Prédictions passées",
+      color: PREDICTION_HISTORY_COLOR,
       dashed: true,
       group: "Prévision",
     });
@@ -442,6 +474,23 @@ export function WastewaterChart({ hiddenKeys, onToggle, department, departmentLa
                       );
                     }
 
+                    // Prediction history: show past prediction value
+                    if (key === PREDICTION_HISTORY_KEY) {
+                      const valueStr =
+                        value != null
+                          ? Number(value).toLocaleString("fr-FR", { maximumFractionDigits: 0 })
+                          : "—";
+                      return (
+                        <span className="flex items-center gap-2">
+                          <svg className="shrink-0" width="10" height="10" viewBox="0 0 10 10" aria-hidden="true">
+                            <line x1="0" y1="5" x2="10" y2="5" stroke={PREDICTION_HISTORY_COLOR} strokeWidth="2" strokeDasharray="3 1.5" />
+                          </svg>
+                          <span className="text-muted-foreground">Prédiction passée</span>
+                          <span className="font-mono font-medium ml-auto">{valueStr}</span>
+                        </span>
+                      );
+                    }
+
                     if (isClinical) {
                       // Clinical: show value with /100k suffix, no raw/smoothed distinction
                       const valueStr =
@@ -493,6 +542,20 @@ export function WastewaterChart({ hiddenKeys, onToggle, department, departmentLa
                   }}
                 />
               }
+            />
+
+            {/* Composite prediction history (grey dashed, behind real data) */}
+            <Line
+              type="monotone"
+              dataKey={PREDICTION_HISTORY_KEY}
+              stroke={PREDICTION_HISTORY_COLOR}
+              strokeWidth={1.5}
+              strokeDasharray="3 3"
+              dot={false}
+              connectNulls
+              name={PREDICTION_HISTORY_KEY}
+              yAxisId="wastewater"
+              hide={hiddenKeys.has(PREDICTION_HISTORY_KEY)}
             />
 
             {/* Smoothed trend lines (solid) — wastewater */}
