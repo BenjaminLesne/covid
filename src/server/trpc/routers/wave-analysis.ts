@@ -5,7 +5,7 @@ import {
   wastewaterIndicatorsTable,
   forecastSnapshotsTable,
 } from "@/server/db/schema";
-import { asc, desc, sql } from "drizzle-orm";
+import { and, asc, desc, eq, sql } from "drizzle-orm";
 import { NATIONAL_COLUMN } from "@/lib/constants";
 import { detectWaves } from "@/lib/wave-detection";
 import { computeWaveStats, estimateNextWave } from "@/lib/wave-stats";
@@ -58,6 +58,37 @@ export const waveAnalysisRouter = router({
       const forecast = forecastWastewater(series);
       return estimateNextWave(waves, forecast, series);
     }),
+
+  getCompositeForecast: publicProcedure.query(async () => {
+    const latestSnapshot = db
+      .select({
+        target_week: forecastSnapshotsTable.target_week,
+        max_snapshot: sql<string>`max(${forecastSnapshotsTable.snapshot_date})`.as(
+          "max_snapshot",
+        ),
+      })
+      .from(forecastSnapshotsTable)
+      .groupBy(forecastSnapshotsTable.target_week)
+      .as("latest");
+
+    const rows = await db
+      .select({
+        targetWeek: forecastSnapshotsTable.target_week,
+        predictedValue: forecastSnapshotsTable.predicted_value,
+        snapshotDate: forecastSnapshotsTable.snapshot_date,
+      })
+      .from(forecastSnapshotsTable)
+      .innerJoin(
+        latestSnapshot,
+        and(
+          eq(forecastSnapshotsTable.target_week, latestSnapshot.target_week),
+          eq(forecastSnapshotsTable.snapshot_date, latestSnapshot.max_snapshot),
+        ),
+      )
+      .orderBy(asc(forecastSnapshotsTable.target_week));
+
+    return rows;
+  }),
 
   getForecastHistory: publicProcedure.query(async () => {
     const rows = await db
