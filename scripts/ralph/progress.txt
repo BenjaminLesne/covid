@@ -143,3 +143,10 @@ Started: 2026-03-28T08:21:45.850Z
   - `Map` + iterate approach is simpler than sort-then-filter for latest-per-key dedup
   - `localeCompare` works correctly for ISO week strings (e.g., "2025-W02" < "2025-W10")
 ---
+
+## 2026-03-28 - US-BENCH
+- No-op benchmark story — no code changes, just PRD update and progress entry
+- Files changed: `scripts/ralph/prd.json`, `scripts/ralph/progress.txt`
+- **Learnings for future iterations:**
+  - None (benchmark run)
+---
