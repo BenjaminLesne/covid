@@ -1,113 +1,189 @@
 {
   "project": "EauxVid",
-  "branchName": "ralph/events",
-  "description": "Generic Events System - Replace sickness_episodes with a unified events table supporting categories (sick, gym, social, travel, other) displayed on the chart",
+  "branchName": "ralph/predictions-and-settings",
+  "description": "Fix misleading next-wave prediction card with statistical estimation + confidence indicator, add composite historical prediction curve to chart, add data-update vertical lines behind a settings toggle in the filter toolbar.",
   "userStories": [
     {
-      "id": "US-070",
-      "title": "Event categories constants",
-      "description": "As a developer, I need a shared mapping of event categories to colors and labels so the chart and UI stay consistent.",
+      "id": "US-080",
+      "title": "Add absoluteToWeek helper and estimateNextWave function",
+      "description": "As a developer, I need a pure function that estimates when the next wave will start based on historical wave gaps and ARIMA forecast corroboration, returning a confidence level.",
       "acceptanceCriteria": [
-        "Create `src/lib/event-categories.ts` exporting `EVENT_CATEGORIES` array and helper functions",
-        "Each category object: { key: string, label: string (French), color: string (CSS rgb) }",
-        "Categories: sick (Maladie, rgb(239,68,68)), gym (Sport, rgb(59,130,246)), social (Social, rgb(168,85,247)), travel (Voyage, rgb(245,158,11)), other (Autre, rgb(156,163,175))",
-        "Export `CATEGORY_KEYS` array of valid keys for validation",
-        "Export helper `getCategoryByKey(key: string)` returning the category object or undefined",
+        "Add `absoluteToWeek(absWeek: number): string` to `src/lib/wave-stats.ts` — inverse of existing `weekToAbsolute`. Use `incrementWeek` from `src/lib/forecast.ts` to step from a reference week to avoid 52/53-week ambiguity",
+        "Export new types: `ConfidenceLevel = 'elevee' | 'moyenne' | 'faible'` and `NextWaveEstimate = { estimatedStartWeek: string; confidenceLevel: ConfidenceLevel; confidenceLabel: string; method: string }`",
+        "Add `estimateNextWave(waves: Wave[], forecast: ForecastPoint[], series: { week: string; value: number | null }[]): NextWaveEstimate | null`",
+        "Algorithm: compute inter-wave gaps from waves array. Estimated next start = last wave end + avgInterWaveGap (in absolute weeks, converted back). Return null if < 2 waves",
+        "Confidence scoring — 3 signals, each 0–1, averaged: (1) Gap regularity: `1 - clamp(stdGap / avgGap, 0, 1)`, (2) Forecast corroboration: compute slope of forecast predictedValues, score 1 if rising, 0.3 if flat/declining, (3) CI width: `1 - clamp(avgCIWidth / avgPredictedValue, 0, 1)` where CIWidth = upperBound - lowerBound",
+        "Map average score to labels: >= 0.65 'Élevée', >= 0.4 'Moyenne', else 'Faible'",
+        "The `method` field should be a French sentence explaining how the estimate was computed, suitable for a tooltip",
         "Typecheck passes"
       ],
       "priority": 1,
-      "passes": true,
-      "notes": "This is a pure constants/utility file with no DB or UI dependencies. Other stories import from it."
+      "passes": false,
+      "notes": "The existing `weekToAbsolute` at line 31 uses `year * 52 + w` which is an approximation. For `absoluteToWeek`, a pragmatic approach: `year = floor(abs / 52)`, `week = abs % 52`, adjust if week is 0 or > weeksInYear(year). Import `incrementWeek` from `@/lib/forecast` if needed, or keep it self-contained. The `clamp` helper can be inline: `Math.max(0, Math.min(1, x))`. For the forecast slope, use simple linear regression on the 3 predictedValues or just check if the last value > first value."
     },
     {
-      "id": "US-071",
-      "title": "Events table schema",
-      "description": "As a developer, I need an events table in the database to store all user events.",
+      "id": "US-081",
+      "title": "Unit tests for estimateNextWave",
+      "description": "As a developer, I need comprehensive unit tests for the wave estimation logic so I can trust its behavior.",
       "acceptanceCriteria": [
-        "Add `eventsTable` to `src/server/db/schema.ts`: id (serial PK), user_id (integer FK to users), category (varchar, not null), name (varchar, nullable), date (date, not null), end_date (date, nullable), created_at (timestamp, default now)",
-        "Add index on user_id",
-        "Add index on date",
-        "Do NOT remove `sicknessEpisodesTable` yet (migration handled separately)",
-        "Generate Drizzle migration successfully",
-        "Typecheck passes"
+        "Add tests to `src/lib/wave-stats.test.ts` in a new `describe('estimateNextWave')` block",
+        "Test: returns null for 0 or 1 wave",
+        "Test: returns a valid NextWaveEstimate for 2+ waves with correct estimatedStartWeek based on avgInterWaveGap",
+        "Test: confidence is 'elevee' when gaps are regular and forecast is rising",
+        "Test: confidence is 'faible' when gaps are irregular (high std) and forecast is flat/declining",
+        "Test: handles edge cases (waves spanning year boundaries, forecast with empty array)",
+        "Reuse existing `makeWave` helper already in the test file",
+        "Create a `makeForecast` helper returning `ForecastPoint[]` with configurable slope and CI width",
+        "All tests pass: `npx vitest run src/lib/wave-stats.test.ts`"
       ],
       "priority": 2,
-      "passes": true,
-      "notes": "Keep sicknessEpisodesTable in schema for now — it will be removed after data migration."
+      "passes": false,
+      "notes": "The existing test file already has `makeWave` helper and vitest imports. ForecastPoint type is in `src/lib/forecast.ts`: `{ week: string; predictedValue: number; lowerBound: number; upperBound: number }`. For the makeForecast helper, generate 3 forecast points starting from a given week with configurable slope (e.g., values [100, 110, 120] for rising, [100, 100, 100] for flat)."
     },
     {
-      "id": "US-072",
-      "title": "Events tRPC router (CRUD)",
-      "description": "As a user, I want to create, list, update, and delete events so I can track my life events.",
+      "id": "US-082",
+      "title": "Add getNextWaveEstimate tRPC procedure",
+      "description": "As a developer, I need a tRPC procedure that returns the next wave estimate with confidence for a given station.",
       "acceptanceCriteria": [
-        "Create `src/server/trpc/routers/events.ts` with `list`, `create`, `update`, `delete` procedures",
-        "All procedures use `protectedProcedure`",
-        "`list` returns all events for current user, ordered by date desc",
-        "`create` accepts { category, name?, date, endDate? }, validates category against CATEGORY_KEYS from event-categories.ts, inserts row, returns created event",
-        "`update` accepts { id, category, name?, date, endDate? }, validates category, checks ownership, updates row",
-        "`delete` accepts { id }, checks ownership, deletes row",
-        "If endDate is provided, validate endDate >= date",
-        "Register router in root router as `events` (keep `sickness` router for now)",
+        "Add `getNextWaveEstimate` procedure to `src/server/trpc/routers/wave-analysis.ts`",
+        "Input: same `stationInput` schema (optional stationId, defaults to NATIONAL_COLUMN)",
+        "Implementation: fetch smoothed series, detect waves, generate forecast, call `estimateNextWave(waves, forecast, series)`",
+        "Return type matches `NextWaveEstimate | null`",
         "Typecheck passes"
       ],
       "priority": 3,
-      "passes": true,
-      "notes": "Keep sickness router registered temporarily — it will be removed when the UI is swapped."
+      "passes": false,
+      "notes": "Reuse existing `fetchSmoothedSeries` function already in the file. Import `estimateNextWave` and types from `@/lib/wave-stats`, `forecastWastewater` from `@/lib/forecast`, `detectWaves` from `@/lib/wave-detection`. These are all already imported or partially imported in the file."
     },
     {
-      "id": "US-073",
-      "title": "Events panel UI (replaces SicknessPanel)",
-      "description": "As a user, I want a panel to manage all my events with category selection.",
+      "id": "US-083",
+      "title": "Update prediction card to show real estimate with confidence",
+      "description": "As a user, I want the 'Prochaine vague estimée' card to show a statistically grounded next-wave date with a confidence indicator.",
       "acceptanceCriteria": [
-        "Create `src/components/events/events-panel.tsx` component titled 'Mes événements'",
-        "Add event form: category selector (shadcn Select with colored dot per category), optional name input, date picker, optional end date picker",
-        "Event list shows all events with colored category badge, date(s), name if set, and edit/delete buttons",
-        "Edit inline (same pattern as current sickness panel edit)",
-        "Delete with confirmation dialog",
-        "Time Machine button on each event (reuse existing TimeMachineDialog)",
-        "Stats section for sick-category events only (reuse existing SicknessStats logic)",
-        "Replace SicknessPanel with EventsPanel in page.tsx",
-        "Remove sickness router from root router, delete `src/server/trpc/routers/sickness.ts`",
-        "Remove `src/components/sickness/sickness-panel.tsx`",
-        "Typecheck passes",
-        "Verify in browser using dev-browser skill"
+        "In `src/components/wave-stats-panel.tsx`, replace the `forecastData` query and `nextWaveEstimate` useMemo (lines 112-123) with a call to `trpc.waveAnalysis.getNextWaveEstimate.useQuery({ stationId })`",
+        "Update the prediction StatCard (lines 177-182) to show: value = `semaine du {formatWeekHuman(estimatedStartWeek)}`, unit = `Confiance : {confidenceLabel}`, info = InfoButton with the `method` text",
+        "Card only renders when the query returns non-null data",
+        "Remove the now-unused `forecastData` query if it's no longer needed by this component",
+        "Typecheck passes"
       ],
       "priority": 4,
-      "passes": true,
-      "notes": "Use shadcn Select component (add with `./node_modules/.bin/shadcn add select` if not present). Reuse patterns from sickness-panel.tsx."
+      "passes": false,
+      "notes": "The StatCard already supports `unit` and `info` props (see lines 42-63). The InfoButton component is already defined in the same file (line 66). The `formatWeekHuman` function is already in the file (line 28). Simply replace the data source and update the JSX."
     },
     {
-      "id": "US-074",
-      "title": "Display events on chart",
-      "description": "As a user, I want to see all my events on the wastewater chart so I can visually correlate them with sickness.",
+      "id": "US-084",
+      "title": "Add getCompositeForecast tRPC procedure",
+      "description": "As a developer, I need a procedure that returns a merged prediction curve from all forecast snapshots, keeping the most recent prediction per target week.",
       "acceptanceCriteria": [
-        "Replace sickness-specific chart logic in wastewater-chart.tsx with generic event rendering",
-        "Fetch events via `trpc.events.list` instead of `trpc.sickness.list`",
-        "Events with end_date: render as ReferenceArea band in category color (same opacity pattern as current sickness bands)",
-        "Single-day events (no end_date): render as ReferenceLine vertical marker in category color",
-        "One legend entry per category that has events in the visible range, grouped under 'Personnel'",
-        "Each category toggleable via legend (extend hiddenKeys with category-based keys like `event_sick`, `event_gym`, etc.)",
-        "Typecheck passes",
-        "Verify in browser using dev-browser skill"
+        "Add `getCompositeForecast` procedure to `src/server/trpc/routers/wave-analysis.ts`",
+        "Input: none (forecasts are national-only currently)",
+        "SQL: for each `target_week` in `forecast_snapshots`, select the row with the maximum `snapshot_date`. Use a subquery with GROUP BY + max() joined back to the main table",
+        "Return `{ targetWeek: string; predictedValue: number; snapshotDate: string }[]` ordered by targetWeek ascending",
+        "Typecheck passes"
       ],
       "priority": 5,
-      "passes": true,
-      "notes": "Extend the existing sickness band logic. Use EVENT_CATEGORIES for colors. dateToISOWeek already exists for date-to-week conversion."
+      "passes": false,
+      "notes": "Drizzle ORM doesn't support DISTINCT ON directly. Use a subquery approach: `const latestSnapshot = db.select({ target_week, max_snapshot: sql<string>`max(snapshot_date)`.as('max_snapshot') }).from(forecastSnapshotsTable).groupBy(target_week).as('latest')`. Then inner join the main table on both target_week and snapshot_date = max_snapshot. Import `and`, `eq`, `sql` from `drizzle-orm`. The `forecastSnapshotsTable` is already imported in the file."
     },
     {
-      "id": "US-075",
-      "title": "Migrate sickness data and drop old table",
-      "description": "As a developer, I need to migrate existing sickness_episodes data to the events table and clean up the old table.",
+      "id": "US-085",
+      "title": "Render composite prediction curve on chart",
+      "description": "As a user, I want to see historical predictions alongside real data on the chart, so I can assess how accurate past forecasts were.",
       "acceptanceCriteria": [
-        "Create a Drizzle migration that: INSERT INTO events (user_id, category, date, end_date, created_at) SELECT user_id, 'sick', start_date, end_date, created_at FROM sickness_episodes",
-        "Migration then drops the sickness_episodes table",
-        "Remove `sicknessEpisodesTable` from `src/server/db/schema.ts`",
-        "Generate Drizzle migration successfully",
+        "In `src/components/chart/wastewater-chart.tsx`, add constants: `PREDICTION_HISTORY_KEY = 'prediction_history'` and `PREDICTION_HISTORY_COLOR = 'hsl(0, 0%, 75%)'`",
+        "Query `trpc.waveAnalysis.getCompositeForecast.useQuery()` in the component",
+        "Merge composite forecast data into the chartData weekMap: for each entry, set `point[PREDICTION_HISTORY_KEY] = cf.predictedValue`",
+        "Add a `<Line>` element for the composite prediction: type monotone, lighter gray, strokeDasharray '3 3', strokeWidth 1.5, no dots, connectNulls, yAxisId 'wastewater'. Place it BEFORE real data lines so it renders behind them",
+        "Add chart config entry with label 'Prédictions passées'",
+        "Add legend entry in the 'Prévision' group with dashed style",
+        "Add tooltip case showing 'Prédiction passée' with formatted value",
+        "Confidence bands remain only on the current 3-week forecast portion (do NOT add bands to historical predictions)",
+        "The line is always visible (not behind a toggle)",
         "Typecheck passes"
       ],
       "priority": 6,
-      "passes": true,
-      "notes": "This runs LAST because all code must already reference eventsTable instead of sicknessEpisodesTable. The custom SQL migration should be created manually in the drizzle/ folder if drizzle-kit cannot express it."
+      "passes": false,
+      "notes": "Follow the exact same pattern as the existing FORECAST_KEY line rendering (around lines 559-585 for the Line, lines 209-231 for data merging, lines 417-443 for tooltip). The composite data should be merged in the `chartData` useMemo alongside clinical data. Add `compositeForecast` to the useMemo dependency array. The legend entry follows the pattern of existing entries in the `legendEntries` useMemo. The `hide` prop on Line uses `hiddenKeys.has(PREDICTION_HISTORY_KEY)`. Note from progress.txt: Recharts ReferenceLine/ReferenceArea don't have `hide` prop — use `style={{ display: 'none' }}` if needed, but Line does support `hide`."
+    },
+    {
+      "id": "US-086",
+      "title": "Add getDataUpdateDates tRPC procedure",
+      "description": "As a developer, I need a procedure that returns distinct dates when new wastewater data was ingested.",
+      "acceptanceCriteria": [
+        "Add `getDataUpdateDates` procedure to `src/server/trpc/routers/wastewater.ts`",
+        "Query: SELECT DISTINCT DATE(first_seen_at) from wastewater_indicators WHERE first_seen_at IS NOT NULL, ordered ascending",
+        "Return `string[]` of ISO date strings (e.g., '2025-01-15')",
+        "Typecheck passes"
+      ],
+      "priority": 7,
+      "passes": false,
+      "notes": "Use `sql<string>` template for the DATE() extraction: `sql<string>`DATE(${wastewaterIndicatorsTable.first_seen_at})`.as('update_date')`. Use `db.selectDistinct(...)` or raw SQL distinct. The `wastewaterIndicatorsTable` is already imported. Follow existing patterns in the file (publicProcedure, no input needed)."
+    },
+    {
+      "id": "US-087",
+      "title": "Add chart settings hook and component",
+      "description": "As a user, I want a settings button in the filter toolbar to toggle chart display options.",
+      "acceptanceCriteria": [
+        "Install shadcn Switch component: `./node_modules/.bin/shadcn add switch`",
+        "Create `src/hooks/use-chart-settings.ts` using nuqs: `useQueryState('updates', parseAsBoolean.withDefault(false).withOptions({ history: 'replace' }))`. Export `useChartSettings()` returning `{ showUpdates, setShowUpdates }`",
+        "Create `src/components/filters/chart-settings.tsx` as a 'use client' component",
+        "Render a `Button variant='outline' size='icon'` with a Settings icon (from lucide-react) as the trigger for a `Popover`",
+        "Popover content: a label 'Afficher les mises à jour' with a `Switch` toggle, bound to `showUpdates`/`setShowUpdates`",
+        "Add `<ChartSettings />` at the end of the filter toolbar row in `src/app/page.tsx` (after `<AsOfDatePicker />`)",
+        "URL param `?updates=true` appears when toggle is on, disappears when off",
+        "Typecheck passes"
+      ],
+      "priority": 8,
+      "passes": false,
+      "notes": "Follow the exact nuqs pattern from `src/hooks/use-as-of-date.ts`. Import `parseAsBoolean` from `nuqs`. For the component, import Popover/PopoverTrigger/PopoverContent from `@/components/ui/popover`, Button from `@/components/ui/button`, Switch from `@/components/ui/switch`, Label from `@/components/ui/label` (may need `./node_modules/.bin/shadcn add label` if not present). The Settings icon is from lucide-react (already used elsewhere in the project). Note from progress.txt: `npx shadcn@latest` doesn't work — use `./node_modules/.bin/shadcn add <component>` directly."
+    },
+    {
+      "id": "US-088",
+      "title": "Render data update vertical lines on chart",
+      "description": "As a user, I want to see vertical lines on the chart showing when new data was ingested, so I know when the dashboard was refreshed with new measurements.",
+      "acceptanceCriteria": [
+        "In `src/components/chart/wastewater-chart.tsx`, import and use `useChartSettings` hook",
+        "Query `trpc.wastewater.getDataUpdateDates.useQuery(undefined, { enabled: showUpdates })` — only fetch when toggle is on",
+        "Convert dates to ISO weeks using existing `dateToISOWeek` from `@/lib/chart-utils`",
+        "Render as `<ReferenceLine>` components: x = ISO week, yAxisId 'wastewater', stroke 'hsl(200, 60%, 70%)', strokeWidth 1, strokeDasharray '2 4', ifOverflow 'hidden'",
+        "Short label at top showing 'MM-DD' (e.g., '03-05'), fontSize 9, fill 'hsl(200, 60%, 60%)'",
+        "Lines only render when `showUpdates` is true",
+        "Typecheck passes"
+      ],
+      "priority": 9,
+      "passes": false,
+      "notes": "The `dateToISOWeek` function is already imported in the chart component (line 26). `ReferenceLine` is already imported from recharts (line 4). Follow the pattern of existing ReferenceLine/ReferenceArea usage in the chart. Note from progress.txt: ReferenceLine doesn't have `hide` prop — use conditional rendering (`showUpdates && updateDates?.map(...)`) instead. The label `value` should be `dateStr.slice(5)` for 'MM-DD' format. Place the ReferenceLine block after existing event markers in the JSX."
+    },
+    {
+      "id": "US-089",
+      "title": "Unit tests for chart settings hook",
+      "description": "As a developer, I need tests for the chart settings hook to ensure URL state management works correctly.",
+      "acceptanceCriteria": [
+        "Create `src/hooks/use-chart-settings.test.ts`",
+        "Test: default value of showUpdates is false",
+        "Test: setShowUpdates(true) updates state",
+        "Tests pass: `npx vitest run src/hooks/use-chart-settings.test.ts`"
+      ],
+      "priority": 10,
+      "passes": false,
+      "notes": "Testing nuqs hooks requires mocking or using the nuqs testing adapter. Check how existing hooks are tested — if there are no hook tests, this may need a `NuqsTestingAdapter` wrapper from `nuqs/adapters/testing`. If this proves too complex to set up, write a minimal test that imports the hook and checks it exports the expected shape. The existing test files in `src/lib/` test pure functions, not hooks — this may be a first hook test in the project."
+    },
+    {
+      "id": "US-090",
+      "title": "Unit tests for composite forecast merge logic",
+      "description": "As a developer, I need to verify the composite forecast aggregation works correctly.",
+      "acceptanceCriteria": [
+        "Extract the 'latest snapshot per target week' logic into a pure helper function `mergeForecasts(snapshots: { snapshotDate: string; targetWeek: string; predictedValue: number }[]): { targetWeek: string; predictedValue: number; snapshotDate: string }[]` in a new file `src/lib/composite-forecast.ts`",
+        "Create `src/lib/composite-forecast.test.ts`",
+        "Test: returns latest prediction per target_week when multiple snapshots exist for the same week",
+        "Test: returns all weeks when each target_week has only one snapshot",
+        "Test: returns empty array for empty input",
+        "Test: results are sorted by targetWeek ascending",
+        "Tests pass: `npx vitest run src/lib/composite-forecast.test.ts`"
+      ],
+      "priority": 11,
+      "passes": false,
+      "notes": "Rather than testing SQL directly (which requires a DB connection), extract the merge/dedup logic into a pure function that operates on an in-memory array. The tRPC procedure in US-084 can optionally use this function on fetched data instead of doing dedup in SQL — either approach is fine. This gives us a testable unit without needing a DB test harness."
     }
   ]
 }
