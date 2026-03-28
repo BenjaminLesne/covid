@@ -3,6 +3,16 @@
  */
 
 import type { Wave } from "./wave-detection";
+import type { ForecastPoint } from "./forecast";
+
+export type ConfidenceLevel = "elevee" | "moyenne" | "faible";
+
+export interface NextWaveEstimate {
+  estimatedStartWeek: string;
+  confidenceLevel: ConfidenceLevel;
+  confidenceLabel: string;
+  method: string;
+}
 
 export interface WaveStats {
   waveCount: number;
@@ -34,6 +44,78 @@ function weekToAbsolute(week: string): number {
   const year = parseInt(match[1], 10);
   const w = parseInt(match[2], 10);
   return year * 52 + w;
+}
+
+/** Inverse of weekToAbsolute: convert absolute week number back to "YYYY-WXX". */
+export function absoluteToWeek(absWeek: number): string {
+  let year = Math.floor(absWeek / 52);
+  let week = absWeek % 52;
+  if (week === 0) {
+    year--;
+    week = 52;
+  }
+  return `${year}-W${String(week).padStart(2, "0")}`;
+}
+
+const clamp = (x: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, x));
+
+/**
+ * Estimate when the next wave will start based on historical wave gaps
+ * and ARIMA forecast corroboration.
+ */
+export function estimateNextWave(
+  waves: Wave[],
+  forecast: ForecastPoint[],
+  _series: { week: string; value: number | null }[],
+): NextWaveEstimate | null {
+  if (waves.length < 2) return null;
+
+  // Compute inter-wave gaps
+  const gaps: number[] = [];
+  for (let i = 1; i < waves.length; i++) {
+    gaps.push(weekToAbsolute(waves[i].startWeek) - weekToAbsolute(waves[i - 1].endWeek));
+  }
+  const avgGap = mean(gaps);
+  const stdGap = std(gaps);
+
+  // Estimated next start = last wave end + average gap
+  const lastWaveEnd = weekToAbsolute(waves[waves.length - 1].endWeek);
+  const estimatedAbsolute = Math.round(lastWaveEnd + avgGap);
+  const estimatedStartWeek = absoluteToWeek(estimatedAbsolute);
+
+  // Confidence scoring — 3 signals, each 0–1, averaged
+  // (1) Gap regularity
+  const gapRegularity = avgGap > 0 ? 1 - clamp(stdGap / avgGap, 0, 1) : 0;
+
+  // (2) Forecast corroboration: is the forecast rising?
+  let forecastCorroboration = 0.3;
+  if (forecast.length >= 2) {
+    const first = forecast[0].predictedValue;
+    const last = forecast[forecast.length - 1].predictedValue;
+    forecastCorroboration = last > first ? 1 : 0.3;
+  }
+
+  // (3) CI width relative to predicted value
+  let ciScore = 0.5;
+  if (forecast.length > 0) {
+    const avgCIWidth = mean(forecast.map((f) => f.upperBound - f.lowerBound));
+    const avgPredicted = mean(forecast.map((f) => f.predictedValue));
+    if (avgPredicted > 0) {
+      ciScore = 1 - clamp(avgCIWidth / avgPredicted, 0, 1);
+    }
+  }
+
+  const avgScore = (gapRegularity + forecastCorroboration + ciScore) / 3;
+  const confidenceLevel: ConfidenceLevel =
+    avgScore >= 0.65 ? "elevee" : avgScore >= 0.4 ? "moyenne" : "faible";
+  const confidenceLabel =
+    confidenceLevel === "elevee" ? "Élevée" : confidenceLevel === "moyenne" ? "Moyenne" : "Faible";
+
+  const method =
+    `Estimation basée sur l'intervalle moyen entre ${waves.length} vagues détectées ` +
+    `(${avgGap.toFixed(1)} semaines en moyenne), corroborée par les prévisions ARIMA.`;
+
+  return { estimatedStartWeek, confidenceLevel, confidenceLabel, method };
 }
 
 export function computeWaveStats(waves: Wave[]): WaveStats {
