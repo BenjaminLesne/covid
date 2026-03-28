@@ -5,7 +5,7 @@ import {
   stationsTable,
   wastewaterIndicatorsTable,
 } from "@/server/db/schema";
-import { and, asc, eq, gte, inArray, lte } from "drizzle-orm";
+import { and, asc, eq, gte, inArray, lte, sql } from "drizzle-orm";
 import type { NationalAggregate } from "@/types/wastewater";
 import { NATIONAL_COLUMN } from "@/lib/constants";
 
@@ -99,5 +99,27 @@ export const wastewaterRouter = router({
     }));
 
     return national;
+  }),
+
+  /**
+   * Get distinct dates when new wastewater data was ingested.
+   */
+  getDataUpdateDates: publicProcedure.query(async () => {
+    const rows = await db
+      .select({
+        updateDate: sql<string>`DATE(${wastewaterIndicatorsTable.first_seen_at})`.as(
+          "update_date"
+        ),
+      })
+      .from(wastewaterIndicatorsTable)
+      .where(
+        sql`${wastewaterIndicatorsTable.first_seen_at} IS NOT NULL`
+      )
+      .groupBy(sql`DATE(${wastewaterIndicatorsTable.first_seen_at})`)
+      .orderBy(
+        asc(sql`DATE(${wastewaterIndicatorsTable.first_seen_at})`)
+      );
+
+    return rows.map((r) => r.updateDate);
   }),
 });
