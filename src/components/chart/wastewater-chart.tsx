@@ -7,6 +7,7 @@ import { useStationPreferences } from "@/hooks/use-station-preferences";
 import { useDateRange } from "@/hooks/use-date-range";
 import { useClinicalPreferences } from "@/hooks/use-clinical-preferences";
 import { useAsOfDate } from "@/hooks/use-as-of-date";
+import { useChartSettings } from "@/hooks/use-chart-settings";
 import { NATIONAL_STATION_ID, NATIONAL_COLUMN, CLINICAL_DATASETS, slugifyStationName } from "@/lib/constants";
 import { EVENT_CATEGORIES, getCategoryByKey } from "@/lib/event-categories";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -68,6 +69,7 @@ export function WastewaterChart({ hiddenKeys, onToggle, department, departmentLa
   const { dateRange } = useDateRange();
   const { enabledDiseases } = useClinicalPreferences();
   const { asOfDate } = useAsOfDate();
+  const { showUpdates } = useChartSettings();
 
   // Map "national" to "National_54" for querying, and get station names for others
   const { data: stations, isPending: stationsLoading, isError: stationsError, refetch: refetchStations } =
@@ -129,6 +131,20 @@ export function WastewaterChart({ hiddenKeys, onToggle, department, departmentLa
 
   // Composite forecast (historical predictions)
   const { data: compositeForecast } = trpc.waveAnalysis.getCompositeForecast.useQuery();
+
+  // Data update dates (only fetch when settings toggle is on)
+  const { data: updateDates } = trpc.wastewater.getDataUpdateDates.useQuery(undefined, {
+    enabled: showUpdates,
+  });
+
+  // Convert update dates to ISO weeks for chart reference lines
+  const updateWeeks = useMemo(() => {
+    if (!updateDates) return [];
+    return updateDates.map((dateStr) => ({
+      week: dateToISOWeek(new Date(dateStr)),
+      label: dateStr.slice(5), // MM-DD
+    }));
+  }, [updateDates]);
 
   // Events — only fetch when user is logged in
   const me = trpc.auth.me.useQuery();
@@ -675,6 +691,25 @@ export function WastewaterChart({ hiddenKeys, onToggle, department, departmentLa
                 />
               )
             )}
+
+            {/* Data update vertical lines (when settings toggle is on) */}
+            {showUpdates && updateWeeks.map((u, i) => (
+              <ReferenceLine
+                key={`update-${i}`}
+                x={u.week}
+                yAxisId="wastewater"
+                stroke="hsl(200, 60%, 70%)"
+                strokeWidth={1}
+                strokeDasharray="2 4"
+                ifOverflow="hidden"
+                label={{
+                  value: u.label,
+                  position: "top",
+                  fontSize: 9,
+                  fill: "hsl(200, 60%, 60%)",
+                }}
+              />
+            ))}
           </ComposedChart>
         </ChartContainer>
       </div>
