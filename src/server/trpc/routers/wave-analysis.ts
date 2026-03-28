@@ -8,7 +8,7 @@ import {
 import { asc, desc, sql } from "drizzle-orm";
 import { NATIONAL_COLUMN } from "@/lib/constants";
 import { detectWaves } from "@/lib/wave-detection";
-import { computeWaveStats } from "@/lib/wave-stats";
+import { computeWaveStats, estimateNextWave } from "@/lib/wave-stats";
 import { forecastWastewater } from "@/lib/forecast";
 
 const stationInput = z
@@ -47,6 +47,16 @@ export const waveAnalysisRouter = router({
       const stationId = input?.stationId ?? NATIONAL_COLUMN;
       const series = await fetchSmoothedSeries(stationId);
       return forecastWastewater(series);
+    }),
+
+  getNextWaveEstimate: publicProcedure
+    .input(stationInput)
+    .query(async ({ input }) => {
+      const stationId = input?.stationId ?? NATIONAL_COLUMN;
+      const series = await fetchSmoothedSeries(stationId);
+      const waves = detectWaves(series);
+      const forecast = forecastWastewater(series);
+      return estimateNextWave(waves, forecast, series);
     }),
 
   getForecastHistory: publicProcedure.query(async () => {
