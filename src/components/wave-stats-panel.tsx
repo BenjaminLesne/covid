@@ -109,18 +109,10 @@ export function WaveStatsPanel() {
     stationId,
   });
 
-  const { data: forecastData } = trpc.waveAnalysis.getForecast.useQuery({
-    stationId,
-  });
+  const { data: nextWaveEstimate } =
+    trpc.waveAnalysis.getNextWaveEstimate.useQuery({ stationId });
 
   const stats = data?.stats;
-
-  const nextWaveEstimate = useMemo(() => {
-    if (!forecastData || forecastData.length === 0 || !stats?.avgAmplitude) {
-      return null;
-    }
-    return forecastData[forecastData.length - 1]?.week ?? null;
-  }, [forecastData, stats?.avgAmplitude]);
 
   if (isLoading) {
     return (
@@ -177,7 +169,13 @@ export function WaveStatsPanel() {
         {nextWaveEstimate && (
           <StatCard
             label="Prochaine vague estimée"
-            value={`semaine du ${formatWeekHuman(nextWaveEstimate)}`}
+            value={`semaine du ${formatWeekHuman(nextWaveEstimate.estimatedStartWeek)}`}
+            unit={`Confiance : ${nextWaveEstimate.confidenceLabel}`}
+            info={
+              <InfoButton title="Méthode d'estimation">
+                {nextWaveEstimate.method}
+              </InfoButton>
+            }
           />
         )}
       </div>
