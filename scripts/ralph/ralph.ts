@@ -509,6 +509,7 @@ function runClaude(): Promise<RunResult> {
 
     let resultOutput = "";
     let tokenSummary: TokenSummary | null = null;
+    let lastTurnUsage: ClaudeUsage | null = null;
     const rl = createInterface({ input: child.stdout });
 
     rl.on("line", (line) => {
@@ -522,7 +523,12 @@ function runClaude(): Promise<RunResult> {
       if (event.type === "assistant") {
         const message = event.message as {
           content: Array<Record<string, unknown>>;
+          usage?: ClaudeUsage;
         };
+        // Track last turn's usage (= current context window fill)
+        if (message.usage) {
+          lastTurnUsage = message.usage;
+        }
         for (const block of message.content) {
           if (block.type === "thinking") {
             console.log(dim(`[thinking] ${block.thinking as string}`));
@@ -542,8 +548,8 @@ function runClaude(): Promise<RunResult> {
           Math.round(((event.duration_ms as number) / 1000) * 10) / 10;
         const cost = Math.round((event.total_cost_usd as number) * 100) / 100;
 
-        // Context usage
-        const usage = event.usage as ClaudeUsage;
+        // Use last turn's usage for context window fill (matches ccstatusline)
+        const usage = lastTurnUsage ?? (event.usage as ClaudeUsage);
         const totalTokens =
           usage.input_tokens +
           usage.cache_creation_input_tokens +
