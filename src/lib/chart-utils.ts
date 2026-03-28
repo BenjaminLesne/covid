@@ -35,6 +35,31 @@ export function formatWeekLabelFull(week: string): string {
   return date.toLocaleDateString(getLocale(), { day: "numeric", month: "short", year: "numeric" });
 }
 
+/** Expand an ISO week string to 7 YYYY-MM-DD date strings (Mon→Sun). */
+export function isoWeekToDays(week: string): string[] {
+  const monday = isoWeekToDate(week);
+  if (!monday) return [];
+  return Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(monday);
+    d.setUTCDate(monday.getUTCDate() + i);
+    return d.toISOString().slice(0, 10);
+  });
+}
+
+/** Format YYYY-MM-DD as short date for X-axis ticks (e.g. "15 janv."). */
+export function formatDayLabel(dateStr: string): string {
+  const d = new Date(dateStr + "T00:00:00Z");
+  if (isNaN(d.getTime())) return dateStr;
+  return d.toLocaleDateString(getLocale(), { day: "numeric", month: "short", timeZone: "UTC" });
+}
+
+/** Format YYYY-MM-DD as full date for tooltips (e.g. "15 mars 2026"). */
+export function formatDayLabelFull(dateStr: string): string {
+  const d = new Date(dateStr + "T00:00:00Z");
+  if (isNaN(d.getTime())) return dateStr;
+  return d.toLocaleDateString(getLocale(), { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" });
+}
+
 /** Convert ISO date (YYYY-MM-DD) to ISO week string (YYYY-WNN) for filtering. */
 export function dateToISOWeek(date: Date): string {
   const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));

@@ -21,8 +21,9 @@ import {
 import { ChartLegend, type LegendEntry } from "@/components/chart/chart-legend";
 import type { Station } from "@/types/wastewater";
 import {
-  formatWeekLabel,
-  formatWeekLabelFull,
+  formatDayLabel,
+  formatDayLabelFull,
+  isoWeekToDays,
   dateToISOWeek,
   LINE_COLORS,
   CLINICAL_KEY_PREFIX,
@@ -49,7 +50,7 @@ function buildSandreToColumnMap(stations: Station[]): Map<string, string> {
 }
 
 interface ChartDataPoint {
-  week: string;
+  date: string;
   [key: string]: number | string | number[] | null;
 }
 
@@ -137,8 +138,8 @@ export function WastewaterChart({ hiddenKeys, onToggle, department, departmentLa
   const updateWeeks = useMemo(() => {
     if (!updateDates) return [];
     return updateDates.map((dateStr) => ({
-      week: dateToISOWeek(new Date(dateStr)),
-      label: dateStr.slice(5), // MM-DD
+      date: dateStr.slice(0, 10), // YYYY-MM-DD
+      label: dateStr.slice(5, 10), // MM-DD
     }));
   }, [updateDates]);
 
@@ -197,104 +198,103 @@ export function WastewaterChart({ hiddenKeys, onToggle, department, departmentLa
     return config;
   }, [indicatorStationIds, displayNames, enabledDiseases, clinicalLabelSuffix]);
 
-  // Pivot indicators into Recharts data format: one row per week, merged with clinical + forecast data
+  // Pivot indicators into Recharts data format: one row per day (weekly values expanded to 7 daily points)
   const chartData = useMemo(() => {
     if (!indicators || indicators.length === 0) return [];
 
-    // Group by week
-    const weekMap = new Map<string, ChartDataPoint>();
+    // Step 1: Group all data by week
+    type WeekData = Record<string, number | string | number[] | null>;
+    const weekMap = new Map<string, WeekData>();
+    const getWeek = (w: string) => {
+      let d = weekMap.get(w);
+      if (!d) { d = {}; weekMap.set(w, d); }
+      return d;
+    };
+
     for (const ind of indicators) {
-      let point = weekMap.get(ind.week);
-      if (!point) {
-        point = { week: ind.week };
-        weekMap.set(ind.week, point);
-      }
-      point[`${ind.stationId}_smoothed`] = ind.smoothedValue;
-      point[`${ind.stationId}_raw`] = ind.value;
+      const w = getWeek(ind.week);
+      w[`${ind.stationId}_smoothed`] = ind.smoothedValue;
+      w[`${ind.stationId}_raw`] = ind.value;
     }
 
-    // Merge clinical data into existing chart points by week
     if (clinicalIndicators) {
       for (const ci of clinicalIndicators) {
-        let point = weekMap.get(ci.week);
-        if (!point) {
-          point = { week: ci.week };
-          weekMap.set(ci.week, point);
-        }
-        point[`${CLINICAL_KEY_PREFIX}${ci.diseaseId}`] = ci.erVisitRate;
+        getWeek(ci.week)[`${CLINICAL_KEY_PREFIX}${ci.diseaseId}`] = ci.erVisitRate;
       }
     }
 
-    // Merge composite forecast into the unified forecast line
     if (compositeForecast) {
       for (const cf of compositeForecast) {
-        let point = weekMap.get(cf.targetWeek);
-        if (!point) {
-          point = { week: cf.targetWeek };
-          weekMap.set(cf.targetWeek, point);
-        }
-        point[FORECAST_KEY] = cf.predictedValue;
+        getWeek(cf.targetWeek)[FORECAST_KEY] = cf.predictedValue;
       }
     }
 
-    // Bridge forecast to last real data point
-    {
-      const smoothedKey = `${forecastStationId}_smoothed`;
-      const sorted = Array.from(weekMap.values()).sort((a, b) =>
-        (a.week as string).localeCompare(b.week as string)
-      );
-      const lastReal = sorted.findLast((p) => p[smoothedKey] != null);
-      if (lastReal && lastReal[FORECAST_KEY] == null) {
-        lastReal[FORECAST_KEY] = lastReal[smoothedKey] as number;
-      }
-    }
-
-    // From live forecast, only add confidence bands on future weeks
     if (forecastData && forecastData.length > 0) {
       for (const fp of forecastData) {
-        let point = weekMap.get(fp.week);
-        if (!point) {
-          point = { week: fp.week };
-          weekMap.set(fp.week, point);
-        }
-        // Composite already has the line value; fill it in only if missing
-        if (point[FORECAST_KEY] == null) {
-          point[FORECAST_KEY] = fp.predictedValue;
-        }
-        point[FORECAST_BAND_KEY] = [fp.lowerBound, fp.upperBound];
+        const w = getWeek(fp.week);
+        if (w[FORECAST_KEY] == null) w[FORECAST_KEY] = fp.predictedValue;
+        w[FORECAST_BAND_KEY] = [fp.lowerBound, fp.upperBound];
       }
     }
 
-    // Sort by week chronologically
-    return Array.from(weekMap.values()).sort((a, b) =>
-      (a.week as string).localeCompare(b.week as string)
-    );
+    // Step 2: Find the last real-data week for the bridge
+    const smoothedKey = `${forecastStationId}_smoothed`;
+    const sortedWeeks = Array.from(weekMap.keys()).sort();
+    const lastRealWeek = sortedWeeks.findLast((w) => weekMap.get(w)![smoothedKey] != null);
+
+    // Step 3: Expand each week into 7 daily points
+    const dailyPoints: ChartDataPoint[] = [];
+    for (const week of sortedWeeks) {
+      const data = weekMap.get(week)!;
+      const days = isoWeekToDays(week);
+      for (const day of days) {
+        const point: ChartDataPoint = { date: day };
+        for (const [k, v] of Object.entries(data)) {
+          point[k] = v;
+        }
+        dailyPoints.push(point);
+      }
+    }
+
+    // Step 4: Bridge — set forecast value + 0-width band on the last real Sunday
+    if (lastRealWeek) {
+      const lastRealDays = isoWeekToDays(lastRealWeek);
+      const lastSunday = lastRealDays[6];
+      const sundayPoint = dailyPoints.find((p) => p.date === lastSunday);
+      if (sundayPoint) {
+        const smoothedVal = sundayPoint[smoothedKey] as number | null;
+        if (smoothedVal != null && sundayPoint[FORECAST_KEY] == null) {
+          sundayPoint[FORECAST_KEY] = smoothedVal;
+          sundayPoint[FORECAST_BAND_KEY] = [smoothedVal, smoothedVal];
+        }
+      }
+    }
+
+    return dailyPoints;
   }, [indicators, clinicalIndicators, forecastData, forecastStationId, compositeForecast]);
 
   // Convert events to chart markers, filtered to chart date range
   const eventMarkers = useMemo(() => {
     if (!me.data || !userEvents.data || userEvents.data.length === 0) return [];
     if (chartData.length === 0) return [];
-    const firstWeek = chartData[0].week as string;
-    const lastWeek = chartData[chartData.length - 1].week as string;
+    const firstDate = chartData[0].date as string;
+    const lastDate = chartData[chartData.length - 1].date as string;
 
     return userEvents.data
       .map((ev) => {
-        const startWeek = dateToISOWeek(new Date(ev.date));
-        const endWeek = ev.endDate ? dateToISOWeek(new Date(ev.endDate)) : null;
+        const startDate = ev.date.slice(0, 10); // YYYY-MM-DD
+        const endDate = ev.endDate?.slice(0, 10) ?? null;
         const cat = getCategoryByKey(ev.category);
         const color = cat?.color ?? "rgb(156,163,175)";
         const key = `${EVENT_KEY_PREFIX}${ev.category}`;
-        if (endWeek) {
-          // Range event → ReferenceArea
-          const x1 = startWeek < firstWeek ? firstWeek : startWeek;
-          const x2 = endWeek > lastWeek ? lastWeek : endWeek;
+        if (endDate) {
+          const x1 = startDate < firstDate ? firstDate : startDate;
+          const x2 = endDate > lastDate ? lastDate : endDate;
           if (x1 > x2) return null;
           return { type: "area" as const, x1, x2, color, key };
         } else {
-          // Single-day event → ReferenceLine
-          if (startWeek < firstWeek || startWeek > lastWeek) return null;
-          return { type: "line" as const, x: startWeek, color, key };
+          if (startDate < firstDate || startDate > lastDate) return null;
+          return { type: "line" as const, x: startDate, color, key };
         }
       })
       .filter((m): m is NonNullable<typeof m> => m !== null);
@@ -394,8 +394,8 @@ export function WastewaterChart({ hiddenKeys, onToggle, department, departmentLa
           <ComposedChart data={chartData} margin={{ top: 5, right: hasClinicalVisible ? 5 : 10, left: 0, bottom: 5 }}>
             <CartesianGrid strokeDasharray="3 3" />
             <XAxis
-              dataKey="week"
-              tickFormatter={formatWeekLabel}
+              dataKey="date"
+              tickFormatter={formatDayLabel}
               tick={{ fontSize: 11 }}
               interval="preserveStartEnd"
               minTickGap={40}
@@ -436,10 +436,7 @@ export function WastewaterChart({ hiddenKeys, onToggle, department, departmentLa
             <ChartTooltip
               content={
                 <ChartTooltipContent
-                  labelFormatter={(label) => {
-                    const week = String(label);
-                    return formatWeekLabelFull(week);
-                  }}
+                  labelFormatter={(label) => formatDayLabelFull(String(label))}
                   formatter={(value, name, _item, _index, payload) => {
                     const key = String(name);
                     // Hide raw data and forecast band entries from tooltip
@@ -652,7 +649,7 @@ export function WastewaterChart({ hiddenKeys, onToggle, department, departmentLa
             {showUpdates && updateWeeks.map((u, i) => (
               <ReferenceLine
                 key={`update-${i}`}
-                x={u.week}
+                x={u.date}
                 yAxisId="wastewater"
                 stroke="hsl(200, 60%, 70%)"
                 strokeWidth={1}
