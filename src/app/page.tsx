@@ -5,6 +5,7 @@ import { useQueryState, createParser } from "nuqs";
 import { StationSelect } from "@/components/filters/station-select";
 import { DateRangePicker } from "@/components/filters/date-range-picker";
 import { AsOfDatePicker } from "@/components/filters/as-of-date-picker";
+import { ChartSettings } from "@/components/filters/chart-settings";
 import { WastewaterChart } from "@/components/chart/wastewater-chart";
 import { FranceMap } from "@/components/map/france-map";
 import { ClinicalToggle } from "@/components/filters/clinical-toggle";
@@ -67,6 +68,7 @@ function HomeContent() {
         <DepartmentSelect />
         <DateRangePicker />
         <AsOfDatePicker />
+        <ChartSettings />
       </div>
 
       {/* Clinical data overlay toggles */}
