@@ -59,9 +59,9 @@ for i in $(seq 1 $MAX_ITERATIONS); do
   else
     # Claude Code: stream JSON events so we can display thinking/tool calls in real-time
     TMPFILE=$(mktemp)
-    claude --dangerously-skip-permissions --print --verbose \
+    sed -e "s|{{PRD_PATH}}|$PRD_FILE|g" -e "s|{{PROGRESS_PATH}}|$PROGRESS_FILE|g" "$SCRIPT_DIR/CLAUDE.md" \
+      | claude --dangerously-skip-permissions --print --verbose \
       --output-format stream-json --max-turns 50 \
-      < "$SCRIPT_DIR/CLAUDE.md" \
       | tee "$TMPFILE" \
       | jq --unbuffered -r '
         if .type == "assistant" then

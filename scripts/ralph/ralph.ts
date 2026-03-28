@@ -5,7 +5,6 @@ import {
   writeFileSync,
   mkdirSync,
   copyFileSync,
-  createReadStream,
 } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -77,7 +76,7 @@ const yellow = (s: string) => `\x1b[33m${s}\x1b[0m`;
 function parseArgs(): { tool: Tool; maxIterations: number } {
   const args = process.argv.slice(2);
   let tool: Tool = "claude";
-  let maxIterations = 10;
+  let maxIterations = 50;
 
   for (let i = 0; i < args.length; i++) {
     const arg = args[i];
@@ -502,8 +501,11 @@ function runClaude(): Promise<RunResult> {
       { stdio: ["pipe", "pipe", "pipe"] },
     );
 
-    const input = createReadStream(claudeMd);
-    input.pipe(child.stdin);
+    const prompt = readFileSync(claudeMd, "utf-8")
+      .replace(/\{\{PRD_PATH\}\}/g, PRD_FILE)
+      .replace(/\{\{PROGRESS_PATH\}\}/g, PROGRESS_FILE);
+    child.stdin.write(prompt);
+    child.stdin.end();
 
     let resultOutput = "";
     let tokenSummary: TokenSummary | null = null;

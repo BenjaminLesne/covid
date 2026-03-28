@@ -37,7 +37,7 @@
         "All tests pass: `npx vitest run src/lib/wave-stats.test.ts`"
       ],
       "priority": 2,
-      "passes": false,
+      "passes": true,
       "notes": "The existing test file already has `makeWave` helper and vitest imports. ForecastPoint type is in `src/lib/forecast.ts`: `{ week: string; predictedValue: number; lowerBound: number; upperBound: number }`. For the makeForecast helper, generate 3 forecast points starting from a given week with configurable slope (e.g., values [100, 110, 120] for rising, [100, 100, 100] for flat)."
     },
     {
@@ -52,7 +52,7 @@
         "Typecheck passes"
       ],
       "priority": 3,
-      "passes": false,
+      "passes": true,
       "notes": "Reuse existing `fetchSmoothedSeries` function already in the file. Import `estimateNextWave` and types from `@/lib/wave-stats`, `forecastWastewater` from `@/lib/forecast`, `detectWaves` from `@/lib/wave-detection`. These are all already imported or partially imported in the file."
     },
     {
@@ -67,7 +67,7 @@
         "Typecheck passes"
       ],
       "priority": 4,
-      "passes": false,
+      "passes": true,
       "notes": "The StatCard already supports `unit` and `info` props (see lines 42-63). The InfoButton component is already defined in the same file (line 66). The `formatWeekHuman` function is already in the file (line 28). Simply replace the data source and update the JSX."
     },
     {
@@ -82,7 +82,7 @@
         "Typecheck passes"
       ],
       "priority": 5,
-      "passes": false,
+      "passes": true,
       "notes": "Drizzle ORM doesn't support DISTINCT ON directly. Use a subquery approach: `const latestSnapshot = db.select({ target_week, max_snapshot: sql<string>`max(snapshot_date)`.as('max_snapshot') }).from(forecastSnapshotsTable).groupBy(target_week).as('latest')`. Then inner join the main table on both target_week and snapshot_date = max_snapshot. Import `and`, `eq`, `sql` from `drizzle-orm`. The `forecastSnapshotsTable` is already imported in the file."
     },
     {
@@ -102,7 +102,7 @@
         "Typecheck passes"
       ],
       "priority": 6,
-      "passes": false,
+      "passes": true,
       "notes": "Follow the exact same pattern as the existing FORECAST_KEY line rendering (around lines 559-585 for the Line, lines 209-231 for data merging, lines 417-443 for tooltip). The composite data should be merged in the `chartData` useMemo alongside clinical data. Add `compositeForecast` to the useMemo dependency array. The legend entry follows the pattern of existing entries in the `legendEntries` useMemo. The `hide` prop on Line uses `hiddenKeys.has(PREDICTION_HISTORY_KEY)`. Note from progress.txt: Recharts ReferenceLine/ReferenceArea don't have `hide` prop — use `style={{ display: 'none' }}` if needed, but Line does support `hide`."
     },
     {
@@ -116,7 +116,7 @@
         "Typecheck passes"
       ],
       "priority": 7,
-      "passes": false,
+      "passes": true,
       "notes": "Use `sql<string>` template for the DATE() extraction: `sql<string>`DATE(${wastewaterIndicatorsTable.first_seen_at})`.as('update_date')`. Use `db.selectDistinct(...)` or raw SQL distinct. The `wastewaterIndicatorsTable` is already imported. Follow existing patterns in the file (publicProcedure, no input needed)."
     },
     {
@@ -134,7 +134,7 @@
         "Typecheck passes"
       ],
       "priority": 8,
-      "passes": false,
+      "passes": true,
       "notes": "Follow the exact nuqs pattern from `src/hooks/use-as-of-date.ts`. Import `parseAsBoolean` from `nuqs`. For the component, import Popover/PopoverTrigger/PopoverContent from `@/components/ui/popover`, Button from `@/components/ui/button`, Switch from `@/components/ui/switch`, Label from `@/components/ui/label` (may need `./node_modules/.bin/shadcn add label` if not present). The Settings icon is from lucide-react (already used elsewhere in the project). Note from progress.txt: `npx shadcn@latest` doesn't work — use `./node_modules/.bin/shadcn add <component>` directly."
     },
     {
@@ -151,7 +151,7 @@
         "Typecheck passes"
       ],
       "priority": 9,
-      "passes": false,
+      "passes": true,
       "notes": "The `dateToISOWeek` function is already imported in the chart component (line 26). `ReferenceLine` is already imported from recharts (line 4). Follow the pattern of existing ReferenceLine/ReferenceArea usage in the chart. Note from progress.txt: ReferenceLine doesn't have `hide` prop — use conditional rendering (`showUpdates && updateDates?.map(...)`) instead. The label `value` should be `dateStr.slice(5)` for 'MM-DD' format. Place the ReferenceLine block after existing event markers in the JSX."
     },
     {
@@ -165,7 +165,7 @@
         "Tests pass: `npx vitest run src/hooks/use-chart-settings.test.ts`"
       ],
       "priority": 10,
-      "passes": false,
+      "passes": true,
       "notes": "Testing nuqs hooks requires mocking or using the nuqs testing adapter. Check how existing hooks are tested — if there are no hook tests, this may need a `NuqsTestingAdapter` wrapper from `nuqs/adapters/testing`. If this proves too complex to set up, write a minimal test that imports the hook and checks it exports the expected shape. The existing test files in `src/lib/` test pure functions, not hooks — this may be a first hook test in the project."
     },
     {
@@ -182,7 +182,7 @@
         "Tests pass: `npx vitest run src/lib/composite-forecast.test.ts`"
       ],
       "priority": 11,
-      "passes": false,
+      "passes": true,
       "notes": "Rather than testing SQL directly (which requires a DB connection), extract the merge/dedup logic into a pure function that operates on an in-memory array. The tRPC procedure in US-084 can optionally use this function on fetched data instead of doing dedup in SQL — either approach is fine. This gives us a testable unit without needing a DB test harness."
     }
   ]

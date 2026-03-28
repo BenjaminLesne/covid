@@ -1,5 +1,16 @@
 # Ralph Progress Log
 Started: 2026-03-28T08:21:45.850Z
+
+## Codebase Patterns
+- nuqs hooks testing: use `withNuqsTestingAdapter({ hasMemory: true })` from `nuqs/adapters/testing` as `wrapper` in `renderHook`
+- `weekToAbsolute` uses `year * 52 + w` approximation — `absoluteToWeek` mirrors it
+- `mean()` and `std()` helpers are private in `wave-stats.ts` — reuse for new functions in same file
+- Drizzle subquery pattern: `db.select(...).from(table).groupBy(col).as('alias')` then inner join
+- `sql<string>` template for aggregations — must call `.as('name')` for subquery column alias
+- Recharts: place `<Line>` earlier in JSX to render behind later lines
+- ReferenceLine/ReferenceArea don't have `hide` prop — use conditional rendering or `style={{ display: 'none' }}`
+- `./node_modules/.bin/shadcn add <component>` (not `npx shadcn@latest`)
+- `parseAsBoolean` from nuqs: pass `checked || null` to setter to clear URL param when false
 ---
 
 ## 2026-03-28 - US-080
@@ -12,4 +23,123 @@ Started: 2026-03-28T08:21:45.850Z
   - `mean()` and `std()` helpers are private in wave-stats.ts — reuse them for new functions in the same file
   - `ForecastPoint` type imported from `@/lib/forecast` — has `predictedValue`, `lowerBound`, `upperBound`
   - `_series` param kept for API compatibility but unused in current implementation
+---
+
+## 2026-03-28 - US-081
+- Added `describe('estimateNextWave')` block with 6 tests + `describe('absoluteToWeek')` with 3 tests
+- Created `makeForecast` helper with configurable `baseValue`, `slope`, `ciWidth`
+- Files changed: `src/lib/wave-stats.test.ts`
+- **Learnings for future iterations:**
+  - With 1 gap (2 waves), `std()` returns 0 (length < 2 guard) → gapRegularity = 1.0
+  - Empty forecast → forecastCorroboration defaults to 0.3, ciScore defaults to 0.5
+  - `makeWave` helper handles year-boundary wrapping (week > 52 → increment year)
+  - Confidence thresholds: avg >= 0.65 → elevee, >= 0.4 → moyenne, else faible
+---
+
+## 2026-03-28 - US-082
+- Added `getNextWaveEstimate` tRPC procedure to `src/server/trpc/routers/wave-analysis.ts`
+- Reuses existing `fetchSmoothedSeries`, `detectWaves`, `forecastWastewater`, and `estimateNextWave`
+- Input: same `stationInput` schema (optional stationId, defaults to NATIONAL_COLUMN)
+- Files changed: `src/server/trpc/routers/wave-analysis.ts`
+- **Learnings for future iterations:**
+  - All wave-analysis procedures follow the same pattern: resolve stationId → fetchSmoothedSeries → process
+  - `estimateNextWave` already returns `NextWaveEstimate | null` which maps directly to tRPC return type
+  - No new imports needed beyond `estimateNextWave` from wave-stats
+---
+
+## 2026-03-28 - US-083
+- Replaced `forecastData` query + `nextWaveEstimate` useMemo with `trpc.waveAnalysis.getNextWaveEstimate.useQuery({ stationId })`
+- Updated prediction StatCard to show confidence label and method info button
+- Removed unused `getForecast` query from component
+- Files changed: `src/components/wave-stats-panel.tsx`
+- **Learnings for future iterations:**
+  - tRPC query `data` is already typed as `NextWaveEstimate | null` — the `{nextWaveEstimate && ...}` guard narrows it properly
+  - `StatCard` supports `unit` and `info` props for additional context below the value
+  - `InfoButton` component in the same file wraps a Popover with title/description
+  - `formatWeekHuman` converts ISO week to French human date (e.g., "23 mars 2026")
+---
+
+## 2026-03-28 - US-084
+- Added `getCompositeForecast` tRPC procedure to `src/server/trpc/routers/wave-analysis.ts`
+- Uses subquery with GROUP BY + max(snapshot_date) joined back to main table to get latest prediction per target_week
+- Returns `{ targetWeek, predictedValue, snapshotDate }[]` ordered by targetWeek asc
+- Files changed: `src/server/trpc/routers/wave-analysis.ts`
+- **Learnings for future iterations:**
+  - Drizzle subquery pattern: `db.select(...).from(table).groupBy(col).as('alias')` then `db.select(...).from(table).innerJoin(subquery, and(eq(...), eq(...)))`
+  - `sql<string>` template for aggregations like `max()` — must call `.as('name')` for subquery column alias
+  - Import `and`, `eq` from `drizzle-orm` for join conditions
+---
+
+## 2026-03-28 - US-085
+- Added composite prediction curve (historical forecasts) to wastewater chart
+- New constants: `PREDICTION_HISTORY_KEY`, `PREDICTION_HISTORY_COLOR` (lighter gray)
+- Query `trpc.waveAnalysis.getCompositeForecast.useQuery()` merged into chartData weekMap
+- Line element placed BEFORE real data lines so it renders behind them
+- Added chart config entry, legend entry in 'Prévision' group, tooltip case
+- Files changed: `src/components/chart/wastewater-chart.tsx`
+- **Learnings for future iterations:**
+  - To render a line behind others in Recharts ComposedChart, place the `<Line>` element earlier in JSX order
+  - Composite forecast data uses `targetWeek` field (not `week`) — map correctly when merging into weekMap
+  - The `hide` prop on Recharts `<Line>` works with `hiddenKeys.has(key)` pattern
+  - Legend entries with `dashed: true` render as dashed lines in the legend component
+  - Manual browser verification needed for UI changes
+---
+
+## 2026-03-28 - US-086
+- Added `getDataUpdateDates` procedure to `src/server/trpc/routers/wastewater.ts`
+- Uses `DATE()` extraction on `first_seen_at` with GROUP BY for distinct dates, ordered ascending
+- Returns `string[]` of ISO date strings
+- Files changed: `src/server/trpc/routers/wastewater.ts`
+- **Learnings for future iterations:**
+  - Drizzle doesn't have a built-in `selectDistinct` with SQL functions — use `groupBy(sql\`...\`)` instead
+  - For `sql<string>` with DATE(), call `.as('alias')` for the column alias
+  - `isNotNull()` from drizzle-orm can also be used, but raw `sql\`... IS NOT NULL\`` works fine
+---
+
+## 2026-03-28 - US-087
+- Installed shadcn Switch component via `./node_modules/.bin/shadcn add switch`
+- Created `src/hooks/use-chart-settings.ts` using nuqs `parseAsBoolean` with `history: 'replace'`
+- Created `src/components/filters/chart-settings.tsx` with Popover + Switch toggle
+- Added `<ChartSettings />` to filter toolbar in `src/app/page.tsx` after `<AsOfDatePicker />`
+- Files changed: `src/hooks/use-chart-settings.ts`, `src/components/filters/chart-settings.tsx`, `src/components/ui/switch.tsx`, `src/app/page.tsx`
+- **Learnings for future iterations:**
+  - `parseAsBoolean` from nuqs works with `.withDefault(false)` — pass `checked || null` to setter to clear URL param when false
+  - shadcn Switch `onCheckedChange` receives a boolean directly
+  - Filter toolbar is a flex row in `page.tsx` lines 65-71
+  - Manual browser verification needed for UI changes
+---
+
+## 2026-03-28 - US-088
+- Added `useChartSettings` hook import and `showUpdates` state to chart component
+- Added `getDataUpdateDates` tRPC query (only fetched when toggle is on via `enabled: showUpdates`)
+- Converted dates to ISO weeks with `dateToISOWeek`, extracted MM-DD label with `dateStr.slice(5)`
+- Rendered `<ReferenceLine>` components with light blue dashed style and top labels
+- Used conditional rendering (`showUpdates && ...`) since ReferenceLine lacks `hide` prop
+- Files changed: `src/components/chart/wastewater-chart.tsx`
+- **Learnings for future iterations:**
+  - `useMemo` for derived data (updateWeeks) keeps render logic clean
+  - ReferenceLine `label` prop accepts an object with `value`, `position`, `fontSize`, `fill`
+  - Manual browser verification needed for UI changes
+---
+
+## 2026-03-28 - US-089
+- Created `src/hooks/use-chart-settings.test.ts` with 2 tests using nuqs testing adapter
+- Test 1: default showUpdates is false
+- Test 2: setShowUpdates(true) updates state and URL param
+- Files changed: `src/hooks/use-chart-settings.test.ts`
+- **Learnings for future iterations:**
+  - nuqs provides `withNuqsTestingAdapter` from `nuqs/adapters/testing` — use as `wrapper` in `renderHook`
+  - Set `hasMemory: true` on the adapter to simulate real URL state updates in tests
+  - Pass `onUrlUpdate` spy to assert URL query string changes
+  - `@testing-library/react` is installed and vitest uses jsdom environment — hook tests work out of the box
+---
+
+## 2026-03-28 - US-090
+- Extracted `mergeForecasts` pure function into `src/lib/composite-forecast.ts`
+- Created `src/lib/composite-forecast.test.ts` with 4 tests: multiple snapshots dedup, single snapshots passthrough, empty input, sort order
+- Files changed: `src/lib/composite-forecast.ts`, `src/lib/composite-forecast.test.ts`
+- **Learnings for future iterations:**
+  - Extracting SQL dedup logic into a pure in-memory function makes it testable without DB — good pattern for any aggregate query
+  - `Map` + iterate approach is simpler than sort-then-filter for latest-per-key dedup
+  - `localeCompare` works correctly for ISO week strings (e.g., "2025-W02" < "2025-W10")
 ---
