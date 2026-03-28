@@ -81,20 +81,21 @@ export function forecastWastewater(
     (d): d is { week: string; value: number } => d.value !== null,
   );
 
-  // SARIMA with s=52 requires at least 2*s = 104 data points
-  if (clean.length < 104) return [];
+  // Need at least 10 data points for basic ARIMA
+  if (clean.length < 10) return [];
 
   const values = clean.map((d) => d.value);
   const lastWeek = clean[clean.length - 1].week;
 
   try {
-    // Fit SARIMA(1,1,1)(1,1,0)₅₂ — weekly data with yearly seasonality
-    const arima = new ARIMA({
-      p: 1, d: 1, q: 1,
-      P: 1, D: 1, Q: 0,
-      s: 52,
-      verbose: false,
-    });
+    // Use SARIMA(1,1,1)(1,1,0)₅₂ when we have enough data (157+),
+    // otherwise fall back to plain ARIMA(1,1,1)
+    const useSeasonal = clean.length >= 157;
+    const arima = new ARIMA(
+      useSeasonal
+        ? { p: 1, d: 1, q: 1, P: 1, D: 1, Q: 0, s: 52, verbose: false }
+        : { p: 1, d: 1, q: 1, verbose: false },
+    );
     arima.train(values);
     const [predictions, errors] = arima.predict(horizonWeeks);
 
